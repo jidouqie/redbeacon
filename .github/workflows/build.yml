@@ -14,7 +14,7 @@ on:
 jobs:
   build-mac:
     name: Build macOS
-    runs-on: macos-latest        # Apple Silicon (arm64)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -35,19 +35,19 @@ jobs:
       - name: Build
         run: python build.py
 
-      - name: Zip dist
+      - name: Zip dist (into workspace)
         run: |
-          cd "$(dirname $PWD)/redbeacon-dist"
-          zip -r ../redbeacon-mac.zip mac/ \
-            --exclude "mac/logs/*" \
-            --exclude "mac/data/redbeacon.db" \
-            --exclude "mac/data/cookies*"
+          DIST_DIR="$(cd .. && pwd)/redbeacon-dist/mac"
+          zip -r "$GITHUB_WORKSPACE/redbeacon-mac.zip" "$DIST_DIR" \
+            --exclude "*/logs/*" \
+            --exclude "*/data/redbeacon.db" \
+            --exclude "*/data/cookies*"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: redbeacon-mac
-          path: ../redbeacon-mac.zip
+          path: redbeacon-mac.zip
           retention-days: 1
 
   build-win:
@@ -73,18 +73,18 @@ jobs:
       - name: Build
         run: python build.py
 
-      - name: Zip dist
-        run: |
-          $distPath = Join-Path (Split-Path $PWD -Parent) "redbeacon-dist\win"
-          $zipPath = Join-Path (Split-Path $PWD -Parent) "redbeacon-win.zip"
-          Compress-Archive -Path $distPath -DestinationPath $zipPath
+      - name: Zip dist (into workspace)
         shell: pwsh
+        run: |
+          $distPath = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) "redbeacon-dist\win"
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE "redbeacon-win.zip"
+          Compress-Archive -Path $distPath -DestinationPath $zipPath
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: redbeacon-win
-          path: ..\redbeacon-win.zip
+          path: redbeacon-win.zip
           retention-days: 1
 
   release:
@@ -104,28 +104,39 @@ jobs:
         with:
           name: redbeacon-win
 
+      - name: Get tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Rename zips with version
         run: |
-          TAG=${{ github.ref_name || github.event.inputs.tag }}
+          TAG=${{ steps.tag.outputs.name }}
           mv redbeacon-mac.zip RedBeacon-mac-${TAG}.zip
           mv redbeacon-win.zip RedBeacon-win-${TAG}.zip
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name || github.event.inputs.tag }}
-          name: "RedBeacon ${{ github.ref_name || github.event.inputs.tag }}"
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: "RedBeacon ${{ steps.tag.outputs.name }}"
           body: |
             ## 下载
 
-            | 文件 | 平台 | 说明 |
+            > 解压后直接双击启动，无需安装任何环境。
+
+            | 文件 | 平台 | 启动方式 |
             |---|---|---|
-            | `RedBeacon-mac-*.zip` | macOS (Apple Silicon) | 解压后双击 `mac/RedBeacon.app` |
-            | `RedBeacon-win-*.zip` | Windows x64 | 解压后双击 `win\RedBeacon.exe` |
+            | `RedBeacon-mac-*.zip` | macOS（Apple Silicon）| 解压 → 双击 `mac/RedBeacon.app` |
+            | `RedBeacon-win-*.zip` | Windows x64 | 解压 → 双击 `win\RedBeacon.exe` |
 
             ## 使用前提
 
-            - [Claude Code](https://claude.ai/download)
+            - [Claude Code](https://claude.ai/download)（免费版即可）
             - AI API Key（兼容 OpenAI 格式）
 
             详细说明见 [README](https://github.com/jidouqie/redbeacon#readme)

@@ -104,6 +104,9 @@
 ## 开发者本地启动
 
 ```bash
+git clone https://github.com/jidouqie/redbeacon.git
+cd redbeacon
+
 # 安装依赖
 pip install -r backend/requirements.txt
 playwright install chromium
@@ -152,3 +155,5 @@ bash start.sh
 ---
 
 *选好题，其他不用你管。*
+
+*你的注意力是稀缺资源。把它留给真正需要判断力的事情。*
