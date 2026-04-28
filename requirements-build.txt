@@ -1,0 +1,4 @@
+# Dependencies needed to run PyInstaller build (launcher GUI)
+customtkinter
+pillow
+darkdetect
