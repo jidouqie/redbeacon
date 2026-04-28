@@ -244,24 +244,57 @@ def _find_npm_cli() -> str:
 
 
 def _copy_tools():
-    """Copy platform-specific MCP binaries from tools-src/ to dist/tools/."""
-    tools_src = ROOT / "tools-src" / PLATFORM_DIR
+    """Copy platform-specific MCP binaries to dist/tools/.
+    Priority: tools-src/{platform}/ → tools/ (platform-specific filenames).
+    """
     tools_dest = DIST / "tools"
     tools_dest.mkdir(exist_ok=True)
+    copied = 0
 
-    if not tools_src.exists():
-        print(f"  Warning: tools-src/{PLATFORM_DIR}/ not found, skipping tools copy")
+    # 1. Try tools-src/{platform}/ (developer machine with full set)
+    tools_src = ROOT / "tools-src" / PLATFORM_DIR
+    if tools_src.exists():
+        for f in tools_src.iterdir():
+            if f.is_file():
+                dest = tools_dest / f.name
+                shutil.copy2(f, dest)
+                if SYSTEM != "Windows":
+                    dest.chmod(0o755)
+                copied += 1
+        print(f"  tools/ -> {tools_dest}  ({copied} binaries, from tools-src/)")
         return
 
-    copied = 0
-    for f in tools_src.iterdir():
-        if f.is_file():
-            dest = tools_dest / f.name
-            shutil.copy2(f, dest)
-            if SYSTEM != "Windows":
-                dest.chmod(0o755)
-            copied += 1
-    print(f"  tools/ -> {tools_dest}  ({copied} binaries)")
+    # 2. Fallback: copy from tools/ filtering by platform suffix
+    tools_dir = ROOT / "tools"
+    if not tools_dir.exists():
+        print(f"  Warning: neither tools-src/{PLATFORM_DIR}/ nor tools/ found, skipping")
+        return
+
+    if SYSTEM == "Darwin":
+        suffixes = ("-darwin-arm64", "-darwin-x86_64", "-darwin")
+    elif SYSTEM == "Windows":
+        suffixes = (".exe",)
+    else:
+        suffixes = ("-linux-amd64", "-linux-x86_64", "-linux")
+
+    name_map = {
+        "xiaohongshu-mcp": "xiaohongshu-mcp",
+        "xiaohongshu-login": "xiaohongshu-login",
+    }
+
+    for src_file in tools_dir.iterdir():
+        if not src_file.is_file():
+            continue
+        for tool, dest_name in name_map.items():
+            if src_file.name.startswith(tool) and any(src_file.name.endswith(s) for s in suffixes):
+                ext = ".exe" if SYSTEM == "Windows" else ""
+                dest = tools_dest / f"{dest_name}{ext}"
+                shutil.copy2(src_file, dest)
+                if SYSTEM != "Windows":
+                    dest.chmod(0o755)
+                copied += 1
+
+    print(f"  tools/ -> {tools_dest}  ({copied} binaries, from tools/)")
 
 
 def _build_frontend():

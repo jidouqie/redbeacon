@@ -1,0 +1,136 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.1)"
+        required: true
+        default: "v1.0.0"
+
+jobs:
+  build-mac:
+    name: Build macOS
+    runs-on: macos-latest        # Apple Silicon (arm64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install
+
+      - name: Build
+        run: python build.py
+
+      - name: Zip dist
+        run: |
+          cd "$(dirname $PWD)/redbeacon-dist"
+          zip -r ../redbeacon-mac.zip mac/ \
+            --exclude "mac/logs/*" \
+            --exclude "mac/data/redbeacon.db" \
+            --exclude "mac/data/cookies*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: redbeacon-mac
+          path: ../redbeacon-mac.zip
+          retention-days: 1
+
+  build-win:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install
+
+      - name: Build
+        run: python build.py
+
+      - name: Zip dist
+        run: |
+          $distPath = Join-Path (Split-Path $PWD -Parent) "redbeacon-dist\win"
+          $zipPath = Join-Path (Split-Path $PWD -Parent) "redbeacon-win.zip"
+          Compress-Archive -Path $distPath -DestinationPath $zipPath
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: redbeacon-win
+          path: ..\redbeacon-win.zip
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: [build-mac, build-win]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: redbeacon-mac
+
+      - name: Download win artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: redbeacon-win
+
+      - name: Rename zips with version
+        run: |
+          TAG=${{ github.ref_name || github.event.inputs.tag }}
+          mv redbeacon-mac.zip RedBeacon-mac-${TAG}.zip
+          mv redbeacon-win.zip RedBeacon-win-${TAG}.zip
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || github.event.inputs.tag }}
+          name: "RedBeacon ${{ github.ref_name || github.event.inputs.tag }}"
+          body: |
+            ## 下载
+
+            | 文件 | 平台 | 说明 |
+            |---|---|---|
+            | `RedBeacon-mac-*.zip` | macOS (Apple Silicon) | 解压后双击 `mac/RedBeacon.app` |
+            | `RedBeacon-win-*.zip` | Windows x64 | 解压后双击 `win\RedBeacon.exe` |
+
+            ## 使用前提
+
+            - [Claude Code](https://claude.ai/download)
+            - AI API Key（兼容 OpenAI 格式）
+
+            详细说明见 [README](https://github.com/jidouqie/redbeacon#readme)
+          files: |
+            RedBeacon-mac-*.zip
+            RedBeacon-win-*.zip
+          draft: false
+          prerelease: false
