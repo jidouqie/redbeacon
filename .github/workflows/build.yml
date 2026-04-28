@@ -38,7 +38,8 @@ jobs:
       - name: Zip dist (into workspace)
         run: |
           DIST_DIR="$(cd .. && pwd)/redbeacon-dist/mac"
-          zip -r "$GITHUB_WORKSPACE/redbeacon-mac.zip" "$DIST_DIR" \
+          cd "$DIST_DIR"
+          zip -r "$GITHUB_WORKSPACE/redbeacon-mac.zip" . \
             --exclude "*/logs/*" \
             --exclude "*/data/redbeacon.db" \
             --exclude "*/data/cookies*"
@@ -78,7 +79,10 @@ jobs:
         run: |
           $distPath = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) "redbeacon-dist\win"
           $zipPath = Join-Path $env:GITHUB_WORKSPACE "redbeacon-win.zip"
-          Compress-Archive -Path $distPath -DestinationPath $zipPath
+          # Zip contents directly, not the win/ folder itself
+          Push-Location $distPath
+          Compress-Archive -Path ".\*" -DestinationPath $zipPath
+          Pop-Location
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
