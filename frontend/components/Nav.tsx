@@ -13,32 +13,36 @@ const links = [
 ];
 
 export default function Nav() {
-  const path = usePathname();
-
-  const linkStyle = (href: string) => ({
-    background: path === href ? "var(--accent)" : "transparent",
-    color: path === href ? "#fff" : "var(--muted)",
-  });
+  const rawPath = usePathname();
+  // trailingSlash:true 时静态导出路径带尾斜杠，去掉后再比较（保留根路径 /）
+  const path = rawPath !== "/" && rawPath.endsWith("/") ? rawPath.slice(0, -1) : rawPath;
 
   return (
-    <nav
-      style={{
-        borderBottom: "1px solid var(--border)",
-        background: "var(--surface)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-      }}
-    >
-      <div className="max-w-6xl mx-auto px-4 flex items-center gap-1 h-12 overflow-x-auto">
-        <span className="font-semibold text-sm tracking-widest shrink-0 mr-3" style={{ color: "var(--accent)" }}>
+    <nav style={{
+      background: "var(--surface)",
+      borderBottom: "1px solid var(--border)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    }}>
+      <div className="max-w-6xl mx-auto px-6 flex items-center gap-2 h-16">
+        <span className="font-black text-base tracking-[0.15em] shrink-0 mr-4" style={{ color: "var(--accent)" }}>
           REDBEACON
         </span>
-        {links.map(l => (
-          <Link key={l.href} href={l.href}
-            className="text-xs whitespace-nowrap px-2.5 py-1 rounded transition-colors shrink-0"
-            style={linkStyle(l.href)}>
-            {l.label}
-          </Link>
-        ))}
+        {links.map(l => {
+          const active = path === l.href;
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="text-sm font-medium whitespace-nowrap px-4 py-1.5 rounded transition-colors shrink-0"
+              style={{
+                background: active ? "var(--accent)" : "transparent",
+                color: active ? "#fff" : "var(--muted)",
+              }}
+            >
+              {l.label}
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

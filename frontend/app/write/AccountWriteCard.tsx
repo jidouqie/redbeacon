@@ -470,10 +470,22 @@ export default function AccountWriteCard({ account }: { account: Account }) {
         setFormatStyle((d.format_style as string) || "分点列举");
         setEmojiUsage((d.emoji_usage as string) || "适量");
         setContentLength((d.content_length as string) || "300-500字");
-        setPainPoints((d.pain_points as string[]) || []);
-        setForbidden((d.forbidden_words as string[]) || []);
-        const p = d.content_pillars as Pillar[] | undefined;
-        if (p?.length) setPillars(p.filter(x => x.name?.trim()));
+        const rawPP = d.pain_points;
+        setPainPoints(Array.isArray(rawPP) ? rawPP : (typeof rawPP === 'string' && rawPP.trim() ? [rawPP] : []));
+        const rawFW = d.forbidden_words;
+        setForbidden(Array.isArray(rawFW) ? rawFW : (typeof rawFW === 'string' && rawFW.trim() ? [rawFW] : []));
+        const rawP = d.content_pillars;
+        if (Array.isArray(rawP) && rawP.length) {
+          const pillarsData: Pillar[] = rawP.map((item: unknown) => {
+            if (typeof item === 'object' && item !== null && 'name' in item) return item as Pillar;
+            if (typeof item === 'string') {
+              const idx = item.indexOf('：');
+              return idx > -1 ? { name: item.slice(0, idx), description: item.slice(idx + 1) } : { name: item, description: '' };
+            }
+            return { name: '', description: '' };
+          }).filter(p => p.name.trim());
+          if (pillarsData.length) setPillars(pillarsData);
+        }
       }
       if (stats) setTopicCount(stats.unused ?? 0);
       if (img) {
