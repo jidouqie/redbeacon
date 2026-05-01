@@ -673,7 +673,6 @@ def _push_to_feishu(content_id: int, account_id: int = 1) -> None:
         fields = {
             FIELD_TITLE:  row["title"] or "",
             FIELD_BODY:   row["body"] or "",
-            FIELD_STATUS: STATUS_PENDING,
         }
         if tags_str:
             fields[FIELD_TAGS] = tags_str
