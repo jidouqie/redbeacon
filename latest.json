@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0",
-  "notes": "首个发布版本。",
+  "version": "0.1.1",
+  "notes": "修复：日志改到 stderr，不再污染输出；升级/安装主源切到 GitHub。",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",

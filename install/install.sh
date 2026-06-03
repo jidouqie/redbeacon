@@ -10,10 +10,11 @@
 set -euo pipefail
 
 # ── 可配置项 ─────────────────────────────────────────────────────────────────
-# 闭源 redbeacon 本体（打包 wheel）的获取地址。用 --find-links 指向包索引页 index.html
-# （对象存储不做目录索引映射，直指 index.html 靠相对链接定位 wheel）。依赖从 PyPI 拉。
+# 闭源 redbeacon 本体（打包 wheel）的获取地址。主源走 GitHub raw 的 PEP503 索引页，
+# 用 --find-links 指向 index.html（靠相对链接定位 wheel）。依赖从 PyPI 拉。
 # uv 会把此源记进 tool receipt，之后 `redbeacon update`（uv tool upgrade）自动复用。
-REDBEACON_FIND_LINKS="${REDBEACON_FIND_LINKS:-https://redbeacon.oss-cn-shanghai.aliyuncs.com/simple/redbeacon/index.html}"
+# 备用源（将来提速可切阿里云 OSS）：https://redbeacon.oss-cn-shanghai.aliyuncs.com/simple/redbeacon/index.html
+REDBEACON_FIND_LINKS="${REDBEACON_FIND_LINKS:-https://raw.githubusercontent.com/jidouqie/redbeacon/main/pip/simple/redbeacon/index.html}"
 # 开源 skill 源（GitHub 主项目仓的 tarball）。
 SKILL_TARBALL="${SKILL_TARBALL:-https://github.com/jidouqie/redbeacon/archive/refs/heads/main.tar.gz}"
 # AI 助手命令目录（默认 Claude Code 用户级目录），可用环境变量覆盖。
