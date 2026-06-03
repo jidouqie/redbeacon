@@ -1,0 +1,228 @@
+---
+description: 配置检测与设置 — AI（必需）+ 飞书（必需）+ 代理（可选），支持单项独立修改
+argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改哪一项（如「换文案模型」「重配飞书」）
+---
+
+> **【配置 skill】** 入口触发时自动检测配置完整度。**AI（含图片模型）和飞书都是必需项**，代理可选、可跳过。全部配好后才能进入下一步（建账号 / 定位）。
+>
+> 审核与改稿全在飞书多维表格，本地不存在任何审核。
+
+---
+
+## 两种模式（先判断用户要哪种）
+
+**① 全量配置**（入口自动检测触发，或用户说「帮我配置」「配一下」）→ 走「第零步检测」，缺哪段补哪段。
+
+**② 单项修改**（用户明确只想改某一项，如「换个文案模型」「API key 换了」「重配飞书」「改通知人」「加代理」）→ **直接跳到对应单项，只做那一件，不重跑其他段**。CLI 每个配置项都是独立的 `config set`，不会牵连别的。
+
+### 单项修改路由表
+
+| 用户意图 | 只执行 |
+|---|---|
+| 改 Base URL | `config set ai_base_url <x>` → `config test-ai` |
+| 改 API Key | `config set ai_api_key <x>` → `config test-ai` |
+| 换文案模型 | `config models`（列给用户选）→ `config set ai_model <x>` → `config test-ai` |
+| 换图片模型 | `config models` → `config set image_model <x>` |
+| 重配飞书机器人 | `config set feishu_app_id <x>` + `config set feishu_app_secret <x>` → `config test-feishu` |
+| 改通知接收人 | `config feishu-users` → `config set feishu_user_id <ou_xxx>` |
+| 改 / 加代理 | `config set proxy_api_url <x>` → `config test-proxy`（代理全部在本 skill 配，无独立代理命令） |
+
+> 单项修改做完即结束，不要顺手把其他项也重问一遍。
+
+---
+
+## 第零步：自动检测缺什么（全量模式每次先跑）
+
+```bash
+redbeacon readiness
+redbeacon config list
+```
+
+按顺序逐项检测，缺哪段进哪段，已配好的跳过：
+
+| 顺序 | 检测项 | 看哪里 | 必需性 |
+|---|---|---|---|
+| ① | AI Base URL | `config list` → `ai_base_url` | **必需** |
+| ② | AI API Key | `config list` → `ai_api_key`=`__SET__` | **必需** |
+| ③ | 文案模型 | `config list` → `ai_model` | **必需** |
+| ④ | 图片生成模型 | `config list` → `image_model` | **必需（硬门槛，不可跳过）** |
+| ⑤ | 飞书机器人 | `config list` → `feishu_app_id` + `feishu_app_secret`=`__SET__` | **必需** |
+| ⑥ | 通知接收人 user ID | `config list` → `feishu_user_id` | **必需** |
+| ⑦ | 代理 API 链接 | `config list` → `proxy_api_url` | **可选，可跳过** |
+
+> readiness 的 `checks.ai_ok` = ①②③ 齐；`checks.feishu_ok` = ⑤ 齐。④⑥⑦ 不在 readiness 里，靠 `config list` 自己看。
+> **「配置完成」判定 = AI ok + ④图片模型已设 + ⑤飞书 ok + ⑥user ID 已设**（⑦代理无论配没配都不阻塞）。
+
+---
+
+## A 段：AI 服务配置（必需）
+
+### 1. 先问：有没有自己的 AI 中转站 / API key？
+
+**主动询问**：「你有自己的 AI API 中转站（或 OpenAI 官方 key）吗？」
+
+- **有** → 让用户提供 **Base URL + API Key**。明确告诉用户：**可以分两次发，也可以用逗号或空格隔开一起发给我，都行。**
+  - Base URL：OpenAI 官方 `https://api.openai.com/v1`；中转站填对应地址（一般 `/v1` 结尾）
+  - API Key：不回显
+- **没有 / 不确定** → 推荐用户用 jidouqie 中转站（文案+图片模型都齐，省得到处找），用户明确说没有就直接弹主页引导注册：
+
+  ```bash
+  open "https://aihub.jidouqie.com/"
+  ```
+
+  引导用户在站内注册 / 充值 / 拿 API Key。用这个中转站时 **Base URL 固定为 `https://aihub.jidouqie.com/v1`**，用户只需回传 API Key。
+
+已设置过的项问「是否更新」。拿到后保存：
+
+```bash
+redbeacon config set ai_base_url "<URL>"
+redbeacon config set ai_api_key "<KEY>"
+```
+
+### 2. 拉清单 → 选文案模型 + 图片模型（两个都必须配）
+
+```bash
+redbeacon config models
+```
+
+返回 `{"models": [...]}`，skill 按名字分类并推荐，用户拍板：
+
+- **文案模型（ai_model，必需）**：chat 类关键词 `gpt-4o / gpt-4.1 / o1 / o3 / claude / deepseek / qwen / glm / moonshot / yi / ernie / hunyuan / step`。优先 `gpt-4o` / `claude-3.5+` / `deepseek-v3`。
+- **图片模型（image_model，必需）**：image 类关键词 `dall-e / gpt-image / flux / stable-diffusion / sd3 / cogview / kolors / seedream / wanx / 即梦 / jimeng`。
+
+**图片模型是硬门槛，必须配上：**
+- 名字识别不出哪个是图片模型 → 直接问用户「这些里哪个是图片模型？」，用户说哪个配哪个。
+- 清单里**确实没有任何图片模型** → 如实告知：当前 AI 服务不支持图片生成，需要换一个支持文生图的服务（中转站）才能继续。**不放行**，直到 `image_model` 配上为止。
+
+### 3. 保存 + 验证
+
+```bash
+redbeacon config set ai_model "<文案模型>"
+redbeacon config set image_model "<图片模型>"
+redbeacon config test-ai
+```
+
+`{"ok": true, "reply": "ok", ...}` = 文案模型连通。失败 → 翻译 error，核对 base_url / key / model。
+
+→ A 段完成（含图片模型），重跑 readiness。
+
+---
+
+## B 段：飞书配置（必需）
+
+> 飞书多维表格 = 唯一审核面板 + 唯一发布数据源。生成内容自动推到飞书，人在飞书 APP 里看图、改标题/正文/标签、把「状态」改「通过」，`/redbeacon-publish` 只读「通过」记录发布。
+>
+> **门槛**：飞书开放平台创建自建应用 + 配权限 + 发布版本，约 5–10 分钟。
+
+### 1. 创建机器人（自建应用）+ 配权限 + 发版
+
+先打开飞书开放平台：
+
+```bash
+open "https://open.feishu.cn/app"
+```
+
+**权限 JSON 绝不要让用户从聊天窗里复制**——聊天窗复制会带换行、空格和多余字符，破坏 JSON 格式导致导入失败。skill 改为把权限写到桌面文件 + 复制进剪贴板 + 打开文件，用户直接 Cmd+V：
+
+```bash
+cat > ~/Desktop/飞书机器人权限.txt <<'EOF'
+{"tenant":["bitable:app","bitable:app:readonly","base:app:copy","base:app:create","base:app:read","base:app:update","base:collaborator:create","base:collaborator:read","base:field:create","base:field:read","base:record:create","base:record:delete","base:record:read","base:record:retrieve","base:record:update","base:table:create","base:table:read","base:view:read","docs:permission.member:create","docs:permission.member:readonly","docs:permission.member:retrieve","docs:permission.member:transfer","drive:file","drive:file:download","drive:file:readonly","drive:file:upload","contact:user.base:readonly","contact:user.id:readonly","contact:user.employee_id:readonly","im:message","im:message:send_as_bot","im:message:send_multi_users","im:message:readonly","im:resource"],"user":["contact:user.employee_id:readonly"]}
+EOF
+pbcopy < ~/Desktop/飞书机器人权限.txt
+open ~/Desktop/飞书机器人权限.txt
+```
+
+然后告诉用户在浏览器里完成：
+
+> **① 创建企业自建应用** — 名称 RedBeacon（随意），确认创建。
+>
+> **② 配置权限** — 左侧「权限管理」→「批量导入权限」→ 在输入框里 **Cmd+V 直接粘贴**（权限 JSON 已复制到你剪贴板，同时也存到了桌面「飞书机器人权限.txt」，桌面文件已打开可对照）。
+>
+> **③ 发布版本**（权限发布后才生效）— 「版本管理与发布」→「创建版本」→ 版本号 `1.0.0` →「提交审核」→ 审核页点「通过」。
+>
+> **④ 复制凭证** — 「凭证与基础信息」→ 复制 **App ID**（`cli_xxxxxxxx`）和 **App Secret**。
+>
+> 完成后把 **App ID** 和 **App Secret** 发给我——**可以分两次发，也可以用逗号或空格隔开一起发，都行。**
+
+### 2. 保存凭证 + 验证
+
+```bash
+redbeacon config set feishu_app_id "<APP_ID>"
+redbeacon config set feishu_app_secret "<APP_SECRET>"
+redbeacon config test-feishu
+```
+
+`test-feishu` 验证机器人凭证能换出 token。失败 → App ID/Secret 不完整，或版本没发布，让用户回 ②③ 检查。
+
+> **权限是否配全，配置阶段不主动检测**（多维表格读写权限这里测不到）。后续在飞书相关操作（绑表 / 推送 / 发布）中如果报权限错，再回到本段引导用户重新检查权限并发版即可。
+
+### 3. 选定通知接收人 user ID（必需）
+
+```bash
+redbeacon config feishu-users
+```
+
+按返回人数分流：
+
+- **1 个** → 自动选定。
+- **几个** → 列出来让用户选。
+- **拉不到 / 人太多** → 引导：「打开飞书后台 → 通讯录找到自己 → 复制 user_id（`ou_` 开头）发给我」。
+
+```bash
+redbeacon config set feishu_user_id "<ou_xxx>"
+```
+
+> 多维表格「绑给哪个账号」是账号级操作（`feishu setup --account-id N`），建账号后做，不在这一步。
+
+→ B 段完成，重跑 readiness。
+
+---
+
+## C 段：代理配置（可选，可跳过）
+
+**先问用户：需不需要代理？**（多账号防关联，每次发布换 IP）
+
+- **不需要** → 不配，直接跳过，不影响进入下一步。
+- **需要，已有巨量获取链接** → 用户贴 `getips` 链接过来。
+- **需要，但没有代理账号** → 打开邀请链接注册：
+
+  ```bash
+  open "https://www.juliangip.com/user/reg?inviteCode=1001359"
+  ```
+
+  注册后在巨量后台「提取代理 → API 提取」生成 `getips` 链接（带 trade_no + sign），贴过来。
+
+拿到后，三条一起配（**第二条不开，代理等于白配**）：
+
+```bash
+redbeacon config set proxy_api_url "<巨量 getips 链接>"
+redbeacon config set proxy_auto_rotate true    # ★必须开：发布时才会真的换 IP
+redbeacon config set proxy_speed_test true     # 建议开：取到 IP 先对小红书测速，劣质自动丢弃换下一个
+redbeacon config test-proxy
+```
+
+`{"ok": true, "proxy": "http://ip:port"}` = 通（测=真实发布取 IP，约 0.05 元/次）。失败 → 核对 trade_no / sign / 套餐余额。
+
+> ⚠️ **关键**：`proxy_api_url` 只是"从哪取 IP"，真正"每次发布换 IP"由 `proxy_auto_rotate=true` 开关控制——只配链接不开轮换，发布时会直连、不换 IP。配代理就把 `proxy_auto_rotate` 一起开了。
+>
+> 发布时 CLI 会：取新 IP →（开了测速则）对小红书测速、不达标最多换 3 次 → 用新 IP 重启浏览器会话再发；用完即废、不存库。这是多账号防关联的核心（同一批号别共用一个 IP），10–20 个号以上尤其要开。
+
+---
+
+## 全部配好 → 进入下一步
+
+判定「配置完成」：AI（含图片模型）+ 飞书 + user ID 都齐，代理已配或已明确跳过。
+
+```bash
+redbeacon readiness
+```
+
+- 仍 `stage1` → AI 没齐，回 A 段（注意 image_model 不在 readiness 里，单独看 `config list`）。
+- 仍 `stage5` → 飞书没齐，回 B 段。
+- 进到 `stage2`/`stage3` 等 → 告知「配置就绪」，按 readiness 的 `next` 进入下一步。
+
+---
+
+## 错误处理
+
+任何命令返回 `{"error": "...", "next": "..."}`：把 `error` 翻译给用户，自动跑 `next` 或提示用户该跑什么。

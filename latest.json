@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "notes": "首个发布版本。",
+  "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
+  "skill_files": [
+    "redbeacon.md",
+    "redbeacon-accounts.md",
+    "redbeacon-config.md",
+    "redbeacon-feishu.md",
+    "redbeacon-generate.md",
+    "redbeacon-login.md",
+    "redbeacon-publish.md",
+    "redbeacon-定位.md",
+    "redbeacon-策略.md",
+    "redbeacon-诊断.md",
+    "redbeacon-面板.md"
+  ]
+}
