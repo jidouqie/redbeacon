@@ -67,8 +67,8 @@ redbeacon license info
 **② 弹出官网购买页**（像配飞书那样直接弹浏览器，别只甩链接）。把机器码拼进 URL，购买页会自动填好，用户连粘都不用粘：
 
 ```bash
-open "https://<官网域名>/buy.html?mc={machine_code}"          # macOS
-# Linux: xdg-open  "https://<官网域名>/buy.html?mc={machine_code}"
+open "https://redbeacon.jiomig.com/buy.html?mc={machine_code}"          # macOS
+# Linux: xdg-open  "https://redbeacon.jiomig.com/buy.html?mc={machine_code}"
 ```
 
 > 已帮你打开购买页（机器码已自动填好）。直接用支付宝付款 → 付款成功页会显示一串**激活码**，复制它发给我。
@@ -86,8 +86,6 @@ redbeacon license activate "<用户给的激活码>"
   让用户核对后把激活码重发，再试一次。
 
 **铁律**：解锁码就是用户的凭证，提醒他存好（换机/重装系统要重新买）；激活只认本机现算的机器码，你无法代签、也别假装能解锁。
-
-> 官网域名待官网部署后填进上面的 `<官网域名>`（购买页路径为 `/buy.html`）。
 
 ### ② 强制交棒定位（关键，别省）
 

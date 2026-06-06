@@ -1,6 +1,6 @@
 {
-  "version": "0.1.2",
-  "notes": "新增 redbeacon setup（自动下载浏览器内核）；启用正式签名公钥。",
+  "version": "0.1.3",
+  "notes": "修复多账号解锁购买页打不开的问题",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
