@@ -1,6 +1,6 @@
 {
-  "version": "0.1.4",
-  "notes": "批量生成(--count/--all-accounts)+多账号发布错峰、内容类型增删改名、选题改写、数据备份(backup export/import)、图片模型连通测试(test-image)；修复建账号后飞书通知人被清空、就绪检测漏判图片模型/飞书绑表；飞书改稿后纯卡片发布前自动重渲",
+  "version": "0.1.5",
+  "notes": "生成硬限长：正文≤700字、标题≤18字（超长在源头按句末截断，根治图文正文超小红书1000上限导致发布失败）",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
