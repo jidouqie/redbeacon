@@ -1,6 +1,6 @@
 {
-  "version": "0.1.6",
-  "notes": "正文上限放宽到888字（兼顾内容深度）；发布前先查正文+话题长度，超1000上限直接标失败、不再白传一遍图（fail-fast）",
+  "version": "0.1.7",
+  "notes": "诊断 skill 新增「同质化/换汤不换药」诊断维度；定位 skill 出选题内置「应用域自检」（底座vs主题·应用域×问题类型铺开），从源头防内容雷同",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
