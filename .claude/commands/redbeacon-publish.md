@@ -91,7 +91,18 @@ redbeacon publish --account-id {ID}
 - stderr `{"error":"发布需要先配置飞书审核表格…"}` → 该账号没绑飞书表，按 `next` 去 `/redbeacon-feishu`。
 - 其它 `{"error":...}` → 把原因给用户（图片下载失败、小红书页面变动、风控等；部分会自动重试 3 次后才报）。
 
-> 想发多个账号就对每个账号各跑一次 `publish`，别假装能"一键全发"或"定时自动发"。
+### 多账号一起发
+
+```bash
+redbeacon publish --all-accounts          # 依次发布所有已绑飞书表的账号
+redbeacon publish --all-accounts --dry-run  # 先逐账号预览
+```
+
+> 多账号模式下账号**之间自动错峰**（间隔随机，基准 `publish_account_stagger` 秒）防关联；没配齐飞书表的账号自动跳过。返回 `{"ok":true,"published":总数,"results":[{account_id,published/error}]}`。仍**无后台定时**。
+
+> **发布节奏可调**（`/redbeacon-config set` 或面板）：`publish_min_interval`/`publish_max_interval`（同账号连发间隔秒，默认 30–90）、`publish_account_stagger`（账号间错峰秒，默认 120）。号多、怕限流就调大。
+
+> **飞书改稿后卡片会自动跟上**：若你在飞书里改了正文，且这篇是纯图文卡片，发布前 CLI 会按新正文**重渲卡片**（`publish_rerender_cards`，默认开）——不用手动重生成。AI 封面图不受影响、保持原样。
 
 ---
 

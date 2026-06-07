@@ -63,7 +63,16 @@ redbeacon generate --account-id {ID}
 - stderr `{"error":"选题库已耗尽…"}` → 选题用光了。带用户去 `/redbeacon-定位`（重新补一批选题）或直接 `--topic "..."` 临时指定一个题再生成。
 - 其它 `{"error":...}` → 把原因给用户（常见：AI key 失效/模型不可用 → `/redbeacon-config` 改；图片模型不可用 → `/redbeacon-面板` 或 `/redbeacon-策略` 换图片模型）。
 
-> 想一次生成多篇就重复跑 `generate`（每次取下一个未用选题）。别假装有"批量/定时"能力。
+### 一次生成多篇 / 多账号
+
+| 用户说 | 命令 |
+|---|---|
+| 一次生成 N 篇 | `redbeacon generate --account-id {ID} --count 3`（连取 3 个未用选题逐篇生成；选题耗尽会提前停） |
+| 所有账号各生成 | `redbeacon generate --all-accounts --count 2`（每个账号各 2 篇） |
+
+> 批量返回 `{"ok":true,"generated":N,"results":[...]}`，逐条列出每篇的 `content_id` 或 `error`；单账号单篇仍是旧 shape `{"ok":true,"content_id":N}`。
+> `--topic` 只能用于单账号单篇；批量一律从选题库取题。
+> 生成会自动把本账号最近的标题喂给 AI 做**查重**，规避换汤不换药——但真正的多样性还得靠选题本身覆盖不同应用域（见 `/redbeacon-定位`）。仍**无后台定时**，批量也是前台一次性跑完。
 
 ---
 

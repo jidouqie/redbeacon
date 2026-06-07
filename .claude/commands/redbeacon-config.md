@@ -22,7 +22,8 @@ argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改�
 | 改 Base URL | `config set ai_base_url <x>` → `config test-ai` |
 | 改 API Key | `config set ai_api_key <x>` → `config test-ai` |
 | 换文案模型 | `config models`（列给用户选）→ `config set ai_model <x>` → `config test-ai` |
-| 换图片模型 | `config models` → `config set image_model <x>` |
+| 换图片模型 | `config models` → `config set image_model <x>` → `config test-image` |
+| 调发布节奏 | `config set publish_min_interval/publish_max_interval/publish_account_stagger <秒>`（防限流，号多调大） |
 | 重配飞书机器人 | `config set feishu_app_id <x>` + `config set feishu_app_secret <x>` → `config test-feishu` |
 | 改通知接收人 | `config feishu-users` → `config set feishu_user_id <ou_xxx>` |
 | 改 / 加代理 | `config set proxy_api_url <x>` → `config test-proxy`（代理全部在本 skill 配，无独立代理命令） |
@@ -100,11 +101,13 @@ redbeacon config models
 redbeacon config set ai_model "<文案模型>"
 redbeacon config set image_model "<图片模型>"
 redbeacon config test-ai
+redbeacon config test-image
 ```
 
-`{"ok": true, "reply": "ok", ...}` = 文案模型连通。失败 → 翻译 error，核对 base_url / key / model。
+`test-ai` 返回 `{"ok": true, "reply": "ok", ...}` = 文案模型连通。失败 → 翻译 error，核对 base_url / key / model。
+`test-image` 返回 `{"ok": true, ...}` = 图片模型能真的出图（会实调一次，约一张图成本）。失败要么连不通、要么该模型不支持文生图 → 按 error/next 换个图片模型（`config models` 重选）。**别等到生成时才发现图片模型是坏的**。
 
-→ A 段完成（含图片模型），重跑 readiness。
+→ A 段完成（含图片模型且 test-image 通过），重跑 readiness。
 
 ---
 

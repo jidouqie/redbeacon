@@ -102,6 +102,21 @@ redbeacon update
 
 ---
 
+## 数据备份 / 换机迁移（backup）
+
+用户说「备份 / 导出数据 / 换电脑 / 迁移」时：
+
+```bash
+redbeacon backup export                       # 导出账号/策略/选题/内容/配置为 JSON（默认当前目录带时间戳）
+redbeacon backup export --out ~/rb-backup.json
+redbeacon backup import --file ~/rb-backup.json          # 新机器恢复（空库直接导入）
+redbeacon backup import --file ~/rb-backup.json --force  # 当前库已有数据时强制覆盖
+```
+
+> 导出**不含密文密钥**（API Key / App Secret / 解锁码绑机器，换机无效），导入后让用户去 `/redbeacon-config` 重填、账号重新扫码登录。导入前已有数据会被覆盖，先提醒用户。
+
+---
+
 ## 注意
 
 - 这是路由器，本身不直接改数据，只判断方向、把用户交给对应 skill。

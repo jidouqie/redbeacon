@@ -1,6 +1,6 @@
 {
-  "version": "0.1.3",
-  "notes": "修复多账号解锁购买页打不开的问题",
+  "version": "0.1.4",
+  "notes": "批量生成(--count/--all-accounts)+多账号发布错峰、内容类型增删改名、选题改写、数据备份(backup export/import)、图片模型连通测试(test-image)；修复建账号后飞书通知人被清空、就绪检测漏判图片模型/飞书绑表；飞书改稿后纯卡片发布前自动重渲",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",

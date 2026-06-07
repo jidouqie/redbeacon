@@ -26,7 +26,7 @@ redbeacon strategy get --account-id {ID}
 ```
 
 - 返回 `{}` 或 `data.niche` 为空 → 全新账号，进「第一步」。
-- 已有 `niche` → 告诉用户「检测到已有定位」，展示核心信息（niche / target_audience），问是**重新定位**还是**只改某部分**（只改某部分建议走 `/redbeacon-策略`，不用重跑全程）。
+- 已有 `niche` → 告诉用户「检测到已有定位」，展示核心信息（niche / target_audience），问是**重新定位**还是**只改某部分**（只改某部分建议走 `/redbeacon-策略`，不用重跑全程）。**重新定位**时旧选题多半与新方向不符，可在重建前用 `topics delete … --all` 清空旧库（见第四步末「选题维护」）。
 
 ---
 
@@ -139,6 +139,42 @@ redbeacon topics stats --account-id {ID}
 
 - `unused >= 10` → ✓ 告知已入库 N 条选题。
 - `unused < 10` → 再生成补到 ≥ 10，追加 `topics batch`。
+
+### 选题维护：删除 / 清理（topics delete）
+
+> `reset` 只把选题重置为「未用」**不删除**；要**物理删除**用 `topics delete`。
+
+```bash
+redbeacon topics list   --account-id {ID} --limit 100         # 先看 id
+redbeacon topics delete --account-id {ID} --ids 3,4,5         # 删指定几条
+redbeacon topics delete --account-id {ID} --type "干货科普"    # 删某一类
+redbeacon topics delete --account-id {ID} --used 1            # 删所有已用过的
+redbeacon topics delete --account-id {ID} --all              # 清空全部（防误删，必须显式 --all）
+```
+
+返回 `{"ok":true,"deleted":N}`。**重新定位 / 选题跑偏想推倒重来**：先 `topics delete … --all` 清空，再走本步重建。不传 `--ids/--type/--used` 又不加 `--all` 会被拒绝（防手滑清库）。
+
+### 选题改写（topics edit）
+
+某条选题只是想改文字 / 换归类，不必删了重加：
+
+```bash
+redbeacon topics edit --account-id {ID} --id 7 --content "改后的选题文本"   # 改文案
+redbeacon topics edit --account-id {ID} --id 7 --type "痛点解析"           # 改归类
+redbeacon topics edit --account-id {ID} --id 7 --used 0                    # 标回未用
+```
+
+### 内容类型增删改名（types-add / types-rename / types-delete）
+
+默认三类（干货科普 / 痛点解析 / 经验分享）不够用或想改名时：
+
+```bash
+redbeacon topics types-add    --account-id {ID} --name "反共识" --prompt "专戳行业惯性认知"   # 加一类
+redbeacon topics types-rename --account-id {ID} --name "干货科普" --to "拆解"               # 改名（选题/已生成内容的归类自动跟着改）
+redbeacon topics types-delete --account-id {ID} --name "反共识"                            # 删一类（该类下还有未用选题需加 --force）
+```
+
+> 改名是**级联**的（返回里 `topics_updated`/`content_updated` 是受影响条数）。删类型不删选题——失去归属的选题仍可被跨类型生成取用。「干货科普」这名字和"别堆干货"的写作信条有点冲，想改成「拆解」「认知」之类更贴定位的，就用 `types-rename`。
 
 ---
 
