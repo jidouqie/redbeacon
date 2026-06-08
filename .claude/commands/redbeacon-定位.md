@@ -125,20 +125,15 @@ redbeacon topics types-init --account-id {ID}
 
 确认后按类型批量写入（用 stdin 喂多行，中文最稳）：
 
+既然这步已经做了应用域自检（每条都想清了落在哪个应用域 × 问题类型），入库就**带上元数据**用 `--json` 一次写完，让覆盖盘面从第一批起就准（避免一堆"未标应用域"）：
+
 ```bash
-redbeacon topics batch --account-id {ID} --type "干货科普" <<'EOF'
-选题1
-选题2
-EOF
-
-redbeacon topics batch --account-id {ID} --type "痛点解析" <<'EOF'
-选题1
-选题2
-EOF
-
-redbeacon topics batch --account-id {ID} --type "经验分享" <<'EOF'
-选题1
-选题2
+redbeacon topics batch --account-id {ID} --json <<'EOF'
+[
+  {"content":"选题1","content_type":"干货科普","application_domain":"...","problem_type":"识别"},
+  {"content":"选题2","content_type":"痛点解析","application_domain":"...","problem_type":"反例"},
+  {"content":"选题3","content_type":"经验分享","application_domain":"...","problem_type":"后果"}
+]
 EOF
 ```
 

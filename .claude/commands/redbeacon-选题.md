@@ -14,16 +14,16 @@ argument-hint: 无参数=开一场选题规划会；也可直接抛想法（如�
 ```bash
 redbeacon accounts list                              # 定 {ID}（1个自动用，多个让用户指明）
 redbeacon strategy get   --account-id {ID}           # 定位：赛道/受众/痛点/支柱/差异化
-redbeacon topics list    --account-id {ID} --used 0  # 现有未用题 → 推断应用域覆盖
-redbeacon topics stats   --account-id {ID}           # 数量/分布
+redbeacon topics stats   --account-id {ID}           # 数量/分布 + by_domain（应用域覆盖盘面，真实存档）
+redbeacon topics list    --account-id {ID} --used 0  # 现有未用题（每条带 application_domain / problem_type）
 redbeacon content list   --account-id {ID} --limit 8 # 最近标题 → 查重基线
 ```
 
-把**选题盘面**摊给用户看，而不是直接出题：
+把**选题盘面**摊给用户看，而不是直接出题。**应用域覆盖直接读 `topics stats` 的 `by_domain`（精确存档，不是猜）**：
 
 > 你账号现在的选题盘面：
 > - **定位**：{一句话 niche + 差异化}
-> - **现有未用题**：{N} 条，主要落在【{应用域A}】【{应用域B}】，而【{应用域C/D}】还空着 / 都挤在一个角度（撞车）
+> - **应用域覆盖**（来自 by_domain）：【{应用域A}】{n}条、【{应用域B}】{m}条……，而【{你按定位该有但 by_domain 里没有的}】还空着；`(未标应用域)` 那批是早期没打标的，可顺手回填
 > - **最近发过**：{3-4 个标题}——这些角度先避开
 
 > 核心心法：**定位是判断"底座"，不是每篇都要复述的主题**。底座只有一个，应用域有无数个——这场会就是用一个稳定底座去铺开不同应用域。
@@ -81,14 +81,18 @@ redbeacon content list   --account-id {ID} --limit 8 # 最近标题 → 查重�
 
 跟用户来回调到满意：「这个角度太软换掉」「【乙方关系】多来俩」「这条改尖锐点」——AI 就地改网格。
 
-拍板后**按内容类型批量入库**（stdin 喂多行最稳；类型按 `topics types` 实际为准）：
+拍板后**连同应用域/问题类型一次性入库**（用 `--json`，把整张网格的元数据一起落库，下次盘面才精确；`content_type` 按 `topics types` 实际为准）：
 
 ```bash
-redbeacon topics batch --account-id {ID} --type "痛点解析" <<'EOF'
-选题1
-选题2
+redbeacon topics batch --account-id {ID} --json <<'EOF'
+[
+  {"content":"选题1","content_type":"痛点解析","application_domain":"乙方关系","problem_type":"反例"},
+  {"content":"选题2","content_type":"干货科普","application_domain":"行业定价权","problem_type":"决策"}
+]
 EOF
 ```
+
+> 返回 `{"inserted":N,"total":M}`（重复的自动跳过）。**务必带上 `application_domain` 和 `problem_type`**——这是这次规划的存档，决定下次开会时盘面准不准。`content_type` 缺省可回退 `--type`。
 
 > **入库后剪，不是入库前逐条挑**：贴定位的题大概率全留，先一次性入库，再请用户报哪条不要，删掉即可——比逐条点选少一个来回：
 > ```bash
