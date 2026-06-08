@@ -1,6 +1,6 @@
 {
-  "version": "0.1.7",
-  "notes": "诊断 skill 新增「同质化/换汤不换药」诊断维度；定位 skill 出选题内置「应用域自检」（底座vs主题·应用域×问题类型铺开），从源头防内容雷同",
+  "version": "0.1.8",
+  "notes": "新增「选题规划会」技能 /redbeacon-选题：你出想法 + AI联网取真痛点·按定位和应用域网格给建议规划·你拍板入库；generate 补题改为非阻塞预警+引导规划会，库空时拟一篇发你确认再生成（不再生产途中硬塞挑题）",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
@@ -13,6 +13,7 @@
     "redbeacon-定位.md",
     "redbeacon-策略.md",
     "redbeacon-诊断.md",
+    "redbeacon-选题.md",
     "redbeacon-面板.md"
   ]
 }
