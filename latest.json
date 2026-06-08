@@ -1,6 +1,6 @@
 {
-  "version": "0.1.9",
-  "notes": "选题落库新增 application_domain/问题类型字段：topics add/edit/list --domain、batch --json 整网格带元数据入库、stats 出 by_domain 覆盖盘面；选题规划会盘面改读真实存档而非每次重猜。纯增量+迁移对现有数据无损，全项目关联自检通过",
+  "version": "0.1.10",
+  "notes": "修复生图取图兼容性（base64/托管URL/markdown图全兼容，根治中转站返回格式不一致致无图）；生图失败自动重试+最终失败推飞书补图警告；诊断 skill 验证改同题重生做 A/B",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
