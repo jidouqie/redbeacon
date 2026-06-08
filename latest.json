@@ -1,6 +1,6 @@
 {
-  "version": "0.1.10",
-  "notes": "修复生图取图兼容性（base64/托管URL/markdown图全兼容，根治中转站返回格式不一致致无图）；生图失败自动重试+最终失败推飞书补图警告；诊断 skill 验证改同题重生做 A/B",
+  "version": "0.1.11",
+  "notes": "生图支持双接口自动择路：chat 多模态(Gemini系)与 Images API(gpt-image/dall-e系)自动切换，三个图模型(gemini-3-pro/3.1-flash-image-preview、gpt-image-2)真机全通；test-image 同步双接口",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
