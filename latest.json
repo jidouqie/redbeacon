@@ -1,6 +1,6 @@
 {
-  "version": "0.1.18",
-  "notes": "配置向导飞书修复：① 通知接收人改取 user_id(员工号，跨应用稳定，缺员工号权限自动回退 open_id)，不再存 ou_ 开头的 open_id；② 修接收人选择框 UI 错位——页面全局 input{width:100%} 把单选框也撑满导致名字竖排，给 radio 加宽度复位 + uid 截断",
+  "version": "0.1.19",
+  "notes": "卡片分页再修：第一张卡常只剩「标题+引言+小标题」而半空(后面大列表被单独拆走)——首卡没有前一张可借，改从下一张借开头几行填到约55%卡高，首卡变饱满且语义连贯、列表续页编号自动接续。验证首卡填充率39%→61%",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
