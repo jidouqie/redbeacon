@@ -1,6 +1,6 @@
 {
-  "version": "0.1.20",
-  "notes": "回归用户体验：ready 状态从「甩命令清单」改成主动的运营驾驶舱——一打开就用 status 交底(账号·定位·待审N篇·未用选题N条·最近发布)，再按现状主动给2~3个具体建议；「写文案」永远先列选题让用户挑(单篇共创)、不闷头抓，解决老用户回来「迷茫、不受控」。status 命令增强：每账号带 niche/未用选题/待审/已发/最近标题，一条命令出驾驶舱全量",
+  "version": "0.1.21",
+  "notes": "交互风格升级：12个skill+AGENTS.md统一「像得力下属服务老板」原则——主动带领新用户别让人懵、给选择一律编号+换行让用户回个数字即可、把输入成本压到最小、熟了支持自然语言直说；驾驶舱建议改编号菜单；config配置方式选择改编号文本为主(AskUserQuestion降级为Claude可选增强，Codex也能用)",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
