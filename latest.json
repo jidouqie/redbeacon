@@ -1,6 +1,6 @@
 {
-  "version": "0.1.12",
-  "notes": "config 加「网页向导 vs 对话配」配置方式选择(电脑前推荐向导·密钥不经聊天)；视觉风格系统(大字报封面/图生图保脸/参考图存储)；生图统一为能力派发协议(新增模型只加一条注册项)；账号面板全提示词可见可编辑+最终提示词查看；卡片分页中段留白修复；输入框自动增高",
+  "version": "0.1.13",
+  "notes": "配置向导飞书测试升级：保存凭证后不只验连通，直接拉通讯录让你在页面点选「通知接收人」(单人自动选定/无通讯录权限退化手填 ou_id)，一步堵住 feishu_user_id 没配全的缺口；测试图固定为 RedBeacon 3:4 大字报封面",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
