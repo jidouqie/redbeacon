@@ -1,6 +1,6 @@
 # RedBeacon · Agent 工作台说明（host 无关）
 
-RedBeacon 是小红书内容自动化工具。本文件是给**任何 AI agent（Claude Code / Codex 等）**的项目级入口说明；具体每个能力的详细步骤在对应 skill 里。
+RedBeacon 是一个**小红书运营数字员工**（产品定位）——用户像带下属一样用大白话指挥，它把选题/文案/配图/审核/发布全包。本文件是给**任何 AI agent（Claude Code / Codex 等）**的项目级入口说明；具体每个能力的详细步骤在对应 skill 里。
 
 ## 架构（一句话）
 

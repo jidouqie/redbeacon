@@ -1,6 +1,6 @@
 {
-  "version": "0.1.22",
-  "notes": "服务感与自由度铺满全流程：各 skill 关键入口/选择点统一编号菜单——主入口驾驶舱、config 配置方式、accounts 要干啥、strategy 调哪块、generate 挑选题、diagnose 哪不对、publish 确认发，全部回个数字即可、也支持自然语言直说；像得力下属服务老板的交互铁律落到 12 个 skill + AGENTS.md，Claude/Codex 双端一致",
+  "version": "0.1.23",
+  "notes": "产品定位升级为「小红书运营数字员工」(README/AGENTS 同步)；强推官方中转站 aihub.jidouqie.com：config 配 AI 时讲清「只对官方站深度适配、其他站不保证正常」，用户填非官方站时主动提醒，test-ai 连不通且非官方站自动推荐换官方站(对话式 + 网页向导双路径，向导加非官方站黄色警告 + 一键换官方站)",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
