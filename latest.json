@@ -1,6 +1,6 @@
 {
-  "version": "0.1.13",
-  "notes": "配置向导飞书测试升级：保存凭证后不只验连通，直接拉通讯录让你在页面点选「通知接收人」(单人自动选定/无通讯录权限退化手填 ou_id)，一步堵住 feishu_user_id 没配全的缺口；测试图固定为 RedBeacon 3:4 大字报封面",
+  "version": "0.1.14",
+  "notes": "onboarding 链路重排(配置→建号→登录→飞书绑表→定位+选题→面板调样式·二次确认→运营)+自动推进(必需步骤不再反复问要不要)；per-账号 readiness(--account-id)让Pro多账号逐个开号体验与1号一致；账号编号+备注(create --name·展示「N号小红书·备注」·定位按赛道自动起名)；单篇共创(generate/topics --idea·选题带note想法·最高优先级注入文案)；卡片中间瘦卡修复(真实高度均分+邻卡匀行兜底)；Pro多账号管理台 ui manage(账号卡片列表→点进单账号内容调试面板)；config配置方式改AskUserQuestion点选；生图测试图固定RedBeacon大字报封面。全部老数据兼容(幂等迁移)",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",

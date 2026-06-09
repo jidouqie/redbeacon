@@ -5,7 +5,9 @@ argument-hint: 无参数=给当前账号扫码登录；多账号时说清是哪�
 
 > **【登录 skill】** 给账号挂上小红书登录态。发布（`/redbeacon-publish`）必须先有有效登录态，掉线会被跳过。本 skill 负责扫码登录、查状态、退出重登。
 >
-> 上一步是定位（`/redbeacon-定位`，readiness 的 stage3 在登录 stage4 之前），下一步是绑飞书表（`/redbeacon-feishu`）。登录用的浏览器会话**命令结束即停**，不是常驻服务。
+> 上一步是建号（`/redbeacon-accounts`）。链路顺序是 登录（stage3）→ 飞书绑表（stage4）→ 定位（stage5）——建号后先扫码落地，登录成功后**下一步是绑飞书表**（`/redbeacon-feishu`）。登录用的浏览器会话**命令结束即停**，不是常驻服务。
+>
+> **遵循主入口「自动推进原则」**：onboarding 阶段登录成功后直接进飞书绑表，别问"要不要绑飞书"；用户主动来重登/查登录态的，做完即止。
 
 ---
 
@@ -79,15 +81,22 @@ redbeacon login delete --account-id {ID}
 
 ---
 
-## 完成后给下一步
+## 完成后给下一步（onboarding 中：登录成功 → 直接进飞书绑表）
+
+**用 per-账号 readiness 看这个号还缺什么**（多账号必须带 id，否则全局 readiness 会被别的号"带成 ready"、漏掉本号）：
 
 ```bash
-redbeacon readiness
+redbeacon readiness --account-id {ID}
 ```
 
-> 登录成功！下一步：
-> - 还没绑飞书表 → **`/redbeacon-feishu`** 把这个账号关联到飞书多维表格（审核都在飞书做）
-> - 飞书也绑好了（readiness=ready）→ **`/redbeacon-generate`** 生成内容
+判断这次登录是"onboarding 路上"还是"用户专门来重登的"：
+
+- **onboarding 路上**（这账号还没绑飞书表，readiness 会是 stage4）→ 别停别问，**直接交棒 `/redbeacon-feishu`** 给账号绑审核表：
+  > ✓ 登录成功，账号「{nickname}」已落地。接下来把它绑到飞书审核表——以后生成的内容都进这张表给你审核。这就绑表。
+- **用户专门来重登 / 查登录态的**（账号早已配好）→ 按 readiness 给真正缺的下一步：
+  - 还没绑飞书表 → **`/redbeacon-feishu`**
+  - 还没定位 → **`/redbeacon-定位`**
+  - 全就绪（readiness=ready）→ **`/redbeacon-generate`** 生成内容
 
 ---
 

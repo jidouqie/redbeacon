@@ -5,7 +5,9 @@ argument-hint: 无参数=给当前账号绑飞书表；多账号时说清是哪�
 
 > **【飞书 skill】** 把账号关联到一张飞书多维表格。**这张表是整个产品唯一的审核与改稿场所**——生成的内容自动进表，你在飞书里审、改标题/正文/标签、标「通过」，再回来发布。本地不存在任何审核环节。
 >
-> 上一步是登录（`/redbeacon-login`），下一步是生成（`/redbeacon-generate`）。飞书的**全局凭证**（App ID / Secret / 接收通知的 User ID）在 `/redbeacon-config` 里配，本 skill 只负责给**单个账号绑表**。
+> 上一步是登录（`/redbeacon-login`），下一步是**定位**（`/redbeacon-定位`）——链路顺序 登录 → 飞书绑表 → 定位。飞书的**全局凭证**（App ID / Secret / 接收通知的 User ID）在 `/redbeacon-config` 里配，本 skill 只负责给**单个账号绑表**。
+>
+> **遵循主入口「自动推进原则」**：onboarding 中绑表成功后直接进定位，别问"要不要定位"；用户单独来绑表/重绑的，做完即止。
 
 ---
 
@@ -104,15 +106,21 @@ redbeacon feishu test --account-id {ID}
 
 ---
 
-## 完成后给下一步
+## 完成后给下一步（onboarding 中：绑表成功 → 直接进定位）
+
+**用 per-账号 readiness 看这个号还缺什么**（多账号必须带 id）：
 
 ```bash
-redbeacon readiness
+redbeacon readiness --account-id {ID}
 ```
 
-> 飞书表已绑好。下一步：
-> - readiness=ready → **`/redbeacon-generate`** 生成内容（生成后自动进这张飞书表等你审核）
-> - 审核完、标了「通过」→ **`/redbeacon-publish`** 发布通过的内容
+判断是"onboarding 路上"还是"用户专门来绑表的"：
+
+- **onboarding 路上**（账号还没定位，readiness 会是 stage5）→ 别停别问，**直接交棒 `/redbeacon-定位`**：
+  > ✓ 审核表已绑好。接下来给账号定位——聊清楚做什么赛道、给谁看，再铺一批选题，账号就能开始产内容了。这就进定位。
+- **账号早已配好**（readiness=ready）→ 给真正的下一步：
+  - **`/redbeacon-generate`** 生成内容（生成后自动进这张飞书表等你审核）
+  - 审核完、标了「通过」→ **`/redbeacon-publish`** 发布
 
 ---
 

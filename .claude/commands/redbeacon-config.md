@@ -279,7 +279,9 @@ redbeacon readiness
 
 - 仍 `stage1` → AI 没齐，回 A 段（注意 image_model 不在 readiness 里，单独看 `config list`）。
 - 仍 `stage5` → 飞书没齐，回 B 段。
-- 进到 `stage2`/`stage3` 等 → 告知「配置就绪」，按 readiness 的 `next` 进入下一步。
+- 进到 `stage2` → 配置就绪。**按主入口「自动推进原则」，别问"要不要建账号"，直接交棒 `/redbeacon-accounts` 建号**（建完会自动接扫码登录 → 定位 → 绑飞书，一路到 ready）。
+
+> 配置是 onboarding 的第一关，配齐就直接往下走，让用户一口气把环境建起来，别在每关之间反复征求同意。
 
 ---
 
