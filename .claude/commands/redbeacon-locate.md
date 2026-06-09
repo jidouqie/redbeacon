@@ -88,13 +88,17 @@ redbeacon strategy patch --account-id {ID} --data '{
   "emoji_usage": "适量",
   "content_length": "300-500字",
   "visual_theme": "简洁高级感",
-  "forbidden_words": []
+  "forbidden_words": [],
+  "copy_guide": "（必填！把这个号「怎么写」的全局写作指引浓缩成一段人话——见下）"
 }'
 ```
 
+> ⚠️ **`copy_guide`（全局文案提示词）必须一起写，别留空**——这是面板上「全局文案提示词」那个框，也是生成时注入每篇的全局写作要求。tone/opening/format 只是结构化的零散风格；`copy_guide` 是把这个号**独特的写法**用一段人话讲清楚，比如：「每篇用『因为X→所以Y』的因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留一个钩子引导评论；带点『聪明朋友』的口吻，不堆术语」。
+> **从这次定位对话里提炼**：用户喜欢的博主风格、他强调的写法、他的人设口头禅、内容差异化打法——综合成 2~4 句可执行的写作指引，写进 `copy_guide`。**不写 JSON/占位符，写人话。**
+
 > 写入成功后告知：✓ 账号定位已保存。
 >
-> **真正进文案生成的字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words（visual_theme 影响配图）。其余（competitive_advantage / monetization / content_length）作为上下文留存。改这些将来走 `/redbeacon-strategy`。
+> **真正进文案生成的字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words / **copy_guide**（全局写作指引，权重高）（visual_theme 影响配图）。其余（competitive_advantage / monetization / content_length）作为上下文留存。改这些将来走 `/redbeacon-strategy`。
 
 ---
 
