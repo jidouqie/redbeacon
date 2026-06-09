@@ -1,6 +1,6 @@
 {
-  "version": "0.1.14",
-  "notes": "onboarding 链路重排(配置→建号→登录→飞书绑表→定位+选题→面板调样式·二次确认→运营)+自动推进(必需步骤不再反复问要不要)；per-账号 readiness(--account-id)让Pro多账号逐个开号体验与1号一致；账号编号+备注(create --name·展示「N号小红书·备注」·定位按赛道自动起名)；单篇共创(generate/topics --idea·选题带note想法·最高优先级注入文案)；卡片中间瘦卡修复(真实高度均分+邻卡匀行兜底)；Pro多账号管理台 ui manage(账号卡片列表→点进单账号内容调试面板)；config配置方式改AskUserQuestion点选；生图测试图固定RedBeacon大字报封面。全部老数据兼容(幂等迁移)",
+  "version": "0.1.15",
+  "notes": "Codex 双宿主支持：新增 AGENTS.md(host无关项目入口+能力路由) + tools/sync-codex-skills.py(从.claude/commands真源派生Codex端) + skill-bridge-map(中文名→ASCII别名:定位locate/策略strategy/诊断diagnose/选题topics/面板panel)；redbeacon update 现在同时刷新 Claude(.claude/commands) 和 Codex(~/.codex/skills/<name>/SKILL.md) 两端，正文交叉引用自动重写消除悬空引用；真源仍唯一(.claude/commands)，Codex端为派生物",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
