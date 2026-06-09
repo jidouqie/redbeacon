@@ -1,6 +1,6 @@
 {
-  "version": "0.1.21",
-  "notes": "交互风格升级：12个skill+AGENTS.md统一「像得力下属服务老板」原则——主动带领新用户别让人懵、给选择一律编号+换行让用户回个数字即可、把输入成本压到最小、熟了支持自然语言直说；驾驶舱建议改编号菜单；config配置方式选择改编号文本为主(AskUserQuestion降级为Claude可选增强，Codex也能用)",
+  "version": "0.1.22",
+  "notes": "服务感与自由度铺满全流程：各 skill 关键入口/选择点统一编号菜单——主入口驾驶舱、config 配置方式、accounts 要干啥、strategy 调哪块、generate 挑选题、diagnose 哪不对、publish 确认发，全部回个数字即可、也支持自然语言直说；像得力下属服务老板的交互铁律落到 12 个 skill + AGENTS.md，Claude/Codex 双端一致",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
