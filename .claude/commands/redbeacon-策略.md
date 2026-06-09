@@ -46,6 +46,8 @@ redbeacon strategy patch --account-id {ID} --data '{"tone":"更犀利、直给"}
 ```
 
 > 改完告知：✓ 已更新 [字段]。这会影响下次 `/redbeacon-generate` 的产出。
+>
+> **改完顺手递一句面板**（用户多半想"看着确认 + 立刻试一篇"）：「想边看边调、改完直接生成一篇看效果，我给你开个面板？」点头就 `/redbeacon-面板`。别等用户主动问——他不知道有这东西。
 
 ---
 
@@ -96,25 +98,37 @@ redbeacon strategy image-get --account-id {ID}
 ```
 
 `strategy` 里关键字段：
-- **mode**：`cards`（本地图文卡片，稳定省钱）/ `ai`（AI 生图，需配图片模型）/ `both`（AI 封面 + 文字卡片）
-- **card_theme**：卡片配色，**合法值固定为**：`default`(优雅淡彩) / `neo-brutalism`(暗黑) / `botanical`(薄荷绿) / `professional`(海蓝) / `retro`(暖橙) / `sketch`(紫调) / `playful-geometric`(小红书红) / `random`(随机)。**别传别的值**（如 warm/cool/minimal 等会被当无效、回落默认）。
-- **prompt_template**：AI 配图「想要的样子」——**一句大白话视觉描述**（如「明亮清新、ins 简约、主体突出、上方留白放标题」）。**不要写 `{niche}`/`{title}` 占位符、也不要写"竖版3:4/高质量"这种格式词**——赛道、本篇标题、竖版比例由程序生成时自动拼上，和文案的人话指引同理（[[ui-no-tech-vocab]] 理念）。
-- **ai_model**：这个账号 AI 生图用的模型名（留空则用全局 image_model）
+- **mode**（配图方式，三选一）：`cards`（纯文字卡片，封面也是文字大字报，稳定省钱）/ `both`（AI 封面 + 文字卡片）/ `ai`（只出一张 AI 封面、无正文卡片）。
+- **card_theme**：卡片配色，**合法值固定为**：`default`(优雅淡彩) / `neo-brutalism`(暗黑) / `botanical`(薄荷绿) / `professional`(海蓝) / `retro`(暖橙) / `sketch`(紫调) / `playful-geometric`(小红书红) / `random`(随机)。**别传别的值**。
+- **prompt_template**（封面提示词）：AI 封面默认产出「**大字报**」——**标题大字由 AI 直接画进图**。推荐写成**结构化封面指令、带 `{标题}` 占位符**（每篇标题自动替换成封面大字）、并在提示词里**写死竖版 3:4**：
+  `小红书竖版大字报封面，3:4 比例。整体风格：<视觉风格>。上方用厚重大字写出标题：「{标题}」，强对比、留白克制、高质量精美。`
+  也可只写一句纯风格描述（不带占位符），程序会自动补「大字报骨架 + 标题大字 + 竖版3:4」。**宽高比靠提示词控制。**
+- **ai_model**：这个账号 AI 生图用的模型名（留空则用全局 image_model）。
 
 按需改（只传要改的字段）：
 
 ```bash
-# 换成 AI 生图（提示词只写"想要的样子"，大白话）
-redbeacon strategy image-set --account-id {ID} --data '{"mode":"ai","ai_model":"<图片模型>","prompt_template":"明亮清新、ins 简约风，主体突出、画面干净，上方留白放标题"}'
+# 换成 AI 封面 + 卡片，给一条结构化大字报封面提示词
+redbeacon strategy image-set --account-id {ID} --data '{"mode":"both","ai_model":"<图片模型>","prompt_template":"小红书竖版大字报封面，3:4 比例。整体风格：深色背景配亮色块、厚重大字、强对比、极简高级。上方用大字写出标题：「{标题}」，留白克制、精美。"}'
 
 # 只换卡片配色
 redbeacon strategy image-set --account-id {ID} --data '{"card_theme":"botanical"}'
 ```
 
-**用参考封面图抽取**（多模态）：让用户把喜欢的封面图发进聊天窗，你看图反推出**视觉风格的大白话描述**（主体/构图/色调/留白/质感），整理成一句话写进 `prompt_template`（配 `mode=ai`）。图片只在对话里被你读懂，CLI 里只存你抽象出的这句人话；占位符和格式骨架程序会自己补。
+**参考图（图生图）**——用户想用自己的照片/某张风格图当封面素材：
+
+```bash
+redbeacon strategy image-ref-add   --account-id {ID} --file "<本地图片路径>"   # 存进数据目录、登记
+redbeacon strategy image-ref-list  --account-id {ID}                          # 看已存参考图
+redbeacon strategy image-ref-clear --account-id {ID}                          # 清空
+```
+
+> **有参考图 = 自动图生图**（程序自动补"用参考图这个人/风格"的指令，**不用手写**），**没有 = 文生图**。
+> ⚠️ **图生图保脸要用 flash 系模型**：`gemini-3.1-flash-image-preview`（nano-banana）实测完美还原本人；`gemini-3-pro-image-preview` 保脸偏弱。做人物封面就 `image-set` 把 `ai_model` 设成 flash 系。
+
+**用参考封面图抽取风格**（多模态）：让用户把喜欢的封面图发进聊天窗，你看图反推出视觉风格描述，写进 `prompt_template`（带 `{标题}`）。若用户想直接复刻这张图的风格/构图，就把它 `image-ref-add` 存为参考图走图生图。
 
 > 选 `ai` / `both` 前确认已配图片模型（`/redbeacon-config` 的 image_model）。否则 AI 生图会失败。
-> 参考图模板（reference images）属更深一层，当前 CLI 只读列出，暂不在此编辑。
 
 ---
 
