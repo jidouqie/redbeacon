@@ -1,6 +1,6 @@
 {
-  "version": "0.1.16",
-  "notes": "skill 名双端统一为英文：5 个中文名 skill 改名(定位→locate/策略→strategy/诊断→diagnose/选题→topics/面板→panel)，Claude+Codex 两端完全同名、不再有中英差异；redbeacon update 新增孤儿清理(自动删改名后残留的旧中文 skill 文件 + Codex 旧文件夹，本地与真源严格一致)；AGENTS.md/bridge-map 同步更新；_CODEX_NAME_MAP 清空(恒等派生)。老用户 update 后旧中文文件自动清掉",
+  "version": "0.1.17",
+  "notes": "对用户全程自然语言：12 个 skill + AGENTS.md 加硬规则——给用户的回复不暴露 /redbeacon-* 斜杠命令名/CLI命令，全用人话路由(如「我帮你生成一篇」而非报命令)，除非用户主动要命令；主入口 ready 状态块改成自然语言示范，不再列命令清单。Claude+Codex 两端同步",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
