@@ -1,6 +1,6 @@
 {
-  "version": "0.1.17",
-  "notes": "对用户全程自然语言：12 个 skill + AGENTS.md 加硬规则——给用户的回复不暴露 /redbeacon-* 斜杠命令名/CLI命令，全用人话路由(如「我帮你生成一篇」而非报命令)，除非用户主动要命令；主入口 ready 状态块改成自然语言示范，不再列命令清单。Claude+Codex 两端同步",
+  "version": "0.1.18",
+  "notes": "配置向导飞书修复：① 通知接收人改取 user_id(员工号，跨应用稳定，缺员工号权限自动回退 open_id)，不再存 ou_ 开头的 open_id；② 修接收人选择框 UI 错位——页面全局 input{width:100%} 把单选框也撑满导致名字竖排，给 radio 加宽度复位 + uid 截断",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
