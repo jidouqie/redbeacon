@@ -18,24 +18,24 @@ RedBeacon 是小红书内容自动化工具。本文件是给**任何 AI agent�
 - 生成与发布都是**手动命令触发**，无后台常驻服务 / 无定时自动发布。
 - 进度判定用 `redbeacon readiness`（多账号逐个开号用 `readiness --account-id N`）。
 
-## 能力 → skill 路由（两端 skill 名对照）
+## 能力 → skill 路由（两端 skill 名已统一，全英文）
 
-| 用户意图 | Claude 斜杠命令 | Codex skill 名 |
-|---|---|---|
-| 不确定该干嘛 / 主入口 | `/redbeacon` | `redbeacon` |
-| 配 AI / 飞书 / 代理 | `/redbeacon-config` | `redbeacon-config` |
-| 建号 / 改名 / 删号 / 多账号解锁 | `/redbeacon-accounts` | `redbeacon-accounts` |
-| 扫码登录小红书 | `/redbeacon-login` | `redbeacon-login` |
-| 绑账号的飞书多维表 | `/redbeacon-feishu` | `redbeacon-feishu` |
-| 账号定位（赛道/受众/差异化/变现）| `/redbeacon-定位` | `redbeacon-locate` |
-| 补题 / 重铺 / 选题规划 | `/redbeacon-选题` | `redbeacon-topics` |
-| 单点改定位 / 文案预设 / 图片预设 | `/redbeacon-策略` | `redbeacon-strategy` |
-| 弹网页面板审阅·微调·试生成 | `/redbeacon-面板` | `redbeacon-panel` |
-| 「文案/图不对劲」诊断调参 | `/redbeacon-诊断` | `redbeacon-diagnose` |
-| 生成内容 | `/redbeacon-generate` | `redbeacon-generate` |
-| 发布已通过内容 | `/redbeacon-publish` | `redbeacon-publish` |
+| 用户意图 | skill 名（Claude 斜杠加 `/`，Codex 同名）|
+|---|---|
+| 不确定该干嘛 / 主入口 | `redbeacon` |
+| 配 AI / 飞书 / 代理 | `redbeacon-config` |
+| 建号 / 改名 / 删号 / 多账号解锁 | `redbeacon-accounts` |
+| 扫码登录小红书 | `redbeacon-login` |
+| 绑账号的飞书多维表 | `redbeacon-feishu` |
+| 账号定位（赛道/受众/差异化/变现）| `redbeacon-locate` |
+| 补题 / 重铺 / 选题规划 | `redbeacon-topics` |
+| 单点改定位 / 文案预设 / 图片预设 | `redbeacon-strategy` |
+| 弹网页面板审阅·微调·试生成 | `redbeacon-panel` |
+| 「文案/图不对劲」诊断调参 | `redbeacon-diagnose` |
+| 生成内容 | `redbeacon-generate` |
+| 发布已通过内容 | `redbeacon-publish` |
 
-> 中文名 skill 在 Codex 端用 ASCII 别名（定位→locate / 策略→strategy / 诊断→diagnose / 选题→topics / 面板→panel），其余 7 个两端同名。完整映射见 `tools/skill-bridge-map.md`。
+> **两端 skill 名完全一致、全英文**（Claude Code 用 `/redbeacon-locate` 这样的斜杠命令，Codex 用同名 skill）。不再有中英差异。完整对照见 `tools/skill-bridge-map.md`。
 
 ## 给 agent 的硬规则
 

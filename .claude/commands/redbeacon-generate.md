@@ -5,7 +5,7 @@ argument-hint: 无参数=给当前账号生成一篇；可指定选题/内容类
 
 > **【生成 skill】** 跑一次内容生产：从账号选题库取一个未用选题 → 按定位用 AI 写文案 → 出图（AI 封面 / 文字卡片 / 两者）→ 入库 → **自动推到飞书审核表**等你审。
 >
-> 上一步是定位（`/redbeacon-定位`，账号此时已完成 登录→绑表→定位+选题→面板二次确认、进入正式运营），下一步是去飞书审核、然后 `/redbeacon-publish` 发布。**生成是手动命令触发的，没有任何后台自动排期/常驻服务**，别向用户承诺"定时自动生成"。
+> 上一步是定位（`/redbeacon-locate`，账号此时已完成 登录→绑表→定位+选题→面板二次确认、进入正式运营），下一步是去飞书审核、然后 `/redbeacon-publish` 发布。**生成是手动命令触发的，没有任何后台自动排期/常驻服务**，别向用户承诺"定时自动生成"。
 
 ---
 
@@ -25,7 +25,7 @@ redbeacon accounts list
 
 - 0 个 → `/redbeacon-accounts`；1 个 → 自动用，记 `{ID}`；多个 → 让用户指明（`$ARGUMENTS` 已说明就直接用）。
 
-> 选题库为空会直接生成失败（见下）。定位流程（`/redbeacon-定位`）会灌一批选题；想确认存量可 `redbeacon topics stats --account-id {ID}` 看 `unused`。
+> 选题库为空会直接生成失败（见下）。定位流程（`/redbeacon-locate`）会灌一批选题；想确认存量可 `redbeacon topics stats --account-id {ID}` 看 `unused`。
 
 ---
 
@@ -90,7 +90,7 @@ redbeacon generate --account-id {ID}
 > - **AI 封面 + 卡片**：封面用 AI 出一张大字报（标题大字直接画进图，可带账号风格/人物），正文仍是渲染卡片。
 > - **纯 AI**：只一张 AI 封面，没有正文卡片。
 >
-> **配图方式怎么定**：不传 `--image-mode` 就用账号默认（在 `/redbeacon-定位` 定、`/redbeacon-策略` 或 `/redbeacon-面板` 改）。`--image-mode` 只覆盖**这一篇**。**对用户说"配图方式"，别甩 `cards/ai/both` 字段词**。封面长什么样（风格/大字/要不要放人物）是账号级的**视觉风格**，不在这里设——去 `/redbeacon-定位`（首次推荐）或 `/redbeacon-策略`（单改）。
+> **配图方式怎么定**：不传 `--image-mode` 就用账号默认（在 `/redbeacon-locate` 定、`/redbeacon-strategy` 或 `/redbeacon-panel` 改）。`--image-mode` 只覆盖**这一篇**。**对用户说"配图方式"，别甩 `cards/ai/both` 字段词**。封面长什么样（风格/大字/要不要放人物）是账号级的**视觉风格**，不在这里设——去 `/redbeacon-locate`（首次推荐）或 `/redbeacon-strategy`（单改）。
 
 ---
 
@@ -104,8 +104,8 @@ redbeacon generate --account-id {ID}
 
   > ✓ 已生成一篇并送进飞书审核表。去飞书表里审核 / 改标题正文标签 / 标「通过」，然后回来用 **`/redbeacon-publish`** 发布。
 
-- stderr `{"error":"选题库已耗尽…"}` → 选题用光了。**别只甩一句"去补题"**：读一下定位、挑一个现有题还没覆盖的应用域，当场**拟一个题先发用户确认**——「库空了，先用这个发？『{拟的题}』，或者我们开场规划会补一批」。用户点头就 `redbeacon generate --account-id {ID} --topic "{拟的题}"` 把这篇产出来；同时提醒「该补选题了 → **`/redbeacon-选题`**」。生产线不因没题硬卡，但用哪个题仍由用户拍板。
-- 其它 `{"error":...}` → 把原因给用户（常见：AI key 失效/模型不可用 → `/redbeacon-config` 改；图片模型不可用 → `/redbeacon-面板` 或 `/redbeacon-策略` 换图片模型）。
+- stderr `{"error":"选题库已耗尽…"}` → 选题用光了。**别只甩一句"去补题"**：读一下定位、挑一个现有题还没覆盖的应用域，当场**拟一个题先发用户确认**——「库空了，先用这个发？『{拟的题}』，或者我们开场规划会补一批」。用户点头就 `redbeacon generate --account-id {ID} --topic "{拟的题}"` 把这篇产出来；同时提醒「该补选题了 → **`/redbeacon-topics`**」。生产线不因没题硬卡，但用哪个题仍由用户拍板。
+- 其它 `{"error":...}` → 把原因给用户（常见：AI key 失效/模型不可用 → `/redbeacon-config` 改；图片模型不可用 → `/redbeacon-panel` 或 `/redbeacon-strategy` 换图片模型）。
 
 ### 一次生成多篇 / 多账号
 
@@ -116,7 +116,7 @@ redbeacon generate --account-id {ID}
 
 > 批量返回 `{"ok":true,"generated":N,"results":[...]}`，逐条列出每篇的 `content_id` 或 `error`；单账号单篇仍是旧 shape `{"ok":true,"content_id":N}`。
 > `--topic` 只能用于单账号单篇；批量一律从选题库取题。
-> 生成会自动把本账号最近的标题喂给 AI 做**查重**，规避换汤不换药——但真正的多样性还得靠选题本身覆盖不同应用域（见 `/redbeacon-定位`）。仍**无后台定时**，批量也是前台一次性跑完。
+> 生成会自动把本账号最近的标题喂给 AI 做**查重**，规避换汤不换药——但真正的多样性还得靠选题本身覆盖不同应用域（见 `/redbeacon-locate`）。仍**无后台定时**，批量也是前台一次性跑完。
 
 ---
 
@@ -130,9 +130,9 @@ redbeacon topics stats --account-id {ID}
 
 `unused < 5` 就主动在聊天里**预警一句**——但**别把用户按在生产途中逐条挑题**（那是旧做法、打断流）。改成非阻塞提醒 + 一个去处：
 
-> 📌 选题快用完了，只剩 {unused} 条。补题不用现在打断——想补就开一场**选题规划会**（你出想法、我联网取真痛点 + 按定位和应用域铺开、你拍板）：**`/redbeacon-选题`**。先接着生成也行，见底前补上即可。
+> 📌 选题快用完了，只剩 {unused} 条。补题不用现在打断——想补就开一场**选题规划会**（你出想法、我联网取真痛点 + 按定位和应用域铺开、你拍板）：**`/redbeacon-topics`**。先接着生成也行，见底前补上即可。
 
-> **补题 / 重铺选题统一走 `/redbeacon-选题`**。本 skill 不再在对话里现拟一堆让你挑——选题是战略层，交还给专门的规划会，生产这边只负责"低了喊一声 + 真空了拟一篇兜底（见上「选题库已耗尽」处理）"。
+> **补题 / 重铺选题统一走 `/redbeacon-topics`**。本 skill 不再在对话里现拟一堆让你挑——选题是战略层，交还给专门的规划会，生产这边只负责"低了喊一声 + 真空了拟一篇兜底（见上「选题库已耗尽」处理）"。
 
 ---
 
@@ -158,9 +158,9 @@ redbeacon content feishu-push
 | 用户想干的 | 去哪个 skill |
 |---|---|
 | 生成内容 | **本 skill** |
-| 改文案风格/配图风格的"预设"（影响以后每次生成） | `/redbeacon-策略` 或 `/redbeacon-面板` |
-| 「这篇文案/图不对劲」找原因调参 | `/redbeacon-诊断` |
-| 补选题 / 重定位 | `/redbeacon-定位` |
+| 改文案风格/配图风格的"预设"（影响以后每次生成） | `/redbeacon-strategy` 或 `/redbeacon-panel` |
+| 「这篇文案/图不对劲」找原因调参 | `/redbeacon-diagnose` |
+| 补选题 / 重定位 | `/redbeacon-locate` |
 | 发布已通过内容 | `/redbeacon-publish` |
 | 审稿改稿标通过 | 在飞书表里做 |
 
@@ -171,5 +171,5 @@ redbeacon content feishu-push
 - 生成后内容**自动进飞书审核表**，不需要、也没有本地审核步骤。别在 skill 里做"先给用户看要不要通过"这种本地审核。
 - 全程手动触发、前台阻塞，**无后台排期 / 无常驻服务**。
 - 文案与图文卡片是**两套文本**：发布用纯文字+emoji 排版，卡片用 markdown 渲染——这是底层自动分的，对用户无感，不用解释，更不要把 markdown 符号塞进给用户看的文案里。
-- 配图、emoji 用量、卡片配色等"长期偏好"在 `/redbeacon-面板` 或 `/redbeacon-策略` 设；本 skill 的 `--image-mode` 只是**这一篇**的临时覆盖。
+- 配图、emoji 用量、卡片配色等"长期偏好"在 `/redbeacon-panel` 或 `/redbeacon-strategy` 设；本 skill 的 `--image-mode` 只是**这一篇**的临时覆盖。
 - 命令成功走 stdout JSON、失败走 stderr `{"error","next"}`；把 error 给用户看，按 next 自愈。

@@ -28,13 +28,13 @@ argument-hint: 无参数=检测当前进度并给下一步；或直说意图（�
 |---|---|
 | 配 AI / 飞书 / 代理，或「配置」 | `/redbeacon-config` |
 | 建号 / 改名 / 删号 / 多账号解锁 | `/redbeacon-accounts` |
-| 给账号定位（首次定性赛道/受众/差异化） | `/redbeacon-定位` |
-| 补选题 / 重铺选题 / 选题规划（你出想法+AI联网规划+你拍板） | `/redbeacon-选题` |
-| 改定位 / 文案预设 / 图片预设（单点微调） | `/redbeacon-策略` |
-| 想直观地看/改账号配置（弹网页面板） | `/redbeacon-面板` |
-| 多账号统一管理 / 列出所有号挨个进去调（Pro） | `/redbeacon-面板`（用 `ui manage` 管理台） |
+| 给账号定位（首次定性赛道/受众/差异化） | `/redbeacon-locate` |
+| 补选题 / 重铺选题 / 选题规划（你出想法+AI联网规划+你拍板） | `/redbeacon-topics` |
+| 改定位 / 文案预设 / 图片预设（单点微调） | `/redbeacon-strategy` |
+| 想直观地看/改账号配置（弹网页面板） | `/redbeacon-panel` |
+| 多账号统一管理 / 列出所有号挨个进去调（Pro） | `/redbeacon-panel`（用 `ui manage` 管理台） |
 | 「看下整体情况 / 各账号怎么样了 / 全局概览」 | 弹**运营看板**（见下） |
-| 「文案不行 / 图不对 / 跑题」找原因 | `/redbeacon-诊断` |
+| 「文案不行 / 图不对 / 跑题」找原因 | `/redbeacon-diagnose` |
 | 扫码登录小红书 | `/redbeacon-login` |
 | 绑定账号的飞书多维表格 | `/redbeacon-feishu` |
 | 生成内容 | `/redbeacon-generate` |
@@ -58,7 +58,7 @@ redbeacon readiness
 | `stage2` | 没有账号 | `/redbeacon-accounts` |
 | `stage3` | 账号没登录小红书 | `/redbeacon-login` |
 | `stage4` | 账号没绑飞书表 | `/redbeacon-feishu` |
-| `stage5` | 账号没定位 | `/redbeacon-定位`（定位+选题做完，再弹面板调样式·二次确认） |
+| `stage5` | 账号没定位 | `/redbeacon-locate`（定位+选题做完，再弹面板调样式·二次确认） |
 | `ready` | 全就绪 | 见下 |
 
 > 按上面的「自动推进原则」：判定 stage 后**直接进对应能力**，做完不要停、接着 readiness 看下一个 stage，一路推到 ready。别在每个 stage 前问"要不要去"。
@@ -79,7 +79,7 @@ redbeacon readiness
 > - **`/redbeacon-generate`** 生成内容（生成后自动进飞书审核表）
 > - 在飞书多维表格里审核 / 改标题文案标签 / 标「通过」
 > - **`/redbeacon-publish`** 发布飞书里标了「通过」的内容
-> - 觉得产出不对劲 → **`/redbeacon-诊断`**
+> - 觉得产出不对劲 → **`/redbeacon-diagnose`**
 
 ---
 
@@ -139,6 +139,6 @@ redbeacon backup import --file ~/rb-backup.json --force  # 当前库已有数据
 ## 注意
 
 - 这是路由器，本身不直接改数据，只判断方向、把用户交给对应 skill。
-- `readiness` 的阶段顺序是固定的：**登录（stage3）→ 飞书绑表（stage4）→ 定位（stage5）**。建号后先扫码让账号落地、看到登录成功（用户对空壳账号无感，先给实感），再绑好飞书审核表，最后才坐下来定内容方向。定位+选题做完，由 `/redbeacon-定位` 弹面板让用户调样式并二次确认，确认通过才进入正式运营。
+- `readiness` 的阶段顺序是固定的：**登录（stage3）→ 飞书绑表（stage4）→ 定位（stage5）**。建号后先扫码让账号落地、看到登录成功（用户对空壳账号无感，先给实感），再绑好飞书审核表，最后才坐下来定内容方向。定位+选题做完，由 `/redbeacon-locate` 弹面板让用户调样式并二次确认，确认通过才进入正式运营。
 - **多账号（Pro）开新号**：不带参数的 `readiness` 是「任一账号满足即 ready」的**全局聚合**判断——账号 1 配好后，全局永远 `ready`，**加第 2、3… 个号时它不会提示新号没配**。所以用户说「加个号」就去 `/redbeacon-accounts`，开号后**用 `readiness --account-id {新id}` 逐号驱动** onboarding（登录→绑表→定位→面板），步骤与 1 号一致，只是全局配置（AI/飞书凭证/代理）不再重复。别因为全局 `ready` 就以为新号也好了。
 - 全流程无本地审核、无常驻服务，别向用户承诺"自动定时发布"。

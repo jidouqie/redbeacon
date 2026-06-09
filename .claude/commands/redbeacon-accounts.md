@@ -5,7 +5,7 @@ argument-hint: 无参数=列出账号并问要干啥；也可直接说「加个�
 
 > **【账号 skill】** 小红书账号的 CRUD。**账号不是一条空记录，而是一组会互相影响文案产出的联动数据的载体**——新建账号后不留空壳，**立刻接着扫码登录**（`/redbeacon-login`）让账号落地。建号本身用户几乎无感，先把"扫码登录成功"这个实感给到他。
 >
-> 上一步是配置（`/redbeacon-config`），下一步是**登录**（`/redbeacon-login`）；之后的顺序是 登录 → 飞书绑表（`/redbeacon-feishu`）→ 定位（`/redbeacon-定位`）。代理验证走 `/redbeacon-config` 的 `test-proxy`。
+> 上一步是配置（`/redbeacon-config`），下一步是**登录**（`/redbeacon-login`）；之后的顺序是 登录 → 飞书绑表（`/redbeacon-feishu`）→ 定位（`/redbeacon-locate`）。代理验证走 `/redbeacon-config` 的 `test-proxy`。
 >
 > **遵循主入口的「自动推进原则」**：这些都是必需步骤，建完号直接进登录，别问"要不要登录"。
 
@@ -49,7 +49,7 @@ redbeacon accounts list
 > 给这个号起个备注吗？（比如「副业搞钱手册」「职场干货号」）—— 现在不想起也行，**定位聊完我按它的赛道帮你拟一个**。
 
 - 用户给了名字 → `redbeacon accounts create --name "<用户起的备注>"`
-- 用户说先不起 → `redbeacon accounts create`（备注先留空兜底，定位后自动生成，见 `/redbeacon-定位` 收尾）
+- 用户说先不起 → `redbeacon accounts create`（备注先留空兜底，定位后自动生成，见 `/redbeacon-locate` 收尾）
 
 ```bash
 redbeacon accounts create --name "副业搞钱手册"   # 起了备注
@@ -185,9 +185,9 @@ redbeacon accounts get --account-id {ID}
 | 用户想干的 | 去哪个 skill |
 |---|---|
 | 建号 / 改名 / 改代理 / 删号 | **本 skill** |
-| 给账号定位、生成选题、配排期 | `/redbeacon-定位` |
-| 改定位 / 文案预设 / 图片预设 | `/redbeacon-策略` |
-| 「这期文案/图不行」诊断调参 | `/redbeacon-诊断` |
+| 给账号定位、生成选题、配排期 | `/redbeacon-locate` |
+| 改定位 / 文案预设 / 图片预设 | `/redbeacon-strategy` |
+| 「这期文案/图不行」诊断调参 | `/redbeacon-diagnose` |
 | 扫码登录 / 退出 / 重登 | `/redbeacon-login` |
 | 绑定该账号的飞书多维表格 | `/redbeacon-feishu` |
 | 配 AI / 飞书 / 代理 | `/redbeacon-config` |

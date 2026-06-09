@@ -113,7 +113,7 @@ redbeacon topics stats --account-id {ID}
 
 | 场景 | 关系 |
 |---|---|
-| 刚定位完账号 | 从 `/redbeacon-定位` 过来开第一场规划会 |
+| 刚定位完账号 | 从 `/redbeacon-locate` 过来开第一场规划会 |
 | generate 预警选题低 | `/redbeacon-generate` 会把你引到这儿补，而不是生产途中硬塞 |
 | 生产中库空了 | generate 会临时按"还没覆盖的应用域"拟一篇、**发你确认**再生成兜底；但正经补还是回这儿开会 |
 | 选题跑偏想推倒重来 | 先 `topics delete … --all` 清空，再开一场重铺 |

@@ -95,7 +95,7 @@ redbeacon readiness --account-id {ID}
   > ✓ 登录成功，账号「{nickname}」已落地。接下来把它绑到飞书审核表——以后生成的内容都进这张表给你审核。这就绑表。
 - **用户专门来重登 / 查登录态的**（账号早已配好）→ 按 readiness 给真正缺的下一步：
   - 还没绑飞书表 → **`/redbeacon-feishu`**
-  - 还没定位 → **`/redbeacon-定位`**
+  - 还没定位 → **`/redbeacon-locate`**
   - 全就绪（readiness=ready）→ **`/redbeacon-generate`** 生成内容
 
 ---
@@ -106,7 +106,7 @@ redbeacon readiness --account-id {ID}
 |---|---|
 | 扫码登录 / 查登录态 / 退出 / 重登 | **本 skill** |
 | 建号 / 改名 / 删号 | `/redbeacon-accounts` |
-| 给账号定位、生成选题 | `/redbeacon-定位` |
+| 给账号定位、生成选题 | `/redbeacon-locate` |
 | 绑该账号的飞书多维表格 | `/redbeacon-feishu` |
 | 生成内容 / 发布 | `/redbeacon-generate`、`/redbeacon-publish` |
 

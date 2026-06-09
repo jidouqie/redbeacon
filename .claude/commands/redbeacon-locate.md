@@ -5,11 +5,11 @@ argument-hint: 无参数=从零给账号定位；多账号时说清是哪个（�
 
 > **【定位 skill】** 账号建好后给它"定性"。通过对话把账号方向定下来，写进策略，并生成一批选题灌进选题库——这是账号能产出内容的前提。
 >
-> 上一步是绑飞书表（`/redbeacon-feishu`，账号此时已登录、已绑审核表），**下一步是弹「内容设定」面板让用户调样式并二次确认**（见本 skill 最后一步），通过后账号即进入正式运营。后续想单独改某一项（定位/文案预设/图片预设）走 `/redbeacon-策略`；觉得产出的文案/图不对劲走 `/redbeacon-诊断`。
+> 上一步是绑飞书表（`/redbeacon-feishu`，账号此时已登录、已绑审核表），**下一步是弹「内容设定」面板让用户调样式并二次确认**（见本 skill 最后一步），通过后账号即进入正式运营。后续想单独改某一项（定位/文案预设/图片预设）走 `/redbeacon-strategy`；觉得产出的文案/图不对劲走 `/redbeacon-diagnose`。
 >
 > **遵循主入口「自动推进原则」**：定位本身就是和用户的对话（需要他给赛道/受众/想法），聊定+铺完种子选题后，**直接弹面板进收尾确认**，别问"要不要弹面板"。这是 onboarding 的最后一关。
 >
-> **选题这件事的"家"是 `/redbeacon-选题`**（你出想法 + AI 联网取真痛点 + 应用域网格规划 + 你拍板）。本 skill 第四步只铺一批"快速起步"的种子选题让账号能先跑起来；以后补题 / 想认真规划 / 重铺都走 `/redbeacon-选题`。
+> **选题这件事的"家"是 `/redbeacon-topics`**（你出想法 + AI 联网取真痛点 + 应用域网格规划 + 你拍板）。本 skill 第四步只铺一批"快速起步"的种子选题让账号能先跑起来；以后补题 / 想认真规划 / 重铺都走 `/redbeacon-topics`。
 
 ---
 
@@ -30,7 +30,7 @@ redbeacon strategy get --account-id {ID}
 ```
 
 - 返回 `{}` 或 `data.niche` 为空 → 全新账号，进「第一步」。
-- 已有 `niche` → 告诉用户「检测到已有定位」，展示核心信息（niche / target_audience），问是**重新定位**还是**只改某部分**（只改某部分建议走 `/redbeacon-策略`，不用重跑全程）。**重新定位**时旧选题多半与新方向不符，可在重建前用 `topics delete … --all` 清空旧库（见第四步末「选题维护」）。
+- 已有 `niche` → 告诉用户「检测到已有定位」，展示核心信息（niche / target_audience），问是**重新定位**还是**只改某部分**（只改某部分建议走 `/redbeacon-strategy`，不用重跑全程）。**重新定位**时旧选题多半与新方向不符，可在重建前用 `topics delete … --all` 清空旧库（见第四步末「选题维护」）。
 
 ---
 
@@ -92,7 +92,7 @@ redbeacon strategy patch --account-id {ID} --data '{
 
 > 写入成功后告知：✓ 账号定位已保存。
 >
-> **真正进文案生成的字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words（visual_theme 影响配图）。其余（competitive_advantage / monetization / content_length）作为上下文留存。改这些将来走 `/redbeacon-策略`。
+> **真正进文案生成的字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words（visual_theme 影响配图）。其余（competitive_advantage / monetization / content_length）作为上下文留存。改这些将来走 `/redbeacon-strategy`。
 
 ---
 
@@ -139,7 +139,7 @@ redbeacon strategy image-ref-add --account-id {ID} --file "<用户那张照片�
 
 > **有参考图 = 自动图生图（保脸）；没有 = 文生图。** 参考图已拷进数据目录、路径稳定，不怕原图被移动/删除。
 
-> 视觉风格之后想改：随口说"封面太暗了/字往上挪/换风格"走 `/redbeacon-策略`；或开 `/redbeacon-面板` 看着调 + 试生成对比。
+> 视觉风格之后想改：随口说"封面太暗了/字往上挪/换风格"走 `/redbeacon-strategy`；或开 `/redbeacon-panel` 看着调 + 试生成对比。
 
 ---
 
@@ -317,4 +317,4 @@ redbeacon ui account --account-id {ID}
 - 没有任何自动排期 / 常驻服务，内容生成一律手动 `/redbeacon-generate` 触发，别向用户承诺"定时自动发"。
 - 审核与改稿全在飞书多维表格，本地不存在审核环节，定位 skill 也不涉及审核。
 - 命令失败走 stderr `{"error","next"}`，把 error 给用户看，按 next 自愈，别静默吞。
-- `strategy patch` 是增量合并（只覆盖传入字段），所以单项调整可以只传那一个字段——这正是 `/redbeacon-策略` 的工作方式。
+- `strategy patch` 是增量合并（只覆盖传入字段），所以单项调整可以只传那一个字段——这正是 `/redbeacon-strategy` 的工作方式。

@@ -1,19 +1,19 @@
 {
-  "version": "0.1.15",
-  "notes": "Codex 双宿主支持：新增 AGENTS.md(host无关项目入口+能力路由) + tools/sync-codex-skills.py(从.claude/commands真源派生Codex端) + skill-bridge-map(中文名→ASCII别名:定位locate/策略strategy/诊断diagnose/选题topics/面板panel)；redbeacon update 现在同时刷新 Claude(.claude/commands) 和 Codex(~/.codex/skills/<name>/SKILL.md) 两端，正文交叉引用自动重写消除悬空引用；真源仍唯一(.claude/commands)，Codex端为派生物",
+  "version": "0.1.16",
+  "notes": "skill 名双端统一为英文：5 个中文名 skill 改名(定位→locate/策略→strategy/诊断→diagnose/选题→topics/面板→panel)，Claude+Codex 两端完全同名、不再有中英差异；redbeacon update 新增孤儿清理(自动删改名后残留的旧中文 skill 文件 + Codex 旧文件夹，本地与真源严格一致)；AGENTS.md/bridge-map 同步更新；_CODEX_NAME_MAP 清空(恒等派生)。老用户 update 后旧中文文件自动清掉",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
     "redbeacon-accounts.md",
     "redbeacon-config.md",
+    "redbeacon-diagnose.md",
     "redbeacon-feishu.md",
     "redbeacon-generate.md",
+    "redbeacon-locate.md",
     "redbeacon-login.md",
+    "redbeacon-panel.md",
     "redbeacon-publish.md",
-    "redbeacon-定位.md",
-    "redbeacon-策略.md",
-    "redbeacon-诊断.md",
-    "redbeacon-选题.md",
-    "redbeacon-面板.md"
+    "redbeacon-strategy.md",
+    "redbeacon-topics.md"
   ]
 }
