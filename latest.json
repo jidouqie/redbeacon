@@ -1,6 +1,6 @@
 {
-  "version": "0.1.11",
-  "notes": "生图支持双接口自动择路：chat 多模态(Gemini系)与 Images API(gpt-image/dall-e系)自动切换，三个图模型(gemini-3-pro/3.1-flash-image-preview、gpt-image-2)真机全通；test-image 同步双接口",
+  "version": "0.1.12",
+  "notes": "config 加「网页向导 vs 对话配」配置方式选择(电脑前推荐向导·密钥不经聊天)；视觉风格系统(大字报封面/图生图保脸/参考图存储)；生图统一为能力派发协议(新增模型只加一条注册项)；账号面板全提示词可见可编辑+最终提示词查看；卡片分页中段留白修复；输入框自动增高",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
