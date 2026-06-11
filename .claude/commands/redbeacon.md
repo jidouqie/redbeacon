@@ -97,7 +97,13 @@ redbeacon readiness
 redbeacon status
 ```
 
-`status.accounts[]` 每个账号已带：`display_name`(备注) / `niche`(定位) / `unused_topics`(未用选题数) / `topics_low`(是否<5) / `pending_review`(待审数) / `published`(已发数) / `last_published_title`(最近发布标题) / `login_status`。直接拿这些交底，不用再多跑命令。要看「具体哪几条选题」时才补 `redbeacon topics list --account-id {ID} --used 0 --limit 15`。
+`status.accounts[]` 每个账号已带：`display_name`(备注) / `niche`(定位) / `unused_topics`(未用选题数) / `topics_low`(是否<5) / `pending_review`(待审数，**已是飞书里真能看到的数**) / `unpushed`(生成了但没推进飞书的孤儿数) / `published`(已发数) / `last_published_title`(最近发布标题) / `login_status`。直接拿这些交底，不用再多跑命令。要看「具体哪几条选题」时才补 `redbeacon topics list --account-id {ID} --used 0 --limit 15`。
+
+> 🩹 **孤儿自愈（关键，交底前先做）**：某账号 `unpushed > 0` 表示有内容生成了却没进飞书——**绝不能把它算进「待审」念给用户**（`pending_review` 已经把它剔掉了），否则用户开飞书发现对不上、信任崩。发现 `unpushed > 0` 就**先静默补推**再交底：
+> ```bash
+> redbeacon content feishu-push --account-id {ID}
+> ```
+> 补完重跑 `status` 拿最新数。补推后多半 `unpushed` 归零、这些篇并进飞书可见的待审；要是补推完仍 >0（飞书凭证/网络问题），交底时**如实说一句**「有 {unpushed} 篇没能推上飞书，需要检查飞书配置」，别假装它们在飞书里。
 
 **② 给一个落地的「驾驶舱」交底**（自然语言，**具体到数字和标题**，别空泛、别列命令）：
 

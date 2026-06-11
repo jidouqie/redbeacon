@@ -211,13 +211,11 @@ redbeacon config test-image
 open "https://open.feishu.cn/app"
 ```
 
-**权限 JSON 绝不要让用户从聊天窗里复制**——聊天窗复制会带换行、空格和多余字符，破坏 JSON 格式导致导入失败。skill 改为把权限写到桌面文件 + 复制进剪贴板 + 打开文件，用户直接 Cmd+V：
+**权限 JSON 绝不要让用户从聊天窗里复制**——聊天窗复制会带换行、空格和多余字符，破坏 JSON 格式导致导入失败。**权限清单由 CLI 统一吐出（单一真源 `redbeacon feishu perms`，别在 skill 里手写 JSON）**，写到桌面文件 + 复制进剪贴板 + 打开文件，用户直接 Cmd+V：
 
 ```bash
-cat > ~/Desktop/飞书机器人权限.txt <<'EOF'
-{"tenant":["bitable:app","bitable:app:readonly","base:app:copy","base:app:create","base:app:read","base:app:update","base:collaborator:create","base:collaborator:read","base:field:create","base:field:read","base:record:create","base:record:delete","base:record:read","base:record:retrieve","base:record:update","base:table:create","base:table:read","base:view:read","docs:permission.member:create","docs:permission.member:readonly","docs:permission.member:retrieve","docs:permission.member:transfer","drive:file","drive:file:download","drive:file:readonly","drive:file:upload","contact:user.base:readonly","contact:user.id:readonly","contact:user.employee_id:readonly","im:message","im:message:send_as_bot","im:message:send_multi_users","im:message:readonly","im:resource"],"user":["contact:user.employee_id:readonly"]}
-EOF
-pbcopy < ~/Desktop/飞书机器人权限.txt
+redbeacon feishu perms > ~/Desktop/飞书机器人权限.txt   # 权限 JSON 从 CLI 取，不手写
+pbcopy < ~/Desktop/飞书机器人权限.txt                    # mac：复制进剪贴板（Linux 用 xclip/wl-copy）
 open ~/Desktop/飞书机器人权限.txt
 ```
 
