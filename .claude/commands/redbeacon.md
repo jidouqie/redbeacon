@@ -82,9 +82,11 @@ redbeacon readiness
 
 **顺带看一眼 `update` 字段（升级提示）**：`readiness` 返回里带 `update`。若 `update.update_available == true`，**在带用户去 stage 之前，先用一句话告诉他有新版**，把 `update.notes` 转成人话，并主动提议帮他升级：
 
-> 🔔 RedBeacon 有新版（{latest}）：{notes}。要我现在帮你升级吗？升级很快，不影响你已配置的账号和数据。
+> 🔔 RedBeacon 有新版（{latest}）：{notes}。回个数字：
+> 1. 现在就升（**推荐**，很快，不影响你已配置的账号和数据）
+> 2. 先不升，继续用现在的
 
-用户答应就执行升级（见下「升级」一节）。`update` 为 `null` 或 `update_available=false` 就别提，正常往下走。
+用户回 1 / 答应就执行升级（见下「升级」一节）。`update` 为 `null` 或 `update_available=false` 就别提，正常往下走。
 
 **ready 状态 = 老用户回来了（最容易让人「迷茫、不受控」的地方）**。
 **别只甩一句「你可以…」**——用户第 N 次打开，他要的是「现在什么情况、最该干嘛」的掌控感。先摸现状，再给一个**运营驾驶舱式的交底 + 主动建议**。

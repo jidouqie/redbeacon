@@ -76,7 +76,7 @@ redbeacon login start --account-id {ID}
 | `{"status":"qr_shown","qr_file":"..."}` | **二维码已弹出（一张图片）。请打开小红书 App → 我 → 扫一扫，扫描这张二维码，180 秒内完成。** |
 | `{"logged_in":true,"nickname":"..."}`（最终成功） | ✓ 登录成功，账号「{nickname}」。 |
 | `{"already_logged_in":true}` 或直接 `{"logged_in":true}` | 该账号本来就在线，无需重扫。 |
-| stderr `{"error":"扫码超时或登录失败"}` | 超时/失败了。问用户要不要再来一次（重跑 `login start`）。 |
+| stderr `{"error":"扫码超时或登录失败"}` | 超时/失败了。给编号选项：`1. 再扫一次（重跑 login start，推荐）/ 2. 先算了，待会儿再登`。回 1 就重跑。 |
 
 > 扫码成功后会自动保存 cookie、回写昵称和登录态，登录用的浏览器随即关闭。
 
