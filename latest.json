@@ -1,6 +1,6 @@
 {
-  "version": "0.1.23",
-  "notes": "产品定位升级为「小红书运营数字员工」(README/AGENTS 同步)；强推官方中转站 aihub.jidouqie.com：config 配 AI 时讲清「只对官方站深度适配、其他站不保证正常」，用户填非官方站时主动提醒，test-ai 连不通且非官方站自动推荐换官方站(对话式 + 网页向导双路径，向导加非官方站黄色警告 + 一键换官方站)",
+  "version": "0.1.24",
+  "notes": "选题→文案双路径：新增选题库网页面板(勾选→写成文案→逐篇入飞书，可多选、写完接着写下一批)；写文案先问「网页挑/对话挑」、对话路径支持编号多选；12 处开放式提问全改成编号选项(回个数字+推荐项，新手不再对着空白发懵)；locate 选题改为先编号列给你过眼确认才入库(不再静默灌库)；所有本地网页(配置/看板/选题/账号面板)底部统一加 GitHub 开源 + 官网地址",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
