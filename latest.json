@@ -1,19 +1,21 @@
 {
-  "version": "0.1.25",
-  "notes": "全部本地网页面板统一浅色调(配置向导/运营看板/选题库/账号面板/多账号管理台风格一致);「待审数」修准——生成了却没推进飞书的内容不再被虚报成待审、交底前自动补推,保证念给你的数=飞书里真能看到的(看板/管理台对没推上去的单独标「未推」);选题→文案网页挑题对新手更友好、补推支持按账号(--account-id)、没想法时也能补选题;飞书权限清单收敛为单一来源便于维护",
+  "version": "0.1.42",
+  "notes": "选题修复：skill补题把每条切入角度/要点提纲完整落库(写文案更精准)；发版改阿里云OSS主源",
   "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
   "skill_files": [
     "redbeacon.md",
     "redbeacon-accounts.md",
     "redbeacon-config.md",
     "redbeacon-diagnose.md",
-    "redbeacon-feishu.md",
     "redbeacon-generate.md",
     "redbeacon-locate.md",
     "redbeacon-login.md",
     "redbeacon-panel.md",
+    "redbeacon-plans.md",
     "redbeacon-publish.md",
+    "redbeacon-review.md",
     "redbeacon-strategy.md",
-    "redbeacon-topics.md"
+    "redbeacon-topics.md",
+    "redbeacon-xhslogin.md"
   ]
 }
