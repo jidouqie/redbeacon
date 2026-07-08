@@ -1,6 +1,6 @@
 {
-  "version": "0.1.47",
-  "notes": "补充卸载清理：卸载脚本现在会清理整包更新的 staging 目录和 previous-update 备份，默认仍保留账号、登录和内容数据。",
+  "version": "0.1.48",
+  "notes": "更新能力补齐：客户端设置页新增软件更新入口；AI 助手触发、redbeacon update 命令、客户端按钮三入口共用同一套 updater，一次更新覆盖客户端整包、CLI 兼容通道和 skill。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",
