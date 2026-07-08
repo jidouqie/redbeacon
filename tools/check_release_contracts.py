@@ -74,6 +74,36 @@ def check_installers() -> None:
     require(win_smoke, "RedBeacon desktop smoke ok", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须确认桌面初始化到达 ready 标记")
 
 
+def check_client_startup() -> None:
+    index = read("cli/src/redbeacon/adapters/ui_backend/static/index.html")
+    card = read("cli/src/redbeacon/assets/card.html")
+    cover = read("cli/src/redbeacon/assets/cover.html")
+
+    startup_patterns = {
+        r"fonts\.googleapis\.com": "客户端启动页不能依赖 Google Fonts",
+        r"fonts\.gstatic\.com": "客户端启动页不能预连 Google Fonts 静态域名",
+        r"<script\b[^>]*\bsrc\s*=\s*['\"]https?://": "客户端启动页不能加载远程 JS",
+        r"<link\b[^>]*\bhref\s*=\s*['\"]https?://": "客户端启动页不能加载/预连远程 CSS 或字体",
+        r"@import\s+url\(\s*['\"]?https?://": "客户端启动页不能通过 CSS import 拉远程资源",
+    }
+    for pattern, why in startup_patterns.items():
+        if re.search(pattern, index, flags=re.IGNORECASE):
+            fail(f"cli/src/redbeacon/adapters/ui_backend/static/index.html 违反发布契约：{why}")
+
+    render_patterns = {
+        r"fonts\.googleapis\.com": "渲染模板不能依赖 Google Fonts",
+        r"fonts\.gstatic\.com": "渲染模板不能依赖 Google Fonts 静态域名",
+        r"@import\s+url\(\s*['\"]?https?://": "渲染模板不能通过 CSS import 拉远程资源",
+    }
+    for rel, text in (
+        ("cli/src/redbeacon/assets/card.html", card),
+        ("cli/src/redbeacon/assets/cover.html", cover),
+    ):
+        for pattern, why in render_patterns.items():
+            if re.search(pattern, text, flags=re.IGNORECASE):
+                fail(f"{rel} 违反发布契约：{why}")
+
+
 def _frontmatter_name(text: str) -> str:
     match = re.search(r"(?m)^name:\s*([A-Za-z0-9_.-]+)\s*$", text)
     return match.group(1) if match else ""
@@ -140,8 +170,9 @@ def check_channel_skills() -> None:
 
 def main() -> None:
     check_installers()
+    check_client_startup()
     check_channel_skills()
-    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/skill 隔离都满足")
+    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/skill 隔离/客户端启动资源都满足")
 
 
 if __name__ == "__main__":
