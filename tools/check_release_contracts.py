@@ -111,6 +111,36 @@ def check_client_startup() -> None:
                 fail(f"{rel} 违反发布契约：{why}")
 
 
+def check_github_build_hygiene() -> None:
+    workflow = read("cli/.github/workflows/build-bundle.yml")
+    require(
+        workflow,
+        "concurrency:",
+        "cli/.github/workflows/build-bundle.yml",
+        "桌面打包 workflow 必须启用并发组，连续触发时取消旧运行",
+    )
+    require(
+        workflow,
+        "cancel-in-progress: true",
+        "cli/.github/workflows/build-bundle.yml",
+        "桌面打包 workflow 必须取消旧运行，避免无谓 Actions 额度",
+    )
+    require(
+        workflow,
+        "failing because GitHub artifacts are not retained",
+        "cli/.github/workflows/build-bundle.yml",
+        "缺少 OSS key 时必须失败，不能把 GitHub artifact 当兜底发布源",
+    )
+    forbidden = (
+        "actions/upload-artifact",
+        "Upload GitHub artifact",
+        "GitHub artifact still available",
+    )
+    for needle in forbidden:
+        if needle in workflow:
+            fail(f"cli/.github/workflows/build-bundle.yml 不允许保留 GitHub artifact：{needle}")
+
+
 def _frontmatter_name(text: str) -> str:
     match = re.search(r"(?m)^name:\s*([A-Za-z0-9_.-]+)\s*$", text)
     return match.group(1) if match else ""
@@ -193,8 +223,9 @@ def check_channel_skills() -> None:
 def main() -> None:
     check_installers()
     check_client_startup()
+    check_github_build_hygiene()
     check_channel_skills()
-    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/skill 隔离/skill 单题引导/客户端启动资源都满足")
+    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/GitHub 构建随用随清/skill 隔离/skill 单题引导/客户端启动资源都满足")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - **业务数据默认全在本机**：账号资料、选题、待审稿、归档都在 `~/.redbeacon`；测试版在 `~/.redbeacon_test`。飞书云端源现阶段搁置，不要把“绑飞书表 / 飞书审核”写成当前主流程。
 - **平台只负责身份和 AI 能力**：设备令牌正式版在 `~/.bytestaff`，测试版在 `~/.bytestaff_test`。客户端不保存上游模型 key。
 - **官网旧地址已退役**：对外产品页是 `https://bytestaff.jiomig.com/market/redbeacon`。安装、更新、zip 包、skill、manifest 的下载源都是 OSS：`https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com`。
-- **GitHub 只做构建机**：三端包先由 GitHub Actions 在 Windows/macOS/Linux runner 上打包并上传 OSS；对外发布不走 GitHub Release、GitHub Raw 或服务器下载。
+- **GitHub 只做构建机**：三端包先由 GitHub Actions 在 Windows/macOS/Linux runner 上打包并上传 OSS；对外发布不走 GitHub Release、GitHub Raw 或服务器下载。GitHub 构建产物必须随用随清，不保留 Actions artifacts；连续触发时取消旧运行，避免无谓额度和存储成本。
 
 ## 主流程
 
@@ -49,6 +49,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 发布纪律是硬规则：**永远先发测试版，让用户测；用户明确确认通过后，才允许发正式版。**
 
 - 测试版和正式版的客户端打包必须走同一个 GitHub Actions `Build desktop bundles`、同一个 PyInstaller spec、同一份代码；只能因为 channel 不同导致应用名、命令名、bundle id、数据目录、manifest、OSS 路径、skill 名不同。
+- GitHub Actions 只允许把构建包上传到 OSS，不允许保留 GitHub artifacts 或走 GitHub Release 兜底；没有 OSS key / OSS 上传失败就让 workflow 失败，不能留下临时包继续占私有仓库额度。
 - 如果测试版发布后又改了任何客户端、CLI、skill、安装/更新/卸载、发布脚本相关代码，之前的测试结论作废，必须重新发测试版让用户测，不能直接发正式版。
 - 正式版发布必须是“把用户确认通过的测试版同一套代码切到 stable 通道再打一次包”。绝不允许测试版能跑、正式版因为另一套流程或另一份代码崩掉。
 - 发布前必须通过 `tools/check_release_contracts.py`。其中一条硬约束是：测试版 Codex skill 只能写到 Codex 真正扫描的 `~/.codex/skills/redbeacon-test*/SKILL.md`，不能写到独立根目录；安装、更新、卸载都要保持正式版和测试版 skill 隔离。
