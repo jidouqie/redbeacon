@@ -1,6 +1,6 @@
 {
-  "version": "0.1.51",
-  "notes": "统一所有更新入口：无论从客户端按钮还是命令行触发，都会按全量更新策略处理客户端整包、命令行入口和 AI skill；命令行触发时也会定位已安装客户端并覆盖替换，替换脚本会主动关闭旧客户端进程。",
+  "version": "0.1.52",
+  "notes": "审计并统一更新口径：修正更新文案和 skill 指令，确认所有更新入口按客户端整包、命令行入口和 AI skill 全量处理；旧官网表述改为版本源/产品页口径，客户端更新进度不再回跳。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",

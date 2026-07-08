@@ -183,7 +183,7 @@ redbeacon ui app
 
 ---
 
-## 升级（CLI + skill 一起更新）
+## 升级（客户端 + CLI + skill 全量更新）
 
 用户说「升级 RedBeacon / 更新一下 / 有新版帮我升」，或 `readiness` 报了 `update_available`，就执行：
 
@@ -191,14 +191,15 @@ redbeacon ui app
 redbeacon update
 ```
 
-这一条会**同时**升级两层：闭源 CLI（走私有源 `uv tool upgrade`）+ 开源 skill（从 GitHub 拉最新 markdown 覆盖到本命令目录）。用完按返回讲人话：
+这一条是 RedBeacon 的**唯一全量更新入口**：会按同一套策略处理客户端整包、命令行入口和 AI skill。客户端已安装时，会从 OSS 下载对应平台的 `RedBeacon-<plat>.zip`，拉起外部替换器，关闭旧客户端后整包覆盖；同时刷新 Claude 命令目录，并在本机装了 Codex 时派生刷新 Codex skills；CLI 兼容通道也会一起检查/刷新。用完按返回讲人话：
 
-- `{"ok":true,...}`：升级跑完了。看两块结果——
+- `{"ok":true,...}`：升级跑完了。看三块结果——
   - `was_outdated:false` → 本来就是最新版，没什么可升的，告诉用户「已经是最新版」。
-  - `skill.updated`（刷新了哪些命令）+ `cli.ok`：都成功就说「CLI 和 skill 都更新好了（{current}→{latest}）」。
-  - `cli.skipped:true` 或 `cli.ok:false`：CLI 那层没升成（多半是非标准安装），**skill 仍可能已更新**；把 `cli` 里的 `reason`/`hint` 转人话告诉用户，建议「重跑一次官网的安装命令」兜底，别假装全成了。
+  - `client.scheduled:true` + `client.restart_required:true` → 客户端包已准备好，RedBeacon 会关闭并整包替换；提醒用户替换后重新打开即可。
+  - `client.skipped:true` 且 reason 是已是最新版 → 客户端无需替换；若 reason 是未找到已安装客户端，要说明这次只处理了 CLI 兼容通道和 skill。
+  - `skill.updated`（刷新了哪些命令）+ `cli.ok/cli.skipped`：按返回讲清；`cli.skipped:true` 常见于没有 uv 的自包含客户端，不代表客户端没更新，别误判。
   - `skill.failed` 非空：有命令没拉下来（网络问题），让用户稍后再 `redbeacon update` 一次。
-- `{"ok":false,"error":...}`：多半是拉不到版本清单（网络/官网问题）。如实告诉用户「暂时查不到更新，当前版本能正常用」，别卡着。
+- `{"ok":false,"error":...}`：多半是拉不到版本清单（网络或版本源暂不可用）。如实告诉用户「暂时查不到更新，当前版本能正常用」，别卡着。
 
 > 只想查有没有新版、先不升：`redbeacon update --check`（只比对版本，不动任何文件）。
 > **skill 刷新会覆盖本地命令目录的 redbeacon*.md**——这些是开源文件，正常不该被用户改；若用户手改过会被覆盖，升级前可提醒一句。

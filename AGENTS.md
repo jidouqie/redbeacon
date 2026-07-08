@@ -23,8 +23,8 @@ RedBeacon 是一个**小红书运营数字员工**（产品定位）——用户
 | 用户意图 | skill 名（Claude 斜杠加 `/`，Codex 同名）|
 |---|---|
 | 不确定该干嘛 / 主入口 | `redbeacon` |
-| 配 AI / 飞书 / 代理 | `redbeacon-config` |
-| 建号 / 改名 / 删号 / 多账号解锁 | `redbeacon-accounts` |
+| 登录平台 / 配飞书 / 代理 | `redbeacon-config` |
+| 建号 / 改名 / 删号 / 多账号管理 | `redbeacon-accounts` |
 | 扫码登录小红书 | `redbeacon-login` |
 | 绑账号的飞书多维表 | `redbeacon-feishu` |
 | 账号定位（赛道/受众/差异化/变现）| `redbeacon-locate` |
@@ -51,4 +51,4 @@ RedBeacon 是一个**小红书运营数字员工**（产品定位）——用户
 
 ## 升级（两端一起刷）
 
-`redbeacon update` 会同时：升级 CLI + 刷新 Claude 端 `.claude/commands/` + （若本机装了 Codex）派生刷新 `~/.codex/skills/`。开发态手动同步 Codex 端用 `tools/sync-codex-skills.py`。
+`redbeacon update` 是全量更新入口，会同时处理：客户端整包替换（若本机已安装客户端）+ CLI 兼容通道 + 刷新 Claude 端 `.claude/commands/` + （若本机装了 Codex）派生刷新 `~/.codex/skills/`。开发态手动同步 Codex 端用 `tools/sync-codex-skills.py`。

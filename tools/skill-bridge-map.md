@@ -38,5 +38,5 @@ Codex 端是从真源派生的 bridge：`~/.codex/skills/<name>/SKILL.md`（文�
 
 ## 两端怎么刷新
 
-- **用户机**：`redbeacon update` → 刷 Claude `.claude/commands/` + （装了 Codex 则）派生刷 `~/.codex/skills/`，并清理改名后残留的旧 skill 孤儿。
+- **用户机**：`redbeacon update` → 全量更新 RedBeacon（客户端整包、CLI 兼容通道、Claude `.claude/commands/` + Codex 派生 skill），并清理改名后残留的旧 skill 孤儿。
 - **开发态**：改完真源 markdown 后跑 `python tools/sync-codex-skills.py` 本地重生成 Codex 端。
