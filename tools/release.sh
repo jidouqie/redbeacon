@@ -22,7 +22,8 @@
 # 前置：
 #   1. 改 cli/src/redbeacon/__init__.py 的 __version__（版本单一源）。
 #   2. GitHub Actions 三端客户端包已构建成功并上传 OSS app/ 或 app/test/。
-#      Windows runner 会先做 bundle smoke：解压 zip、跑 --version、初始化桌面端，过了才上传 OSS。
+#      Windows runner 会先做 bundle smoke：解压 zip、跑 --version、初始化桌面端；
+#      Traceback / ModuleNotFoundError / ImportError 必须让 smoke 失败，过了才上传 OSS。
 #   3. 根仓库 Windows installer smoke 已通过（解析 install/uninstall ps1，并用假 OSS 跑安装卸载）。
 #   4. 本机 ossutil 已配好 profile `redbeacon-release`（~/.ossutilconfig，chmod 600）。
 # 用法：

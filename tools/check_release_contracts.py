@@ -45,6 +45,8 @@ def check_installers() -> None:
     unsh = read("install/uninstall.sh")
     unps1 = read("install/uninstall.ps1")
     setup_py = read("cli/src/redbeacon/routers/setup.py")
+    bundle_spec = read("cli/packaging/RedBeacon.spec")
+    win_smoke = read("cli/packaging/smoke_windows_bundle.ps1")
 
     for rel in (
         "install/install.ps1",
@@ -67,6 +69,9 @@ def check_installers() -> None:
     require(unsh, 'redbeacon-test*', "install/uninstall.sh", "测试版卸载只能动 redbeacon-test*")
     require(unps1, 'redbeacon-test*', "install/uninstall.ps1", "测试版卸载只能动 redbeacon-test*")
     require(setup_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/routers/setup.py", "浏览器内核下载必须包含 RedBeacon OSS 兜底源")
+    require(bundle_spec, '"_sqlite3"', "cli/packaging/RedBeacon.spec", "Windows 冻结包必须显式包含 SQLite 扩展")
+    require(win_smoke, "Traceback|ModuleNotFoundError|ImportError", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须捕获桌面初始化异常")
+    require(win_smoke, "RedBeacon desktop smoke ok", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须确认桌面初始化到达 ready 标记")
 
 
 def _frontmatter_name(text: str) -> str:
@@ -136,7 +141,7 @@ def check_channel_skills() -> None:
 def main() -> None:
     check_installers()
     check_channel_skills()
-    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/skill 隔离都满足")
+    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/skill 隔离都满足")
 
 
 if __name__ == "__main__":

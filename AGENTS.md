@@ -42,6 +42,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - 卸载默认保留业务数据；只有设置 `REDBEACON_PURGE=1` 才删除账号数据和平台登录令牌。测试版卸载只清测试版路径，不碰正式版。
 - 安装阶段必须预热 Playwright 浏览器内核（扫码登录、发布、卡片渲染都依赖它）。Windows/macOS/Linux 的内核包不同，由 `redbeacon setup` 按当前系统下载；下载源顺序包含 npmmirror、RedBeacon OSS `playwright/` 兜底和官方 CDN。不要再把内核下载留到用户第一次扫码。
 - Windows `.ps1/.cmd` 安装链路必须 ASCII-only；skill 和 Codex `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
+- Windows bundle smoke 必须捕获桌面初始化里的 `Traceback` / `ModuleNotFoundError` / `ImportError`；如果日志里有隐藏崩溃，即使 workflow 标绿也不准发布。PyInstaller spec 必须显式包含 `_sqlite3`。
 
 ## 发布流程
 

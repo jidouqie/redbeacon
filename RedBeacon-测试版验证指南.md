@@ -16,6 +16,7 @@
 - 测试版 skill 必须安装到 Codex 真正扫描的 `~/.codex/skills/redbeacon-test*/SKILL.md`，不能再放到 `~/.codex/skills-redbeacon-test` 这类独立根目录。发布脚本和 Windows smoke 都会检查这一点。
 - 安装阶段必须完成浏览器内核预热。首次扫码登录不应该再卡在下载 Chromium；如果公共镜像慢，`redbeacon setup` 会尝试 RedBeacon OSS `playwright/` 兜底源。
 - Windows 安装/卸载 PowerShell 脚本必须保持 ASCII-only；skill/Codex 生成物必须是 UTF-8，不能出现 `�`。
+- Windows GitHub smoke 必须确认桌面初始化没有 `Traceback` / `ModuleNotFoundError` / `ImportError`。如果 workflow 绿但日志里有这类崩溃，测试版不能交给用户测，必须先修包再重发。
 
 ## 测试版安装
 
