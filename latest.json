@@ -1,6 +1,6 @@
 {
-  "version": "0.1.52",
-  "notes": "审计并统一更新口径：修正更新文案和 skill 指令，确认所有更新入口按客户端整包、命令行入口和 AI skill 全量处理；旧官网表述改为版本源/产品页口径，客户端更新进度不再回跳。",
+  "version": "0.1.53",
+  "notes": "修复 macOS 启动台图标缓存：Mac 客户端包写入真实版本号，安装、卸载和应用内整包更新都会重注册 LaunchServices 并刷新 Dock/Launchpad 图标缓存。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",

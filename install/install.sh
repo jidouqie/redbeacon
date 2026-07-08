@@ -21,6 +21,20 @@ say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 die()  { printf '\033[31mxx %s\033[0m\n' "$*" >&2; exit 1; }
 
+refresh_macos_app_registration() {
+  app="$1"
+  [ "$OS" = "Darwin" ] || return 0
+  [ -d "$app" ] || return 0
+  touch "$app" "$app/Contents" "$app/Contents/Info.plist" 2>/dev/null || true
+  lsreg="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+  if [ -x "$lsreg" ]; then
+    "$lsreg" -u "$app" >/dev/null 2>&1 || true
+    "$lsreg" -f "$app" >/dev/null 2>&1 || true
+  fi
+  if command -v qlmanage >/dev/null 2>&1; then qlmanage -r cache >/dev/null 2>&1 || true; fi
+  killall Dock >/dev/null 2>&1 || true
+}
+
 # 1) pick the bundle for this OS/arch
 OS="$(uname -s)"; ARCH="$(uname -m)"
 case "$OS" in
@@ -49,6 +63,9 @@ if [ -x "$LOCAL_CLI" ]; then
   CURRENT="$("$LOCAL_CLI" --version 2>/dev/null | awk '{print $NF}' | head -1)"
 fi
 if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "$LATEST" ]; then
+  if [ "$OS" = "Darwin" ]; then
+    refresh_macos_app_registration "$HOME/Applications/RedBeacon.app"
+  fi
   say "RedBeacon $CURRENT is already installed. Skipping bundle download."
   say "To reinstall anyway: curl -fsSL https://bytestaff.jiomig.com/install.sh | REDBEACON_FORCE_INSTALL=1 bash"
   exit 0
@@ -73,6 +90,7 @@ if [ "$OS" = "Darwin" ]; then
   mv "$TMP/x/RedBeacon.app" "$APP"
   xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true   # locally placed -> no Gatekeeper prompt
   ln -sf "$APP/Contents/MacOS/redbeacon-cli" "$BINDIR/redbeacon"
+  refresh_macos_app_registration "$APP"
   OPEN_HINT="Launchpad / Spotlight -> RedBeacon (or ~/Applications/RedBeacon.app)"
 else
   DEST="$HOME/.local/share/redbeacon"

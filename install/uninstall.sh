@@ -18,6 +18,15 @@ warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 
 PURGE="${REDBEACON_PURGE:-}"
 
+refresh_macos_app_registration() {
+  app="$1"
+  [ "$(uname -s 2>/dev/null || true)" = "Darwin" ] || return 0
+  lsreg="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+  if [ -x "$lsreg" ] && [ -d "$app" ]; then "$lsreg" -u "$app" >/dev/null 2>&1 || true; fi
+  if command -v qlmanage >/dev/null 2>&1; then qlmanage -r cache >/dev/null 2>&1 || true; fi
+  killall Dock >/dev/null 2>&1 || true
+}
+
 # 1) stop running app processes if possible
 say "Stopping RedBeacon..."
 pkill -f "RedBeacon" >/dev/null 2>&1 || true
@@ -25,6 +34,7 @@ pkill -f "redbeacon-cli" >/dev/null 2>&1 || true
 
 # 2) bundled app, update leftovers + CLI shim
 say "Removing RedBeacon app and CLI..."
+refresh_macos_app_registration "$HOME/Applications/RedBeacon.app"
 rm -rf "$HOME/Applications/RedBeacon.app" 2>/dev/null || true           # macOS bundle
 rm -rf "$HOME/Applications/RedBeacon.app.previous-update" 2>/dev/null || true
 rm -rf "$HOME/.local/share/redbeacon" 2>/dev/null || true               # Linux bundle
