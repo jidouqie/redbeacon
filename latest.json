@@ -1,6 +1,6 @@
 {
-  "version": "0.1.48",
-  "notes": "更新能力补齐：客户端设置页新增软件更新入口；AI 助手触发、redbeacon update 命令、客户端按钮三入口共用同一套 updater，一次更新覆盖客户端整包、CLI 兼容通道和 skill。",
+  "version": "0.1.49",
+  "notes": "清理客户端旧入口：首页和空账号引导移除旧官网链接与 Claude Code 上手按钮，统一跳转到 bytestaff 市场页；新用户改为复制开张提示词，UI 明确可完整使用。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",
