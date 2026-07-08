@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # RedBeacon uninstaller (Mac/Linux). Run:
-#     curl -fsSL https://bytestaff.jiomig.com/uninstall.sh | bash
+#     curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.sh | bash
 #
 # Removes the software bundle, update leftovers, CLI shim, skills, desktop entry,
 # and browser cache.
@@ -9,13 +9,14 @@
 #     ~/.redbeacon   (accounts / cookies / generated content / local DB)
 #     ~/.bytestaff   (platform login / device token)
 # To also wipe that data, run:
-#     curl -fsSL https://bytestaff.jiomig.com/uninstall.sh | REDBEACON_PURGE=1 bash
+#     curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.sh | REDBEACON_PURGE=1 bash
 # All output is English on purpose (avoids garbled text on some consoles).
 # ------------------------------------------------------------------------------
 set -uo pipefail
 say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 
+OSS="${REDBEACON_OSS:-https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com}"
 PURGE="${REDBEACON_PURGE:-}"
 CHANNEL="${REDBEACON_CHANNEL:-stable}"
 case "$CHANNEL" in test|testing|beta) CHANNEL="test" ;; *) CHANNEL="stable" ;; esac
@@ -28,7 +29,7 @@ if [ "$CHANNEL" = "test" ]; then
   DATA_HOME="$HOME/.redbeacon_test"
   TOKEN_HOME="$HOME/.bytestaff_test"
   SKILL_DIR="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands-redbeacon-test}"
-  CODEX_SKILL_DIR="$HOME/.codex/skills-redbeacon-test"
+  CODEX_SKILL_GLOB="redbeacon-test*"
 else
   APP_NAME="RedBeacon"
   CMD_NAME="redbeacon"
@@ -38,8 +39,9 @@ else
   DATA_HOME="$HOME/.redbeacon"
   TOKEN_HOME="$HOME/.bytestaff"
   SKILL_DIR="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands}"
-  CODEX_SKILL_DIR="$HOME/.codex/skills"
+  CODEX_SKILL_GLOB="redbeacon*"
 fi
+CODEX_SKILL_DIR="$HOME/.codex/skills"
 
 refresh_macos_app_registration() {
   app="$1"
@@ -81,7 +83,13 @@ fi
 # 3) skills (Claude command dir + Codex derived skills)
 say "Removing skills..."
 rm -f  "$SKILL_DIR"/redbeacon*.md 2>/dev/null || true
-rm -rf "$CODEX_SKILL_DIR"/redbeacon* 2>/dev/null || true
+if [ -d "$CODEX_SKILL_DIR" ]; then
+  if [ "$CHANNEL" = "test" ]; then
+    find "$CODEX_SKILL_DIR" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" -exec rm -rf {} + 2>/dev/null || true
+  else
+    find "$CODEX_SKILL_DIR" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" ! -name 'redbeacon-test*' -exec rm -rf {} + 2>/dev/null || true
+  fi
+fi
 
 # 4) desktop entry
 say "Removing desktop entry..."
@@ -99,7 +107,7 @@ if [ -n "$PURGE" ]; then
   rm -rf "$TOKEN_HOME" 2>/dev/null || true
 else
   warn "Kept your data: $DATA_HOME (accounts/content) + $TOKEN_HOME (login)."
-  warn "To wipe it too: curl -fsSL https://bytestaff.jiomig.com/uninstall.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_PURGE=1 bash"
+  warn "To wipe it too: curl -fsSL $OSS/uninstall.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_PURGE=1 bash"
 fi
 
 say "$APP_NAME uninstalled."

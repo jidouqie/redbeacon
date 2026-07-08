@@ -3,6 +3,7 @@ name: Windows installer smoke
 # Catches low-level PowerShell problems before a release:
 # - ps1 parser errors / bad quoting / accidental non-ASCII console issues
 # - install.ps1 path mistakes for stable and test channels
+# - Codex skill visibility: test must create ~/.codex/skills/redbeacon-test*/SKILL.md
 # - uninstall.ps1 deleting the wrong channel
 #
 # This uses a local fake OSS server and tiny fake bundles. The real desktop
@@ -75,12 +76,16 @@ jobs:
               $appPrefix = "app/test"
               $manifestName = "latest-test.json"
               $skillPrefix = "skill-test"
+              $skillFile = "redbeacon-test.md"
+              $skillCommand = "redbeacon-test"
             } else {
               $appName = "RedBeacon"
               $cliName = "redbeacon-cli"
               $appPrefix = "app"
               $manifestName = "latest.json"
               $skillPrefix = "skill"
+              $skillFile = "redbeacon.md"
+              $skillCommand = "redbeacon"
             }
 
             $pkgRoot = Join-Path $build "pkg-$Channel"
@@ -102,7 +107,7 @@ jobs:
               version = "9.9.9"
               notes = "installer smoke"
               skill_raw_base = "http://127.0.0.1:8765/$skillPrefix/commands"
-              skill_files = @("redbeacon.md")
+              skill_files = @($skillFile)
               app_sha256 = @{ "win-x64" = $sha }
             } | ConvertTo-Json -Depth 5
             Set-Content -Encoding UTF8 -Path (Join-Path $fake $manifestName) -Value $manifest
@@ -110,10 +115,79 @@ jobs:
             $skillRoot = Join-Path $build "skill-$Channel"
             $commands = Join-Path $skillRoot ".claude\commands"
             New-Item -ItemType Directory -Force -Path $commands | Out-Null
-            Set-Content -Encoding UTF8 -Path (Join-Path $commands "redbeacon.md") -Value "---`ndescription: smoke`n---`n# smoke"
+            Set-Content -Encoding UTF8 -Path (Join-Path $commands $skillFile) -Value "---`ndescription: smoke $Channel`n---`n# smoke`n$skillCommand checkin"
             $skillDir = Join-Path $fake $skillPrefix
             New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
             tar -czf (Join-Path $skillDir "redbeacon-skill.tar.gz") -C $skillRoot .
+          }
+
+          function ChannelSpec($Channel){
+            if($Channel -eq "test"){
+              return @{
+                AppName = "RedBeacon_test"
+                CmdName = "redbeacon-test"
+                SkillFile = "redbeacon-test.md"
+                SkillBase = "redbeacon-test"
+                SkillDir = Join-Path $env:RUNNER_TEMP "skills-test"
+              }
+            }
+            return @{
+              AppName = "RedBeacon"
+              CmdName = "redbeacon"
+              SkillFile = "redbeacon.md"
+              SkillBase = "redbeacon"
+              SkillDir = Join-Path $env:RUNNER_TEMP "skills-stable"
+            }
+          }
+
+          function Assert-Installed($Channel){
+            $spec = ChannelSpec $Channel
+            $dest = Join-Path $env:LOCALAPPDATA "Programs\$($spec.AppName)"
+            $shim = Join-Path $HOME ".local\bin\$($spec.CmdName).cmd"
+            $claudeSkill = Join-Path $spec.SkillDir $spec.SkillFile
+            $codexSkill = Join-Path $HOME ".codex\skills\$($spec.SkillBase)\SKILL.md"
+            if(-not (Test-Path $dest)){ throw "$Channel install did not create $dest" }
+            if(-not (Test-Path $shim)){ throw "$Channel install did not create $shim" }
+            if(-not (Test-Path $claudeSkill)){ throw "$Channel install did not copy Claude-style skill $claudeSkill" }
+            if(-not (Test-Path $codexSkill)){ throw "$Channel install did not create Codex skill $codexSkill" }
+            $codexText = Get-Content -Raw -Encoding UTF8 -Path $codexSkill
+            if($codexText -notmatch "(?m)^name:\s*$([regex]::Escape($spec.SkillBase))\s*$"){
+              throw "$Channel Codex skill frontmatter name is not $($spec.SkillBase)"
+            }
+            if($Channel -eq "test" -and $codexText -notmatch "redbeacon-test"){
+              throw "test Codex skill does not point at redbeacon-test"
+            }
+          }
+
+          function Assert-Uninstalled($Channel){
+            $spec = ChannelSpec $Channel
+            $dest = Join-Path $env:LOCALAPPDATA "Programs\$($spec.AppName)"
+            $shim = Join-Path $HOME ".local\bin\$($spec.CmdName).cmd"
+            $claudeSkill = Join-Path $spec.SkillDir $spec.SkillFile
+            $codexSkill = Join-Path $HOME ".codex\skills\$($spec.SkillBase)\SKILL.md"
+            if(Test-Path $dest){ throw "$Channel uninstall did not remove $dest" }
+            if(Test-Path $shim){ throw "$Channel uninstall did not remove $shim" }
+            if(Test-Path $claudeSkill){ throw "$Channel uninstall did not remove Claude-style skill $claudeSkill" }
+            if(Test-Path $codexSkill){ throw "$Channel uninstall did not remove Codex skill $codexSkill" }
+          }
+
+          function Install-Channel($Channel){
+            $spec = ChannelSpec $Channel
+            $env:REDBEACON_OSS = "http://127.0.0.1:8765"
+            $env:REDBEACON_CHANNEL = $Channel
+            $env:REDBEACON_FORCE_INSTALL = "1"
+            $env:REDBEACON_SKILL_DIR = $spec.SkillDir
+            & ./install/install.ps1
+            Remove-Item Env:\REDBEACON_FORCE_INSTALL -ErrorAction SilentlyContinue
+            Assert-Installed $Channel
+          }
+
+          function Uninstall-Channel($Channel){
+            $spec = ChannelSpec $Channel
+            $env:REDBEACON_CHANNEL = $Channel
+            $env:REDBEACON_SKILL_DIR = $spec.SkillDir
+            & ./install/uninstall.ps1
+            Assert-Uninstalled $Channel
           }
 
           New-FakeChannel "stable"
@@ -133,34 +207,19 @@ jobs:
             }
             if(-not $ready){ throw "fake OSS server did not start" }
 
-            foreach($channel in @("stable", "test")){
-              if($channel -eq "test"){
-                $appName = "RedBeacon_test"
-                $cmdName = "redbeacon-test"
-                $skillDir = Join-Path $env:RUNNER_TEMP "skills-test"
-              } else {
-                $appName = "RedBeacon"
-                $cmdName = "redbeacon"
-                $skillDir = Join-Path $env:RUNNER_TEMP "skills-stable"
-              }
+            Remove-Item -Recurse -Force (Join-Path $HOME ".codex\skills\redbeacon") -ErrorAction SilentlyContinue
+            Remove-Item -Recurse -Force (Join-Path $HOME ".codex\skills\redbeacon-test") -ErrorAction SilentlyContinue
 
-              $env:REDBEACON_OSS = "http://127.0.0.1:8765"
-              $env:REDBEACON_CHANNEL = $channel
-              $env:REDBEACON_FORCE_INSTALL = "1"
-              $env:REDBEACON_SKILL_DIR = $skillDir
-              & ./install/install.ps1
+            Install-Channel "stable"
+            Install-Channel "test"
 
-              $dest = Join-Path $env:LOCALAPPDATA "Programs\$appName"
-              $shim = Join-Path $HOME ".local\bin\$cmdName.cmd"
-              if(-not (Test-Path $dest)){ throw "$channel install did not create $dest" }
-              if(-not (Test-Path $shim)){ throw "$channel install did not create $shim" }
-              if(-not (Test-Path (Join-Path $skillDir "redbeacon.md"))){ throw "$channel install did not copy skill" }
-
-              Remove-Item Env:\REDBEACON_FORCE_INSTALL -ErrorAction SilentlyContinue
-              & ./install/uninstall.ps1
-              if(Test-Path $dest){ throw "$channel uninstall did not remove $dest" }
-              if(Test-Path $shim){ throw "$channel uninstall did not remove $shim" }
-            }
+            # Stable and test must coexist. Removing one channel must not remove
+            # the other channel's Codex skill.
+            Assert-Installed "stable"
+            Assert-Installed "test"
+            Uninstall-Channel "test"
+            Assert-Installed "stable"
+            Uninstall-Channel "stable"
           }
           finally {
             if($server -and -not $server.HasExited){ Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # RedBeacon installer (Mac/Linux). Run:
-#     curl -fsSL https://bytestaff.jiomig.com/install.sh | bash
+#     curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash
 #
 # Installs a SELF-CONTAINED bundle (Python + all deps + Playwright driver already
 # inside). No uv / no pip / no compiling -- just download + unzip + place.
@@ -59,6 +59,40 @@ PY
     return 0
   fi
   return 1
+}
+
+yaml_quote() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+install_codex_skills() {
+  src="$1"
+  [ -n "$src" ] && [ -d "$src" ] || return 0
+  codex_dir="$HOME/.codex/skills"
+  mkdir -p "$codex_dir" 2>/dev/null || return 0
+  for f in "$src"/redbeacon*.md; do
+    [ -f "$f" ] || continue
+    stem="$(basename "$f" .md)"
+    folder="$codex_dir/$stem"
+    mkdir -p "$folder" 2>/dev/null || continue
+    desc="$(sed -n 's/^[[:space:]]*description:[[:space:]]*//p' "$f" | head -1)"
+    desc="${desc#\"}"; desc="${desc%\"}"; desc="${desc#\'}"; desc="${desc%\'}"
+    [ -n "$desc" ] || desc="RedBeacon ability: $stem"
+    qdesc="$(yaml_quote "$desc")"
+    {
+      printf '%s\n' "---"
+      printf 'name: %s\n' "$stem"
+      printf 'description: "%s"\n' "$qdesc"
+      printf '%s\n' "metadata:"
+      printf '  short-description: "%s"\n' "$qdesc"
+      printf '%s\n\n' "---"
+      awk '
+        NR==1 && $0=="---" { front=1; next }
+        front && $0=="---" { front=0; next }
+        !front { print }
+      ' "$f"
+    } > "$folder/SKILL.md"
+  done
 }
 
 refresh_macos_app_registration() {
@@ -172,6 +206,7 @@ if [ -n "$skok" ]; then
   SRC="$(find "$TMP" -type d -path '*/.claude/commands' | head -1)"
   mkdir -p "$SKILL_DEST"
   [ -n "$SRC" ] && cp -f "$SRC"/*.md "$SKILL_DEST"/ 2>/dev/null || true
+  install_codex_skills "$SRC"
   "$BINDIR/$CMD_NAME" config set skill_install_dir "$SKILL_DEST" >/dev/null 2>&1 || true
 else
   warn "  skills not fetched this time (UI/app unaffected); re-run this command later to add them."

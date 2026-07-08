@@ -2,6 +2,8 @@
 # RedBeacon 发布阶段脚本（对外分发源 = 阿里云 OSS bytestaff-redbeacon 桶，上海，公共读）。
 #
 # 固定流程：
+#   0. 永远先发 test 给用户测。用户明确确认通过前，不允许发 stable。
+#      如果 test 发布后改过客户端/CLI/skill/安装更新卸载/发布脚本，必须重发 test。
 #   1. 先在 cli/ 子仓库改版本、提交并推到 ci/bundle（或手动触发 GitHub Actions
 #      "Build desktop bundles"）。GitHub Actions 只作为三端构建机，打 PyInstaller 客户端包：
 #      stable: app/RedBeacon-win-x64.zip、app/RedBeacon-mac-arm64.zip、app/RedBeacon-linux-x64.zip
@@ -14,6 +16,8 @@
 #
 # 注意：GitHub 不是发布源，不用 GitHub Release；GitHub Actions 只是构建和上传 OSS 的工具。
 # skill 也发布到 OSS（tarball 给装机、散装 md 给升级），不走 GitHub raw。
+# stable 和 test 的客户端打包流程必须完全一致：同一个 workflow、同一个 PyInstaller spec、
+# 同一份代码；只允许 channel 改应用名/命令名/bundle id/数据目录/manifest/OSS 路径/skill 名。
 #
 # 前置：
 #   1. 改 cli/src/redbeacon/__init__.py 的 __version__（版本单一源）。
@@ -22,8 +26,8 @@
 #   3. 根仓库 Windows installer smoke 已通过（解析 install/uninstall ps1，并用假 OSS 跑安装卸载）。
 #   4. 本机 ossutil 已配好 profile `redbeacon-release`（~/.ossutilconfig，chmod 600）。
 # 用法：
-#   tools/release.sh "本次更新说明（人话，给用户看）"
 #   tools/release.sh --channel test "测试版更新说明"
+#   REDBEACON_STABLE_APPROVED=1 tools/release.sh "正式版更新说明（仅用户确认测试版通过后）"
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 
@@ -42,6 +46,12 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$CHANNEL" in test|testing|beta) CHANNEL="test" ;; stable|"") CHANNEL="stable" ;; *) echo "xx channel 只能是 stable/test"; exit 1 ;; esac
+if [ "$CHANNEL" = "stable" ] && [ "${REDBEACON_STABLE_APPROVED:-}" != "1" ]; then
+  echo "xx 正式版发布被保护：必须先发布测试版并由用户确认测试通过。"
+  echo "   如果测试版发布后改过客户端/CLI/skill/安装更新卸载/发布脚本，请先重新发布测试版。"
+  echo "   用户确认通过后再运行：REDBEACON_STABLE_APPROVED=1 tools/release.sh \"正式版更新说明\""
+  exit 1
+fi
 
 OU="${OSSUTIL:-$HOME/.local/bin/ossutil}"
 PROFILE="${OSS_PROFILE:-redbeacon-release}"
@@ -59,6 +69,11 @@ else
   MANIFEST_NAME="latest.json"
   SKILL_PREFIX="skill"
 fi
+
+# -1) 发布契约检查：防止安装/更新/卸载/skill 通道再次出现“测试版装了但
+#     Codex 扫不到 redbeacon-test skill”这类流程漂移。这个检查只读本地文件，
+#     失败时不上传任何内容到 OSS。
+python3 tools/check_release_contracts.py
 
 command -v "$OU" >/dev/null 2>&1 || { echo "xx 未找到 ossutil（$OU）；装它并配好 profile $PROFILE 后重试"; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "xx 未找到 curl；需要用它检查 OSS 客户端包"; exit 1; }

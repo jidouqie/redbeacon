@@ -1,54 +1,68 @@
-# RedBeacon · Agent 工作台说明（host 无关）
+# RedBeacon · Codex 工作台说明
 
-RedBeacon 是一个**小红书运营数字员工**（产品定位）——用户像带下属一样用大白话指挥，它把选题/文案/配图/审核/发布全包。本文件是给**任何 AI agent（Claude Code / Codex 等）**的项目级入口说明；具体每个能力的详细步骤在对应 skill 里。
+RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skill 共同操作同一套本地业务数据。以后维护本项目，优先按本文件判断；如果旧文档和本文件冲突，以本文件、`tools/release.sh`、安装脚本和 CLI updater 代码为准。
 
-## 架构（一句话）
+## 当前事实
 
-- **真引擎是 `redbeacon` CLI**（harness 无关的命令行工具，闭源、装在本机）。所有实际动作——建号 / 扫码登录 / 绑飞书表 / 生成文案配图 / 发布——都是调 `redbeacon` 子命令完成。
-- **能力以 skill 形式提供**，正文都是「人话指令 + 调 `redbeacon` CLI」。同一套正文在两端共用：
-  - Claude Code：`.claude/commands/redbeacon*.md`（斜杠命令，如 `/redbeacon`）— **真源**
-  - Codex：`~/.codex/skills/redbeacon*/SKILL.md`（文件夹式，从真源派生的 bridge）
-- 真源始终是 `.claude/commands/` 的 markdown；Codex 端是生成物，不在 bridge 里维护长逻辑。
+- **当前主路径是本机客户端**：UI 是主入口，CLI 和 skill 是给 AI 助手调用的能力入口。用户即便没有 AI 助手，也应该能直接打开客户端完成主要流程。
+- **业务数据默认全在本机**：账号资料、选题、待审稿、归档都在 `~/.redbeacon`；测试版在 `~/.redbeacon_test`。飞书云端源现阶段搁置，不要把“绑飞书表 / 飞书审核”写成当前主流程。
+- **平台只负责身份和 AI 能力**：设备令牌正式版在 `~/.bytestaff`，测试版在 `~/.bytestaff_test`。客户端不保存上游模型 key。
+- **官网旧地址已退役**：对外产品页是 `https://bytestaff.jiomig.com/market/redbeacon`。安装、更新、zip 包、skill、manifest 的下载源都是 OSS：`https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com`。
+- **GitHub 只做构建机**：三端包先由 GitHub Actions 在 Windows/macOS/Linux runner 上打包并上传 OSS；对外发布不走 GitHub Release、GitHub Raw 或服务器下载。
 
-## 整条运作链路
+## 主流程
 
-**配置 → 建账号 → 登录小红书 → 飞书绑表 → 定位+选题 →（面板调样式·二次确认）→ 生成 →（飞书审核改稿）→ 发布**
+当前用户链路是：
 
-- 审核与改稿 **100% 在飞书多维表格**，本地无审核。
-- 生成与发布都是**手动命令触发**，无后台常驻服务 / 无定时自动发布。
-- 进度判定用 `redbeacon readiness`（多账号逐个开号用 `readiness --account-id N`）。
+**安装 / 更新 -> 平台登录 -> 建账号 -> 小红书扫码登录 -> 定位 / 选题 -> 生成 -> 本机审核 -> 发布**
 
-## 能力 → skill 路由（两端 skill 名已统一，全英文）
+- 审核改稿在客户端操作台或对话命令里完成，不依赖飞书。
+- 生成和发布是用户主动触发的前台动作；不要承诺后台常驻服务。
+- 小红书原生定时字段如果存在，是提交给小红书侧，不是 RedBeacon 自己常驻调度。
 
-| 用户意图 | skill 名（Claude 斜杠加 `/`，Codex 同名）|
-|---|---|
-| 不确定该干嘛 / 主入口 | `redbeacon` |
-| 登录平台 / 配飞书 / 代理 | `redbeacon-config` |
-| 建号 / 改名 / 删号 / 多账号管理 | `redbeacon-accounts` |
-| 扫码登录小红书 | `redbeacon-login` |
-| 绑账号的飞书多维表 | `redbeacon-feishu` |
-| 账号定位（赛道/受众/差异化/变现）| `redbeacon-locate` |
-| 补题 / 重铺 / 选题规划 | `redbeacon-topics` |
-| 单点改定位 / 文案预设 / 图片预设 | `redbeacon-strategy` |
-| 弹网页面板审阅·微调·试生成 | `redbeacon-panel` |
-| 「文案/图不对劲」诊断调参 | `redbeacon-diagnose` |
-| 生成内容 | `redbeacon-generate` |
-| 发布已通过内容 | `redbeacon-publish` |
+## 架构原则
 
-> **两端 skill 名完全一致、全英文**（Claude Code 用 `/redbeacon-locate` 这样的斜杠命令，Codex 用同名 skill）。不再有中英差异。完整对照见 `tools/skill-bridge-map.md`。
+- **一份业务核心**：核心业务逻辑应收口到 `cli/src/redbeacon/core/usecases/`、`core/ports.py` 和对应 `infra/` 实现。CLI、UI 后端、skill 都只是薄入口。
+- **UI 不寄生 CLI**：UI 后端不能靠拼 CLI 命令、爬 CLI 文本来完成业务；它应和 CLI 一样调用同一套 usecase。
+- **预设集中**：用户可调的默认模板、提示词骨架、视觉/文案预设，优先集中在 `core/presets.py` 或明确的资源文件里，避免多处手写第二份。
+- **发布源单一**：不要把安装包、skill 或版本清单重新指回旧官网、GitHub Raw、仓内 `pip/`，或任何非 OSS 的对外下载源。
 
-## 给 agent 的硬规则
+## Skill 与通道
 
-- **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；新用户你来引导，熟了就让他自然语言直说。
-  - **全程人话**：给用户的回复不出现 skill 名 / 斜杠命令 / `redbeacon xxx`（那是你后台执行的）；除非用户主动要命令，否则别提、别列。
-  - **给选择必须编号 + 换行排版**，让用户回一个数字就行（`1. … / 2. … / 3. …`，末尾补「回数字就行，也可以直接说」）。能给选项就别让用户打字，能一个数字就别让他写句子。
-  - 该替用户想的下一步先想好、给推荐（标「推荐」）；用户熟了直接自然语言提要求就照做，别硬塞编号流程。
-- **自动推进**：onboarding 链路每步都是必需的，默认一路推进到 ready，别在阶段间反复问「要不要继续」。只在「需用户给信息 / 扫码 / 真正的分支或不可逆动作」时停。
-- **顺序固定**：登录 → 飞书绑表 → 定位（先扫码让账号落地，再绑审核表，最后定方向）。
-- **多账号**：全局 `readiness` 是「任一账号满足即 ready」的聚合判断；开第 2+ 个号用 `readiness --account-id N` 逐号驱动，别因全局 ready 以为新号也配好了。
-- **别承诺**：本地审核、定时自动发布、常驻后台服务——都没有，别向用户许诺。
-- 命令成功走 stdout JSON、失败走 stderr `{"error","next"}`；把 error 讲人话给用户，按 next 自愈。
+- `.claude/commands/redbeacon*.md` 只是历史命名下的 **stable skill 真源目录**，不代表项目必须继续用 Claude Code 维护。
+- Codex skill 由真源派生；测试版 skill 由 `tools/build_channel_skills.py --channel test` 生成，文件名是 `redbeacon-test*.md`，正文调用 `redbeacon-test`。
+- 正式版和测试版必须隔离：
+  - 正式版：`RedBeacon`、`redbeacon`、`~/.redbeacon`、`~/.bytestaff`、`latest.json`、`skill/`
+  - 测试版：`RedBeacon_test`、`redbeacon-test`、`~/.redbeacon_test`、`~/.bytestaff_test`、`latest-test.json`、`skill-test/`
 
-## 升级（两端一起刷）
+## 更新与卸载
 
-`redbeacon update` 是全量更新入口，会同时处理：客户端整包替换（若本机已安装客户端）+ CLI 兼容通道 + 刷新 Claude 端 `.claude/commands/` + （若本机装了 Codex）派生刷新 `~/.codex/skills/`。开发态手动同步 Codex 端用 `tools/sync-codex-skills.py`。
+- 所有更新入口都应是**全量更新**：客户端设置页、`redbeacon update`、AI 助手触发升级，都下载当前通道的整包 zip 并替换客户端，同时刷新 CLI 兼容通道和 skill。
+- 重复执行安装脚本时，只先拉很小的 manifest 判断版本；本地已是最新则跳过大包下载，避免浪费 OSS 流量。要强制重装并重新拉 skill，用 `REDBEACON_FORCE_INSTALL=1`。
+- 卸载默认保留业务数据；只有设置 `REDBEACON_PURGE=1` 才删除账号数据和平台登录令牌。测试版卸载只清测试版路径，不碰正式版。
+
+## 发布流程
+
+发布纪律是硬规则：**永远先发测试版，让用户测；用户明确确认通过后，才允许发正式版。**
+
+- 测试版和正式版的客户端打包必须走同一个 GitHub Actions `Build desktop bundles`、同一个 PyInstaller spec、同一份代码；只能因为 channel 不同导致应用名、命令名、bundle id、数据目录、manifest、OSS 路径、skill 名不同。
+- 如果测试版发布后又改了任何客户端、CLI、skill、安装/更新/卸载、发布脚本相关代码，之前的测试结论作废，必须重新发测试版让用户测，不能直接发正式版。
+- 正式版发布必须是“把用户确认通过的测试版同一套代码切到 stable 通道再打一次包”。绝不允许测试版能跑、正式版因为另一套流程或另一份代码崩掉。
+- 发布前必须通过 `tools/check_release_contracts.py`。其中一条硬约束是：测试版 Codex skill 只能写到 Codex 真正扫描的 `~/.codex/skills/redbeacon-test*/SKILL.md`，不能写到独立根目录；安装、更新、卸载都要保持正式版和测试版 skill 隔离。
+
+固定步骤：
+
+1. 在 `cli/` 子仓库改版本并完成本地/CI 自检。
+2. 先触发 GitHub Actions `Build desktop bundles`，`channel=test`，让三端 runner 构建测试版 PyInstaller 包并上传 OSS `app/test/`。
+3. 在根仓库运行 `tools/release.sh --channel test "测试版更新说明"`，发布脚本会先跑发布契约检查，再发布 `latest-test.json`、测试版安装/卸载入口和测试版 skill。
+4. 把测试版链接交给用户测试；等待用户明确说“测试通过 / 可以发正式版”。
+5. 用户确认后，不改代码，触发同一个 GitHub Actions，`channel=stable`，从同一套代码构建正式版包并上传 OSS `app/`。
+6. 运行 `REDBEACON_STABLE_APPROVED=1 tools/release.sh "正式版更新说明"`，发布 `latest.json`、正式版安装/卸载入口和正式版 skill。
+7. 验证正式版 manifest、三端 zip、安装脚本、skill 都来自 OSS。测试方法见 `RedBeacon-测试版验证指南.md`。
+
+## 给 agent 的工作规则
+
+- 面向终端用户时用人话，不主动暴露 skill 名、内部命令名和实现细节；用户主动要命令时再给。
+- 给选择时用编号，推荐项标清楚，让用户能回一个数字。
+- onboarding 可自动推进，只有需要扫码、用户提供信息、真正分支或不可逆动作时再停。
+- 遇到旧文档提到飞书主链路、旧官网、GitHub 发布源、Cloud Code/Claude Code 作为唯一维护方式时，按历史资料处理，不要照搬到当前实现。

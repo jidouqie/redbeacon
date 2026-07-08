@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # RedBeacon uninstaller (Windows). Run in PowerShell:
-#     irm https://bytestaff.jiomig.com/uninstall.ps1 | iex
+#     irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.ps1 | iex
 #
 # Removes the software bundle, update leftovers, CLI shim, shortcuts, skills,
 # and browser cache.
@@ -8,13 +8,14 @@
 #     ~/.redbeacon   (accounts / cookies / generated content / local DB)
 #     ~/.bytestaff   (platform login / device token)
 # To also wipe that data, run:
-#     $env:REDBEACON_PURGE=1; irm https://bytestaff.jiomig.com/uninstall.ps1 | iex
+#     $env:REDBEACON_PURGE=1; irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.ps1 | iex
 # All output is ASCII-only on purpose (avoids garbled text / iex decode issues).
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Continue"
 function Say($m){ Write-Host "==> $m" -ForegroundColor Cyan }
 function Warn($m){ Write-Host "!! $m" -ForegroundColor Yellow }
 
+$OSS = if($env:REDBEACON_OSS){ $env:REDBEACON_OSS } else { "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com" }
 $Purge = $env:REDBEACON_PURGE
 $Channel = if($env:REDBEACON_CHANNEL){ $env:REDBEACON_CHANNEL.ToLowerInvariant() } else { "stable" }
 if(@("test", "testing", "beta") -contains $Channel){ $Channel = "test" } else { $Channel = "stable" }
@@ -25,7 +26,7 @@ if($Channel -eq "test"){
   $DataHome = "$HOME\.redbeacon_test"
   $TokenHome = "$HOME\.bytestaff_test"
   $DefaultSkillDest = "$HOME\.claude\commands-redbeacon-test"
-  $CodexSkillDir = "$HOME\.codex\skills-redbeacon-test"
+  $CodexSkillGlob = "redbeacon-test*"
 } else {
   $AppName = "RedBeacon"
   $CmdName = "redbeacon"
@@ -33,8 +34,9 @@ if($Channel -eq "test"){
   $DataHome = "$HOME\.redbeacon"
   $TokenHome = "$HOME\.bytestaff"
   $DefaultSkillDest = "$HOME\.claude\commands"
-  $CodexSkillDir = "$HOME\.codex\skills"
+  $CodexSkillGlob = "redbeacon*"
 }
+$CodexSkillDir = "$HOME\.codex\skills"
 $Dest = "$env:LOCALAPPDATA\Programs\$AppName"
 $BinDir = "$HOME\.local\bin"
 $SkillDest = if($env:REDBEACON_SKILL_DIR){ $env:REDBEACON_SKILL_DIR } else { $DefaultSkillDest }
@@ -78,7 +80,11 @@ foreach($d in $shortcutDirs){
 
 Say "Removing skills..."
 Remove-Item -Force (Join-Path $SkillDest "redbeacon*.md") -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force "$CodexSkillDir\redbeacon*" -ErrorAction SilentlyContinue
+if(Test-Path $CodexSkillDir){
+  Get-ChildItem -Path $CodexSkillDir -Directory -Filter $CodexSkillGlob -ErrorAction SilentlyContinue |
+    Where-Object { $Channel -eq "test" -or $_.Name -notlike "redbeacon-test*" } |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 Say "Removing browser engine cache..."
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright" -ErrorAction SilentlyContinue
@@ -89,7 +95,7 @@ if($Purge){
   Remove-Item -Recurse -Force $TokenHome -ErrorAction SilentlyContinue
 } else {
   Warn "Kept your data: $DataHome (accounts/content) + $TokenHome (login)."
-  Warn "To wipe it too: `$env:REDBEACON_CHANNEL='$Channel'; `$env:REDBEACON_PURGE=1; irm https://bytestaff.jiomig.com/uninstall.ps1 | iex"
+  Warn "To wipe it too: `$env:REDBEACON_CHANNEL='$Channel'; `$env:REDBEACON_PURGE=1; irm $OSS/uninstall.ps1 | iex"
 }
 
 Say "$AppName uninstalled."

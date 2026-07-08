@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # RedBeacon installer (Windows). Run in PowerShell:
-#     irm https://bytestaff.jiomig.com/install.ps1 | iex
+#     irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex
 #
 # Installs a SELF-CONTAINED bundle (Python + all deps + Playwright driver already
 # inside). No uv / no pip / no compiling -- just download + unzip + place.
@@ -12,6 +12,29 @@ $ErrorActionPreference = "Stop"
 function Say($m){ Write-Host "==> $m" -ForegroundColor Cyan }
 function Warn($m){ Write-Host "!! $m" -ForegroundColor Yellow }
 function Die($m){ Write-Host "xx $m" -ForegroundColor Red; exit 1 }
+function Write-CodexSkills($SrcDir){
+  if(-not $SrcDir){ return }
+  $codexDir = Join-Path $HOME ".codex\skills"
+  try { New-Item -ItemType Directory -Force -Path $codexDir | Out-Null } catch { return }
+  Get-ChildItem -Path $SrcDir -Filter "redbeacon*.md" -ErrorAction SilentlyContinue | ForEach-Object {
+    $stem = $_.BaseName
+    $text = Get-Content -Raw -Encoding UTF8 -Path $_.FullName
+    $desc = "RedBeacon ability: $stem"
+    if($text -match "(?m)^description:\s*(.+)$"){
+      $desc = $Matches[1].Trim().Trim('"').Trim("'")
+    }
+    $body = $text
+    if($body.StartsWith("---")){
+      $m = [regex]::Match($body, "(?s)^---\r?\n.*?\r?\n---\r?\n?")
+      if($m.Success){ $body = $body.Substring($m.Length) }
+    }
+    $esc = $desc.Replace('\', '\\').Replace('"', '\"')
+    $folder = Join-Path $codexDir $stem
+    New-Item -ItemType Directory -Force -Path $folder | Out-Null
+    $skill = "---`nname: $stem`ndescription: `"$esc`"`nmetadata:`n  short-description: `"$esc`"`n---`n`n$body"
+    [System.IO.File]::WriteAllText((Join-Path $folder "SKILL.md"), $skill, [System.Text.UTF8Encoding]::new($false))
+  }
+}
 
 $OSS = if($env:REDBEACON_OSS){ $env:REDBEACON_OSS } else { "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com" }
 $Channel = if($env:REDBEACON_CHANNEL){ $env:REDBEACON_CHANNEL.ToLowerInvariant() } else { "stable" }
@@ -127,6 +150,7 @@ try {
     $src = Get-ChildItem -Path $tmp -Recurse -Directory | Where-Object { $_.FullName -match "\.claude[\\/]commands$" } | Select-Object -First 1
     New-Item -ItemType Directory -Force -Path $SkillDest | Out-Null
     if($src){ Copy-Item -Force (Join-Path $src.FullName "*.md") $SkillDest }
+    if($src){ Write-CodexSkills $src.FullName }
     try { & $cliExe config set skill_install_dir $SkillDest | Out-Null } catch {}
   } else { Warn "  skills not fetched this time (app unaffected); re-run this command later to add them." }
 
