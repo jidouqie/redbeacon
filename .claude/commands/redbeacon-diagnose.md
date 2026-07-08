@@ -129,7 +129,7 @@ redbeacon topics list --account-id {ID} --stage 选题  # 看库存选题是不�
    - 修：重做一批选题，**刻意铺开不同应用域**（换场景、换对象、换关系、换环节）×**不同问题类型**（识别 / 盲区 / 决策 / 替代 / 反例 / 后果），让每篇长出自己的观点和方法，而不是同一个结论讲三遍。带用户去 `/redbeacon-locate` 重铺选题（它的选题生成已内置"应用域自检"）。
 2. **把定位当主题**——文案预设里把账号的核心定位写成了"每篇都必须正面复述 XX"。
    - 关键区分：**定位是判断"底座"——用来判断一个选题对不对路的标准，不是每篇都要复述的主题**。底座当主题反复念，就成了换汤不换药。
-   - 修：改全局「文案指南」`copy_guide`（`strategy patch --data '{"copy_guide":"..."}'`），写成"紧扣定位去看待这个**具体选题**"，而不是"每篇都要讲定位本身"。
+   - 修：改全局「文案指南」`copy_guide`（把 `{"copy_guide":"..."}` 写入 `strategy.json` 后执行 `strategy patch --data-file strategy.json`），写成"紧扣定位去看待这个**具体选题**"，而不是"每篇都要讲定位本身"。
 
 > 一句话给用户：**底座只有一个、应用域有无数个**。好账号是用一个稳定的底座去打不同的应用域，不是把底座本身讲一百遍。
 
@@ -139,9 +139,9 @@ redbeacon topics list --account-id {ID} --stage 选题  # 看库存选题是不�
 
 确认节点后，调用对应能力改。每改一处都说清"改了什么、为什么、预期效果"：
 
-- **定位字段** → `redbeacon strategy patch --account-id {ID} --data '{"字段":"新值"}'`（只传要改的）
-- **文案风格** → 改全局「文案指南」`copy_guide`：`redbeacon strategy patch --account-id {ID} --data '{"copy_guide":"一句人话写法指引"}'`（别写 JSON/占位符，程序会自动拼；按内容类型分别设写作要求已退役、统一收进 copy_guide）
-- **图片预设** → `redbeacon strategy image-set --account-id {ID} --data '{...}'`。AI 封面是「**大字报**」（标题大字直接画进图）：用户说封面哪不对（「太暗」「字太小」「想要性冷淡风」「想放我本人」），你把视觉风格写成**结构化封面提示词**存进 `prompt_template`（**带 `{标题}` 占位符 + 竖版3:4**，写法见 `/redbeacon-strategy` C 段）；想**放真人**就让用户发照片、`strategy image-ref-add` 存为参考图走图生图；换配色改 `card_theme`，换配图方式改 `mode`（cards/both/ai）
+- **定位字段** → 把 `{"字段":"新值"}` 写入 `strategy.json`，再执行 `redbeacon strategy patch --account-id {ID} --data-file strategy.json`（只传要改的）
+- **文案风格** → 改全局「文案指南」`copy_guide`：把 `{"copy_guide":"一句人话写法指引"}` 写入 `strategy.json`，再执行 `redbeacon strategy patch --account-id {ID} --data-file strategy.json`（别写 JSON/占位符，程序会自动拼；按内容类型分别设写作要求已退役、统一收进 copy_guide）
+- **图片预设** → `redbeacon strategy image-set --account-id {ID} --data-file image.json`。AI 封面是「**大字报**」（标题大字直接画进图）：用户说封面哪不对（「太暗」「字太小」「想要性冷淡风」「想放我本人」），你把视觉风格写进 `prompt_template`；可只写一句人话风格，程序会补标题大字和竖版比例，强控制时再写结构化提示词（写法见 `/redbeacon-strategy` C 段）；想**放真人**就让用户发照片、`strategy image-ref-add` 存为参考图走图生图；换配色改 `card_theme`，换配图方式改 `mode`（cards/both/ai）
 - **选题** → 删旧补新：按 record_id `redbeacon topics delete` 删掉跑偏的，再重新 `redbeacon topics batch`/`topics add`；选题方向不对时连带回查 `pain_points`
 
 > 复杂改动可直接引导到 `/redbeacon-strategy`（它有每类的完整操作），诊断负责"定位问题 + 给方向"，策略负责"执行修改"。两者配合。

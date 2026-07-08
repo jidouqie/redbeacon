@@ -109,10 +109,14 @@ redbeacon accounts create                        # 没起，兜底「{id}号小�
 ## 改备注名（rename / 改名 / 改备注）
 
 ```bash
-redbeacon accounts patch --account-id {ID} --data '{"display_name": "新备注名"}'
+redbeacon accounts patch --account-id {ID} --data-file account.json
 ```
 
-改的是**备注名**（编号 id 不可改、始终是「{id}号」）。用户说「把1号改名叫XX」「给副业号换个名」都走这里。清空备注传空字符串 `{"display_name": ""}`（清空后展示为「（未命名）」）。
+```json
+{"display_name": "新备注名"}
+```
+
+改的是**备注名**（编号 id 不可改、始终是「{id}号」）。用户说「把1号改名叫XX」「给副业号换个名」都走这里。清空备注同样写进 `account.json`：`{"display_name": ""}`（清空后展示为「（未命名）」）。
 
 ---
 
@@ -123,7 +127,11 @@ redbeacon accounts patch --account-id {ID} --data '{"display_name": "新备注�
 如果用户确实要给账号绑固定代理：
 
 ```bash
-redbeacon accounts patch --account-id {ID} --data '{"proxy": "http://user:pass@host:port"}'
+redbeacon accounts patch --account-id {ID} --data-file account.json
+```
+
+```json
+{"proxy": "http://user:pass@host:port"}
 ```
 
 清空走 `{"proxy": ""}`。代理 IP 怎么拿、怎么验证（巨量引擎）走 `/redbeacon-config` 的 `test-proxy`。发布时是否走代理的开关属于发布环节，不在本 skill。

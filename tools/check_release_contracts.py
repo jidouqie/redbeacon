@@ -17,6 +17,17 @@ ROOT = Path(__file__).resolve().parent.parent
 SINGLE_QUESTION_RULE = "一次只问一个问题，一次只推进一件事"
 FORBIDDEN_SKILL_PHRASES = (
     "每次只问一到两件事",
+    "<<'EOF'",
+    '<<"EOF"',
+    "--json <<",
+    "--data <<",
+    "--data '{",
+    '--data "{',
+    "--json '[",
+    '--json "[',
+    " /tmp/",
+    ">/tmp/",
+    "> /tmp/",
 )
 
 
@@ -79,6 +90,22 @@ def check_installers() -> None:
     require(bundle_spec, '"_sqlite3"', "cli/packaging/RedBeacon.spec", "Windows 冻结包必须显式包含 SQLite 扩展")
     require(win_smoke, "Traceback|ModuleNotFoundError|ImportError", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须捕获桌面初始化异常")
     require(win_smoke, "RedBeacon desktop smoke ok", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须确认桌面初始化到达 ready 标记")
+
+
+def check_cli_windows_json_contracts() -> None:
+    cli_py = read("cli/src/redbeacon/cli.py")
+    json_input = read("cli/src/redbeacon/routers/_json_input.py")
+    accounts = read("cli/src/redbeacon/routers/accounts.py")
+    strategy = read("cli/src/redbeacon/routers/strategy.py")
+    topics = read("cli/src/redbeacon/routers/topics.py")
+
+    require(cli_py, "--data-file", "cli/src/redbeacon/cli.py", "Windows 长 JSON 命令必须支持从 UTF-8 文件读取")
+    require(cli_py, "--json-file", "cli/src/redbeacon/cli.py", "topics 批量/采纳必须支持从 UTF-8 JSON 文件读取")
+    require(json_input, "sys.stdin.read()", "cli/src/redbeacon/routers/_json_input.py", "JSON 输入 helper 必须支持 stdin")
+    require(json_input, "read_text(encoding=\"utf-8\")", "cli/src/redbeacon/routers/_json_input.py", "JSON 文件必须按 UTF-8 读取")
+    require(accounts, "data_file", "cli/src/redbeacon/routers/accounts.py", "accounts patch 必须接入 --data-file")
+    require(strategy, "data_file", "cli/src/redbeacon/routers/strategy.py", "strategy patch/image-set 必须接入 --data-file")
+    require(topics, "json_file", "cli/src/redbeacon/routers/topics.py", "topics batch/accept 必须接入 --json-file")
 
 
 def check_client_startup() -> None:
@@ -222,10 +249,11 @@ def check_channel_skills() -> None:
 
 def main() -> None:
     check_installers()
+    check_cli_windows_json_contracts()
     check_client_startup()
     check_github_build_hygiene()
     check_channel_skills()
-    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/GitHub 构建随用随清/skill 隔离/skill 单题引导/客户端启动资源都满足")
+    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/长 JSON 文件输入/bundle smoke/GitHub 构建随用随清/skill 隔离/skill 单题引导/客户端启动资源都满足")
 
 
 if __name__ == "__main__":

@@ -100,10 +100,16 @@ redbeacon strategy get --account-id {ID}
 > 1. 准，下一块（**推荐**）
 > 2. 要调 —— 说哪里不对
 
-逐块确认到位后，**一次性写入本机账号档案**（`strategy patch` 增量合并；字段名按下面这套 key）：
+逐块确认到位后，**一次性写入本机账号档案**（`strategy patch` 增量合并；字段名按下面这套 key）。
+
+> ⚠️ Windows/PowerShell 下长中文 JSON 不要塞进 `--data` 参数。把下面 JSON 保存成 UTF-8 文件（如 `strategy.json`），再用 `--data-file`：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data '{
+redbeacon strategy patch --account-id {ID} --data-file strategy.json
+```
+
+```json
+{
   "positioning_oneline": "一句话定位：专注X、帮[受众]实现[价值]",
   "niche": "赛道",
   "target_audience": "受众画像",
@@ -127,7 +133,7 @@ redbeacon strategy patch --account-id {ID} --data '{
   "forbidden_words": [],
   "visual_theme": "简洁高级感",
   "posting_frequency": "发布节奏（如：每周3篇）"
-}'
+}
 ```
 
 > ⚠️ **`copy_guide`（全局文案指南）必须写、别留空**——生成时注入每篇的全局写作要求。tone/opening/format 只是结构化的零散风格；`copy_guide` 把这个号**独特的写法**用一段人话讲清楚，例：「每篇用『因为X→所以Y』的因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留钩子引导评论；聪明朋友口吻不堆术语」。**从这次定位对话提炼，2~4 句可执行，写人话、不写 JSON/占位符。**（按内容类型分别设写作要求已下线，统一就这一段。）
@@ -153,18 +159,30 @@ redbeacon strategy patch --account-id {ID} --data '{
 - **纯 AI**（`ai`）：只出一张 AI 封面，没有正文卡片。
 
 ```bash
-redbeacon strategy image-set --account-id {ID} --data '{"mode":"cards"}'   # 或 both / ai
+redbeacon strategy image-set --account-id {ID} --data-file image.json
 ```
+
+```json
+{"mode":"cards"}
+```
+
+`cards` 可按用户选择替换为 `both` / `ai`。
 
 ### 推荐一个封面风格 + 种下基础封面提示词
 
-按账号调性，用**一句大白话**给用户描述封面长相（如"深色背景、亮色块点缀、厚重大字、强对比、极简高级"）。确认后写成一条**结构化封面提示词**——**必须带 `{标题}` 占位符**（每篇标题会自动替换成封面大字）、并写死竖版 3:4：
+按账号调性，用**一句大白话**给用户描述封面长相（如"深色背景、亮色块点缀、厚重大字、强对比、极简高级"）。默认可只写这句风格描述，程序会自动补「大字报骨架 + 标题大字 + 竖版 3:4」。如果用户明确要控制字的位置/比例/构图，再写成结构化封面提示词（可带 `{标题}` 占位符）。
+
+长提示词同样优先写进 UTF-8 文件（如 `image.json`），再执行：
 
 ```bash
-redbeacon strategy image-set --account-id {ID} --data '{"prompt_template":"小红书竖版大字报封面，3:4 比例。整体风格：<填你推荐的视觉风格>。画面上方用厚重有力的大字清晰写出标题：「{标题}」，强对比、留白克制、高质量精美。"}'
+redbeacon strategy image-set --account-id {ID} --data-file image.json
 ```
 
-> 封面大字（中文）由 AI 直接画进图，所以提示词里**务必把 `{标题}` 放进去**、说清字放哪、什么风格、竖版 3:4。宽高比全靠提示词控制。
+```json
+{"prompt_template":"深色背景、亮色块点缀、厚重大字、强对比、极简高级"}
+```
+
+> 封面大字（中文）由 AI 直接画进图。只写风格人话时程序会补标题大字和竖版比例；写结构化提示词时可以手动说清字放哪、什么风格、竖版 3:4。
 
 ### 想要"人物封面"（封面里有真人撑信任感，如房产/金融）
 
@@ -226,15 +244,19 @@ redbeacon strategy image-ref-add --account-id {ID} --file "<用户那张照片�
 
 入库带上元数据用 `--json`（这步已做过应用域自检，每条都想清了落在哪个应用域 × 问题类型），让覆盖盘面从第一批起就准（避免一堆"未标应用域"）。**每条除了核心归类，还要写上本条独有的 `angle`(切入角度)+`outline`(要点提纲)**——你定位聊下来已经知道这条从哪切、讲哪几点，别只丢标题；这俩每条不一样、账号默认里没有可继承的，留空 generate 写文案时就补不回来（这正是"选题信息不全"的病根）：
 
+把确认后的数组保存成 UTF-8 文件（如 `topics.json`），再执行：
+
 ```bash
-redbeacon topics batch --account-id {ID} --json <<'EOF'
+redbeacon topics batch --account-id {ID} --json-file topics.json
+```
+
+```json
 [
   {"content":"选题1","content_type":"干货科普","application_domain":"...","problem_type":"识别",
    "angle":"从一个反常识的判断切入","outline":"要点1;要点2;要点3"},
   {"content":"选题2","content_type":"痛点解析","application_domain":"...","problem_type":"反例",
    "angle":"先戳这类人最痛的一刀","outline":"要点1;要点2;要点3"}
 ]
-EOF
 ```
 
 > 阶段默认落「选题」（可被 generate 取用的库存）。返回 `{"inserted":N,"total":M,"record_ids":[...]}`，库里重复文本自动跳过。
@@ -310,7 +332,11 @@ redbeacon accounts get --account-id {ID}    # 看 display_name 是不是还是�
 用户认可 / 给了自己的名字 → 落库：
 
 ```bash
-redbeacon accounts patch --account-id {ID} --data '{"display_name": "<最终备注名>"}'
+redbeacon accounts patch --account-id {ID} --data-file account.json
+```
+
+```json
+{"display_name": "<最终备注名>"}
 ```
 
 > 已经有像样的备注名（用户建号时起过）就跳过这步，别重复问。
@@ -339,7 +365,11 @@ redbeacon ui app --page 定位 --account-id {ID}
 **② 用户要改 → 你在对话里改**（增量、改哪项传哪项，写本机账号档案）：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data '{"tone":"更犀利直给"}'
+redbeacon strategy patch --account-id {ID} --data-file strategy.json
+```
+
+```json
+{"tone":"更犀利直给"}
 ```
 
 > 改完跟用户说一句"改好了"。可来回几轮直到用户满意（用户也可以自己在定位页里改）。

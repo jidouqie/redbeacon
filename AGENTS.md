@@ -26,6 +26,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - **UI 不寄生 CLI**：UI 后端不能靠拼 CLI 命令、爬 CLI 文本来完成业务；它应和 CLI 一样调用同一套 usecase。
 - **预设集中**：用户可调的默认模板、提示词骨架、视觉/文案预设，优先集中在 `core/presets.py` 或明确的资源文件里，避免多处手写第二份。
 - **发布源单一**：不要把安装包、skill 或版本清单重新指回旧官网、GitHub Raw、仓内 `pip/`，或任何非 OSS 的对外下载源。
+- **JSON 不走脆弱命令行参数**：面向 skill/agent 的中文、嵌套、多行 JSON 必须优先走 `--data-file` / `--json-file` 或 stdin；skill 示例里即使是短 JSON 也不要写成 `--data '{"..."}'` 这类内联参数。不要在文档里放 Bash heredoc、`/tmp/`、PowerShell 不通用的重定向示例。
 
 ## Skill 与通道
 

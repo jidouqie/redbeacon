@@ -78,7 +78,11 @@ redbeacon strategy get --account-id {ID}
 确认用户要改哪个字段后，**只传那一个（或几个）字段**（patch 是增量合并、写本机账号档案）：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data '{"tone":"更犀利、直给"}'
+redbeacon strategy patch --account-id {ID} --data-file strategy.json
+```
+
+```json
+{"tone":"更犀利、直给"}
 ```
 
 > 改完告知：✓ 已更新 [字段]。这会影响下次 `/redbeacon-generate` 的产出。
@@ -101,10 +105,14 @@ redbeacon strategy get --account-id {ID}
 改写——一段人话写作指引，从用户的话或他发的参考文案里提炼（结构/钩子/举证方式/口吻/差异化打法）：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data '{"copy_guide": "每篇用因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留钩子引导评论；聪明朋友口吻不堆术语"}'
+redbeacon strategy patch --account-id {ID} --data-file strategy.json
 ```
 
-> **定位时就该写上**（见 `/redbeacon-locate`）；用户反馈"还是空的 / 想改全局风格"就在这里写/改（写本机账号档案「文案指南」）。清空传 `{"copy_guide": ""}`。
+```json
+{"copy_guide": "每篇用因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留钩子引导评论；聪明朋友口吻不堆术语"}
+```
+
+> **定位时就该写上**（见 `/redbeacon-locate`）；用户反馈"还是空的 / 想改全局风格"就在这里写/改（写本机账号档案「文案指南」）。清空同样写进 `strategy.json`：`{"copy_guide": ""}`。
 > **用参考文案抽取**（多模态）：让用户把喜欢的笔记发进聊天窗，你读懂后把"这个号该怎么写"概括进 `copy_guide`。
 > ⚠️ 写**人话写作指引**（如「把知识点讲透、多用步骤清单」），**别塞 `输出JSON`、`{占位符}`、"你是一个博主…"** 这类程序术语——JSON 契约/占位符/骨架由程序自动拼，写进来是脏数据。
 
@@ -125,19 +133,25 @@ redbeacon strategy image-get --account-id {ID}
 关键字段：
 - **mode**（配图方式，三选一）：`cards`（纯文字卡片，封面也是文字大字报，稳定省钱）/ `both`（AI 封面 + 文字卡片）/ `ai`（只出一张 AI 封面、无正文卡片）。
 - **card_theme**：卡片配色，**合法值固定为**：`default`(优雅淡彩) / `neo-brutalism`(暗黑) / `botanical`(薄荷绿) / `professional`(海蓝) / `retro`(暖橙) / `sketch`(紫调) / `playful-geometric`(小红书红) / `random`(随机)。**别传别的值**。
-- **prompt_template**（封面提示词）：AI 封面默认产出「**大字报**」——**标题大字由 AI 直接画进图**。推荐写成**结构化封面指令、带 `{标题}` 占位符**（每篇标题自动替换成封面大字）、并在提示词里**写死竖版 3:4**：
+- **prompt_template**（封面提示词）：AI 封面默认产出「**大字报**」——**标题大字由 AI 直接画进图**。可只写一句人话视觉风格，程序会自动补「大字报骨架 + 标题大字 + 竖版 3:4」；如果要强控制，也可以写成**结构化封面指令、带 `{标题}` 占位符**（每篇标题自动替换成封面大字）、并写死竖版 3:4：
   `小红书竖版大字报封面，3:4 比例。整体风格：<视觉风格>。上方用厚重大字写出标题：「{标题}」，强对比、留白克制、高质量精美。`
-  也可只写一句纯风格描述（不带占位符），程序会自动补「大字报骨架 + 标题大字 + 竖版3:4」。**宽高比靠提示词控制。**
+  **宽高比靠提示词控制。**
 - **生图模型**：由**平台侧按能力别名自动选定**，账号/用户**既不用选也无法手选**——你只管描述风格、提供参考图，模型平台定。
 
 按需改（只传要改的字段）：
 
+长中文/结构化视觉 JSON 优先写 UTF-8 文件（如 `image.json`）：
+
 ```bash
-# 换成 AI 封面 + 卡片，给一条结构化大字报封面提示词（模型平台侧定，不用传）
-redbeacon strategy image-set --account-id {ID} --data '{"mode":"both","prompt_template":"小红书竖版大字报封面，3:4 比例。整体风格：深色背景配亮色块、厚重大字、强对比、极简高级。上方用大字写出标题：「{标题}」，留白克制、精美。"}'
+# 换成 AI 封面 + 卡片，给一条视觉风格或结构化大字报封面提示词（模型平台侧定，不用传）
+redbeacon strategy image-set --account-id {ID} --data-file image.json
 
 # 只换卡片配色
-redbeacon strategy image-set --account-id {ID} --data '{"card_theme":"botanical"}'
+redbeacon strategy image-set --account-id {ID} --data-file image.json
+```
+
+```json
+{"card_theme":"botanical"}
 ```
 
 **参考图（图生图）**——用户想用自己的照片/某张风格图当封面素材：

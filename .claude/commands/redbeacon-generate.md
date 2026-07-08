@@ -86,7 +86,7 @@ redbeacon generate --account-id {ID} \
 ```bash
 redbeacon generate --account-id {ID} --topic-record-id "<rid>" --topic "<原文>" \
   --content-type "..." --app-domain "..." --idea "..." --image-mode both \
-  --preview > /tmp/draft.json      # 输出草稿 JSON：标题 / 正文 / 封面文案 / 组装好的最终出图提示词
+  --preview > draft.json      # 输出草稿 JSON：标题 / 正文 / 封面文案 / 组装好的最终出图提示词
 ```
 
 把草稿里的**标题、封面上要显示的那句文案、以及最终出图提示词**用人话念给用户看，让他拍板：
@@ -99,7 +99,7 @@ redbeacon generate --account-id {ID} --topic-record-id "<rid>" --topic "<原文>
 **第二步 · 确认出图入库**（用户选 1 才跑，这步才真出图、扣出图的点）：
 
 ```bash
-redbeacon generate --account-id {ID} --commit --draft-file /tmp/draft.json
+redbeacon generate --account-id {ID} --commit --draft-file draft.json
 ```
 
 > 两步 vs 一把梭怎么选：**纯文字卡片**（`cards`，出图不扣点）没必要两步，直接 ② 一把梭。**AI 封面 / 带货**这种出图贵的，尤其用户对画面挑剔时，**先 `--preview` 给他看实发再 `--commit`**——取消的话只花了文案那 1 点，出图的钱一分没花。用户嫌麻烦要「直接出」就走 ②。

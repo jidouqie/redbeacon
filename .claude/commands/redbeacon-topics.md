@@ -134,17 +134,21 @@ redbeacon content archive --account-id {ID}            # 已发布标题 → 查
 
 **过眼确认才入库（硬规则）**：网格先编号列给用户看、用户回数字/「都要」确认后，才一次性写选题库——不静默灌库。
 
-拍板后**连同应用域/问题类型一次性入选题库**（用 `--json`，把整张网格的元数据一起落库）——**入库即可用**，不用再多一步「转选题」：
+拍板后**连同应用域/问题类型一次性入选题库**（用 `--json-file`，把整张网格的元数据一起落库）——**入库即可用**，不用再多一步「转选题」。
+
+> ⚠️ Windows/PowerShell 下不要用 heredoc。把确认后的数组保存成 UTF-8 文件（如 `topics.json`），再执行：
 
 ```bash
-redbeacon topics batch --account-id {ID} --json <<'EOF'
+redbeacon topics batch --account-id {ID} --json-file topics.json
+```
+
+```json
 [
   {"content":"选题1","content_type":"避坑提醒","application_domain":"乙方关系","problem_type":"反例",
    "angle":"反常识开头：客户越催你越要先对齐验收标准","outline":"验收标准写进合同;每周同步进度截图;留一条改稿边界;超范围就走变更单","value_point":"少扯三次皮","hook":"评论区问你被白嫖过几次"},
   {"content":"选题2","content_type":"工具测评安利","application_domain":"行业定价权","problem_type":"决策",
    "angle":"先戳痛点：报价永远比同行低还是接不到单","outline":"按价值分层报价;给三档套餐锚定;先谈交付物再谈钱"}
 ]
-EOF
 ```
 
 > 返回 `{"inserted":N,"total":M,"record_ids":[...]}`（重复的选题文本自动跳过）。**每条都带上核心归类 `application_domain`+`problem_type` + 本条独有的 `angle`(切入角度)+`outline`(要点提纲)**——角度/提纲是「信息不全」的病根，每条不一样、无处继承，别省。想清楚了再加 `value_point`(价值点)/`hook`(互动钩子)/`audience`(聚焦人群)/`note`(备注)；`content_type` 缺省可回退 `--type`。这些字段全是自由文本、不是固定选项——按用户聊出来的实际说法填，不用往预设词上凑。（`angle`/`outline`/`value_point`/`hook`/`audience`/`note` 这些字段近期版本起 batch 才支持落库，很旧的版本会静默丢弃——若发现没落库先 `redbeacon update`。）
@@ -181,9 +185,9 @@ redbeacon topics suggest --account-id {ID} --count 10 --idea "偏向职场副业
 把返回的候选编号列给用户过眼、剪掉不要的，确认后写库（`accept` 读 suggest 输出的 items 全字段落库，阶段=选题）：
 
 ```bash
-redbeacon topics suggest --account-id {ID} --count 10 > /tmp/cand.json   # 先接住候选
+redbeacon topics suggest --account-id {ID} --count 10 > cand.json   # 先接住候选
 # 用户剪定后：
-redbeacon topics accept --account-id {ID} --json < /tmp/cand.json
+redbeacon topics accept --account-id {ID} --json-file cand.json
 ```
 
 **引导语模板（平台补题的"人格设定"，可调）**——平台补题时用的提示词骨架，用户可自定义（也是网页选题页「AI 补题」按钮用的同一份）：
