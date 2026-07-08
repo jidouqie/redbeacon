@@ -40,6 +40,8 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - 所有更新入口都应是**全量更新**：客户端设置页、`redbeacon update`、AI 助手触发升级，都下载当前通道的整包 zip 并替换客户端，同时刷新 CLI 兼容通道和 skill。
 - 重复执行安装脚本时，只先拉很小的 manifest 判断版本；本地已是最新则跳过大包下载，避免浪费 OSS 流量。要强制重装并重新拉 skill，用 `REDBEACON_FORCE_INSTALL=1`。
 - 卸载默认保留业务数据；只有设置 `REDBEACON_PURGE=1` 才删除账号数据和平台登录令牌。测试版卸载只清测试版路径，不碰正式版。
+- 安装阶段必须预热 Playwright 浏览器内核（扫码登录、发布、卡片渲染都依赖它）。Windows/macOS/Linux 的内核包不同，由 `redbeacon setup` 按当前系统下载；下载源顺序包含 npmmirror、RedBeacon OSS `playwright/` 兜底和官方 CDN。不要再把内核下载留到用户第一次扫码。
+- Windows `.ps1/.cmd` 安装链路必须 ASCII-only；skill 和 Codex `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
 
 ## 发布流程
 

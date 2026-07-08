@@ -8,7 +8,7 @@
 # Gives you both:
 #   - a double-click desktop app (RedBeacon)
 #   - the `redbeacon` command (for an AI assistant to drive it)
-# The browser engine (Chromium) downloads on first run via a China mirror.
+# The browser engine (Chromium) is prepared during install via mirrors.
 # All output is English on purpose (avoids garbled text on some consoles).
 # ------------------------------------------------------------------------------
 set -uo pipefail
@@ -95,6 +95,21 @@ install_codex_skills() {
   done
 }
 
+run_browser_setup() {
+  cli="$1"
+  [ -n "$cli" ] && [ -x "$cli" ] || die "CLI executable not found for browser setup: $cli"
+  if [ "${REDBEACON_SKIP_BROWSER_SETUP:-}" = "1" ]; then
+    warn "  browser engine setup skipped by REDBEACON_SKIP_BROWSER_SETUP=1"
+    return 0
+  fi
+  say "[3/4] Preparing browser engine (this can take a while on first install) ..."
+  if REDBEACON_OUT=compact "$cli" setup; then
+    say "Browser engine is ready."
+  else
+    die "Browser engine setup failed. Re-run the installer after checking network/proxy."
+  fi
+}
+
 refresh_macos_app_registration() {
   app="$1"
   [ "$OS" = "Darwin" ] || return 0
@@ -143,12 +158,13 @@ if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "
     refresh_macos_app_registration "$HOME/Applications/$APP_NAME.app"
   fi
   say "$APP_NAME $CURRENT is already installed. Skipping bundle download."
+  run_browser_setup "$LOCAL_CLI"
   say "To reinstall anyway: curl -fsSL $OSS/install.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_FORCE_INSTALL=1 bash"
   exit 0
 fi
 
 # 3) download the bundle (OSS is fast in China; retry a few times)
-say "[1/3] Downloading $APP_NAME ($PLAT) ..."
+say "[1/4] Downloading $APP_NAME ($PLAT) ..."
 ok=""
 for t in 1 2 3; do
   if curl -fSL --connect-timeout 15 -o "$TMP/rb.zip" "$BUNDLE_URL"; then ok=1; break; fi
@@ -163,7 +179,7 @@ else
 fi
 
 # 4) extract + place + wire the `redbeacon` command
-say "[2/3] Installing ..."
+say "[2/4] Installing ..."
 mkdir -p "$TMP/x"
 unzip -q "$TMP/rb.zip" -d "$TMP/x" || die "unzip failed (corrupt download?)"
 if [ "$OS" = "Darwin" ]; then
@@ -172,6 +188,7 @@ if [ "$OS" = "Darwin" ]; then
   mv "$TMP/x/$APP_NAME.app" "$APP"
   xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true   # locally placed -> no Gatekeeper prompt
   ln -sf "$APP/Contents/MacOS/$CLI_NAME" "$BINDIR/$CMD_NAME"
+  LOCAL_CLI="$APP/Contents/MacOS/$CLI_NAME"
   refresh_macos_app_registration "$APP"
   OPEN_HINT="Launchpad / Spotlight -> $APP_NAME (or ~/Applications/$APP_NAME.app)"
 else
@@ -179,6 +196,7 @@ else
   rm -rf "$DEST"; mkdir -p "$DEST"
   mv "$TMP/x/$APP_NAME" "$DEST/$APP_NAME"
   ln -sf "$DEST/$APP_NAME/$CLI_NAME" "$BINDIR/$CMD_NAME"
+  LOCAL_CLI="$DEST/$APP_NAME/$CLI_NAME"
   ICON_PATH="$DEST/$APP_NAME/_internal/assets/RedBeacon.png"
   [ -f "$ICON_PATH" ] || ICON_PATH="$DEST/$APP_NAME/assets/RedBeacon.png"
   D="$HOME/.local/share/applications/$DESKTOP_ID.desktop"; mkdir -p "$(dirname "$D")"
@@ -196,8 +214,11 @@ EOF
   OPEN_HINT="your app menu -> $APP_NAME"
 fi
 
-# 5) skills -> AI assistant command dir (from OSS; non-blocking)
-say "[3/3] Fetching skills ..."
+# 5) Browser engine -> required by QR login, publishing and card rendering.
+run_browser_setup "$LOCAL_CLI"
+
+# 6) skills -> AI assistant command dir (from OSS; non-blocking)
+say "[4/4] Fetching skills ..."
 skok=""
 for t in 1 2 3; do
   if curl -fsSL --max-time 90 "$OSS/$SKILL_PREFIX/redbeacon-skill.tar.gz" | tar -xz -C "$TMP" 2>/dev/null; then skok=1; break; fi
@@ -221,4 +242,4 @@ case ":$PATH:" in
   *) warn "Note: $BINDIR is not on your PATH yet. Add it (or reopen your terminal) to use the '$CMD_NAME' command."
      warn "  e.g.  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
 esac
-echo "  (The browser engine downloads on first run -- give it a minute the first time.)"
+echo "  (The browser engine was prepared during install.)"

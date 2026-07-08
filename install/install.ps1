@@ -5,7 +5,7 @@
 # Installs a SELF-CONTAINED bundle (Python + all deps + Playwright driver already
 # inside). No uv / no pip / no compiling -- just download + unzip + place.
 # Gives you both a double-click desktop app AND the `redbeacon` command.
-# The browser engine (Chromium) downloads on first run via a China mirror.
+# The browser engine (Chromium) is prepared during install via mirrors.
 # All output is ASCII-only on purpose (avoids garbled text / iex decode issues).
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
@@ -46,6 +46,23 @@ function Write-CodexSkills($SrcDir){
     $skill = "---`nname: $stem`ndescription: `"$esc`"`nmetadata:`n  short-description: `"$esc`"`n---`n`n$body"
     [System.IO.File]::WriteAllText((Join-Path $folder "SKILL.md"), $skill, [System.Text.UTF8Encoding]::new($false))
   }
+}
+function Run-BrowserSetup($CliPath){
+  if(-not (Test-Path $CliPath)){ Die "CLI executable not found for browser setup: $CliPath" }
+  if($env:REDBEACON_SKIP_BROWSER_SETUP -eq "1"){
+    Warn "  browser engine setup skipped by REDBEACON_SKIP_BROWSER_SETUP=1"
+    return
+  }
+  Say "[3/4] Preparing browser engine (this can take a while on first install) ..."
+  $oldOut = $env:REDBEACON_OUT
+  $env:REDBEACON_OUT = "compact"
+  try {
+    & $CliPath setup
+    if($LASTEXITCODE -ne 0){ Die "Browser engine setup failed. Re-run the installer after checking network/proxy." }
+  } finally {
+    if($null -eq $oldOut){ Remove-Item Env:\REDBEACON_OUT -ErrorAction SilentlyContinue } else { $env:REDBEACON_OUT = $oldOut }
+  }
+  Say "Browser engine is ready."
 }
 
 $OSS = if($env:REDBEACON_OSS){ $env:REDBEACON_OSS } else { "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com" }
@@ -95,12 +112,13 @@ try {
   }
   if(-not $env:REDBEACON_FORCE_INSTALL -and $latest -and $current -eq $latest){
     Say "$AppName $current is already installed. Skipping bundle download."
+    Run-BrowserSetup $cliExe
     Say "To reinstall anyway: `$env:REDBEACON_CHANNEL='$Channel'; `$env:REDBEACON_FORCE_INSTALL=1; irm $OSS/install.ps1 | iex"
     return
   }
 
   # 2) download the bundle (OSS is fast in China; retry a few times)
-  Say "[1/3] Downloading $AppName ($Plat) ..."
+  Say "[1/4] Downloading $AppName ($Plat) ..."
   $zip = Join-Path $tmp "rb.zip"; $ok = $false
   foreach($t in 1..3){
     try { Invoke-WebRequest -Uri $Url -OutFile $zip -UseBasicParsing -TimeoutSec 600; $ok = $true; break }
@@ -115,7 +133,7 @@ try {
   }
 
   # 3) extract + place + wire the `redbeacon` command
-  Say "[2/3] Installing ..."
+  Say "[2/4] Installing ..."
   $ex = Join-Path $tmp "x"
   Expand-Archive -Path $zip -DestinationPath $ex -Force
   if(Test-Path $Dest){ Remove-Item -Recurse -Force $Dest }
@@ -147,8 +165,11 @@ try {
     $lnk.Save()
   }
 
-  # 5) skills -> AI assistant command dir (from OSS; non-blocking)
-  Say "[3/3] Fetching skills ..."
+  # 5) Browser engine -> required by QR login, publishing and card rendering.
+  Run-BrowserSetup $cliExe
+
+  # 6) skills -> AI assistant command dir (from OSS; non-blocking)
+  Say "[4/4] Fetching skills ..."
   $skok = $false
   foreach($t in 1..3){
     try {
@@ -170,6 +191,6 @@ try {
   Say "$AppName installed."
   Write-Host "  - Double-click:  Desktop / Start Menu -> $AppName"
   Write-Host "  - Or via CLI:    $CmdName   (open a NEW terminal first so PATH refreshes)"
-  Write-Host "  (The browser engine downloads on first run -- give it a minute the first time.)"
+  Write-Host "  (The browser engine was prepared during install.)"
 }
 finally { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }

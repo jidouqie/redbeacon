@@ -27,6 +27,13 @@ def read(rel: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_bytes(rel: str) -> bytes:
+    path = ROOT / rel
+    if not path.exists():
+        fail(f"缺少文件：{rel}")
+    return path.read_bytes()
+
+
 def require(text: str, needle: str, rel: str, why: str) -> None:
     if needle not in text:
         fail(f"{rel} 缺少发布契约：{why}（需要包含 {needle!r}）")
@@ -37,16 +44,29 @@ def check_installers() -> None:
     ps1 = read("install/install.ps1")
     unsh = read("install/uninstall.sh")
     unps1 = read("install/uninstall.ps1")
+    setup_py = read("cli/src/redbeacon/routers/setup.py")
+
+    for rel in (
+        "install/install.ps1",
+        "install/install-test.ps1",
+        "install/uninstall.ps1",
+        "install/uninstall-test.ps1",
+    ):
+        if any(b > 0x7F for b in read_bytes(rel)):
+            fail(f"{rel} 必须保持 ASCII-only，避免 Windows PowerShell 5.1 编码/显示问题")
 
     require(sh, 'codex_dir="$HOME/.codex/skills"', "install/install.sh", "Mac/Linux 安装必须写入 Codex 扫描目录")
     require(sh, 'install_codex_skills "$SRC"', "install/install.sh", "Mac/Linux 安装必须从 skill tarball 派生 Codex SKILL.md")
+    require(sh, 'run_browser_setup "$LOCAL_CLI"', "install/install.sh", "Mac/Linux 安装必须预热 Playwright 浏览器内核")
     require(ps1, 'Join-Path $HOME ".codex\\skills"', "install/install.ps1", "Windows 安装必须写入 Codex 扫描目录")
     require(ps1, "Write-CodexSkills $src.FullName", "install/install.ps1", "Windows 安装必须从 skill tarball 派生 Codex SKILL.md")
+    require(ps1, "Run-BrowserSetup $cliExe", "install/install.ps1", "Windows 安装必须预热 Playwright 浏览器内核")
 
     require(unsh, 'CODEX_SKILL_DIR="$HOME/.codex/skills"', "install/uninstall.sh", "Mac/Linux 卸载必须清理对应通道 Codex skill")
     require(unps1, '$CodexSkillDir = "$HOME\\.codex\\skills"', "install/uninstall.ps1", "Windows 卸载必须清理对应通道 Codex skill")
     require(unsh, 'redbeacon-test*', "install/uninstall.sh", "测试版卸载只能动 redbeacon-test*")
     require(unps1, 'redbeacon-test*', "install/uninstall.ps1", "测试版卸载只能动 redbeacon-test*")
+    require(setup_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/routers/setup.py", "浏览器内核下载必须包含 RedBeacon OSS 兜底源")
 
 
 def _frontmatter_name(text: str) -> str:
@@ -71,6 +91,11 @@ def _to_codex_skill(stem: str, text: str) -> str:
 
 
 def check_channel_skills() -> None:
+    for src in sorted((ROOT / ".claude" / "commands").glob("redbeacon*.md")):
+        text = src.read_text(encoding="utf-8")
+        if "\ufffd" in text:
+            fail(f"{src.relative_to(ROOT)} 含有 Unicode replacement character，疑似编码损坏")
+
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         stable = root / "stable"
@@ -97,9 +122,13 @@ def check_channel_skills() -> None:
 
         for path in test_files:
             text = path.read_text(encoding="utf-8")
+            if "\ufffd" in text:
+                fail(f"{path.name} 含有 Unicode replacement character，疑似编码损坏")
             if "redbeacon-test" not in text:
                 fail(f"{path.name} 正文没有指向测试版命令 redbeacon-test")
             codex = _to_codex_skill(path.stem, text)
+            if "\ufffd" in codex:
+                fail(f"{path.name} 派生 Codex SKILL.md 后疑似编码损坏")
             if _frontmatter_name(codex) != path.stem:
                 fail(f"{path.name} 派生 Codex SKILL.md 后 name 不等于文件名")
 
@@ -107,7 +136,7 @@ def check_channel_skills() -> None:
 def main() -> None:
     check_installers()
     check_channel_skills()
-    print("  ✓ 发布契约检查通过：installer/Codex skill/test skill 隔离都满足")
+    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/skill 隔离都满足")
 
 
 if __name__ == "__main__":

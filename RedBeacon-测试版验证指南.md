@@ -14,6 +14,8 @@
 - 测试版发布后，只要改过客户端、CLI、skill、安装/更新/卸载脚本或发布脚本，之前的测试结论立刻作废，必须重新发测试版。不能拿“改过后的代码”直接发正式版。
 - 正式版发布是“把已经测通过的测试版同一套代码切到 stable 通道再打一次包”，不是另起一套打包流程。
 - 测试版 skill 必须安装到 Codex 真正扫描的 `~/.codex/skills/redbeacon-test*/SKILL.md`，不能再放到 `~/.codex/skills-redbeacon-test` 这类独立根目录。发布脚本和 Windows smoke 都会检查这一点。
+- 安装阶段必须完成浏览器内核预热。首次扫码登录不应该再卡在下载 Chromium；如果公共镜像慢，`redbeacon setup` 会尝试 RedBeacon OSS `playwright/` 兜底源。
+- Windows 安装/卸载 PowerShell 脚本必须保持 ASCII-only；skill/Codex 生成物必须是 UTF-8，不能出现 `�`。
 
 ## 测试版安装
 
@@ -141,12 +143,13 @@ https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/RedBeacon-linux-x64
 1. 安装测试版，确认桌面 / 启动台里出现 `RedBeacon_test`。
 2. 运行 `redbeacon-test --version`，确认版本是测试版 manifest 里的版本。
 3. 打开客户端，确认第一屏不崩，不再出现 `main_entry` / logger 这类启动异常。
-4. 确认正式版 `RedBeacon` 仍可独立存在，正式版数据没有被测试版读取或覆盖。
-5. 在测试版里点更新，确认有进度、会关闭旧客户端并整包替换。
-6. 再执行一次测试版安装命令，确认同版本会跳过大包下载。
-7. 用 `REDBEACON_FORCE_INSTALL=1` 再装一次，确认测试版 skill 会被重新拉取。
-8. 检查 `ls ~/.codex/skills/redbeacon-test*/SKILL.md | wc -l`，数量应和 `latest-test.json` 的 `skill_files` 一致；重启 Codex 或新开线程后能看到 `redbeacon-test`。
-9. 卸载测试版，确认正式版应用、正式版命令、正式版数据和 `~/.codex/skills/redbeacon*/SKILL.md` 还在。
+4. 首次扫码登录小红书时，应直接进入出码流程，不应再长时间卡在“正在打开浏览器出码”。如安装阶段浏览器内核失败，安装脚本应该已经报错。
+5. 确认正式版 `RedBeacon` 仍可独立存在，正式版数据没有被测试版读取或覆盖。
+6. 在测试版里点更新，确认有进度、会关闭旧客户端并整包替换。
+7. 再执行一次测试版安装命令，确认同版本会跳过大包下载，但仍会校验/补齐浏览器内核。
+8. 用 `REDBEACON_FORCE_INSTALL=1` 再装一次，确认测试版 skill 会被重新拉取。
+9. 检查 `ls ~/.codex/skills/redbeacon-test*/SKILL.md | wc -l`，数量应和 `latest-test.json` 的 `skill_files` 一致；重启 Codex 或新开线程后能看到 `redbeacon-test`。
+10. 卸载测试版，确认正式版应用、正式版命令、正式版数据和 `~/.codex/skills/redbeacon*/SKILL.md` 还在。
 
 ## 从测试版转正式版
 
