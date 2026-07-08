@@ -17,8 +17,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# skill 也走阿里云 OSS（散装 md，供 redbeacon update 逐个拉）——彻底不依赖 GitHub。
-RAW_BASE = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands"
+OSS_BASE = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com"
 
 
 def read_version() -> str:
@@ -38,22 +37,49 @@ def list_skill_files() -> list[str]:
     return files
 
 
+def skill_raw_base(channel: str) -> str:
+    prefix = "skill-test" if channel == "test" else "skill"
+    return f"{OSS_BASE}/{prefix}/commands"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--channel", choices=["stable", "test"], default="stable", help="发布通道")
     ap.add_argument("--notes", default="", help="更新说明（人话，给用户看）")
-    ap.add_argument("--out", default=str(ROOT / "latest.json"))
+    ap.add_argument(
+        "--app-sha256",
+        action="append",
+        default=[],
+        metavar="PLAT=SHA256",
+        help="客户端整包哈希，如 win-x64=<64位sha256>；可重复传",
+    )
+    ap.add_argument("--out", default="", help="输出文件；默认 stable=latest.json, test=latest-test.json")
     args = ap.parse_args()
+    out = args.out or str(ROOT / ("latest-test.json" if args.channel == "test" else "latest.json"))
+
+    app_sha256: dict[str, str] = {}
+    for item in args.app_sha256:
+        if "=" not in item:
+            raise SystemExit(f"--app-sha256 格式应为 PLAT=SHA256：{item}")
+        plat, sha = item.split("=", 1)
+        plat, sha = plat.strip(), sha.strip().lower()
+        if not plat or len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+            raise SystemExit(f"--app-sha256 不合法：{item}")
+        app_sha256[plat] = sha
 
     manifest = {
+        "channel": args.channel,
         "version": read_version(),
         "notes": args.notes,
-        "skill_raw_base": RAW_BASE,
+        "skill_raw_base": skill_raw_base(args.channel),
         "skill_files": list_skill_files(),
     }
-    Path(args.out).write_text(
+    if app_sha256:
+        manifest["app_sha256"] = app_sha256
+    Path(out).write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"已写 {args.out}：version={manifest['version']}, "
+    print(f"已写 {out}：channel={args.channel}, version={manifest['version']}, "
           f"{len(manifest['skill_files'])} 个 skill 文件")
 
 

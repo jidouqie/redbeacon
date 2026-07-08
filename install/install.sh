@@ -14,12 +14,52 @@
 set -uo pipefail
 
 OSS="${REDBEACON_OSS:-https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com}"
-SKILL_DEST="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands}"
+CHANNEL="${REDBEACON_CHANNEL:-stable}"
+case "$CHANNEL" in test|testing|beta) CHANNEL="test" ;; *) CHANNEL="stable" ;; esac
+if [ "$CHANNEL" = "test" ]; then
+  APP_NAME="RedBeacon_test"
+  CMD_NAME="redbeacon-test"
+  CLI_NAME="redbeacon-test-cli"
+  APP_PREFIX="app/test"
+  MANIFEST_NAME="latest-test.json"
+  SKILL_PREFIX="skill-test"
+  SHARE_NAME="redbeacon-test"
+  DESKTOP_ID="redbeacon-test"
+  SKILL_DEST="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands-redbeacon-test}"
+else
+  APP_NAME="RedBeacon"
+  CMD_NAME="redbeacon"
+  CLI_NAME="redbeacon-cli"
+  APP_PREFIX="app"
+  MANIFEST_NAME="latest.json"
+  SKILL_PREFIX="skill"
+  SHARE_NAME="redbeacon"
+  DESKTOP_ID="redbeacon"
+  SKILL_DEST="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands}"
+fi
 BINDIR="$HOME/.local/bin"
 
 say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 die()  { printf '\033[31mxx %s\033[0m\n' "$*" >&2; exit 1; }
+
+sha256_file() {
+  f="$1"
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$f" | awk '{print $1}'; return 0; fi
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$f" | awk '{print $1}'; return 0; fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$f" <<'PY'
+import hashlib, sys
+h = hashlib.sha256()
+with open(sys.argv[1], "rb") as f:
+    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+        h.update(chunk)
+print(h.hexdigest())
+PY
+    return 0
+  fi
+  return 1
+}
 
 refresh_macos_app_registration() {
   app="$1"
@@ -42,7 +82,7 @@ case "$OS" in
   Linux)  PLAT=linux-x64 ;;
   *) die "Unsupported OS: $OS (use the Windows installer on Windows)" ;;
 esac
-BUNDLE_URL="$OSS/app/RedBeacon-$PLAT.zip"
+BUNDLE_URL="$OSS/$APP_PREFIX/$APP_NAME-$PLAT.zip"
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$BINDIR"
@@ -50,13 +90,15 @@ mkdir -p "$BINDIR"
 # 2) Fast no-op for repeat installs: fetch only the tiny manifest, then skip the
 # large bundle when the installed client is already current.
 LATEST=""
-if curl -fsSL --connect-timeout 8 --max-time 20 "$OSS/latest.json" -o "$TMP/latest.json" 2>/dev/null; then
+SHA=""
+if curl -fsSL --connect-timeout 8 --max-time 20 "$OSS/$MANIFEST_NAME" -o "$TMP/latest.json" 2>/dev/null; then
   LATEST="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -1)"
+  SHA="$(sed -n 's/.*"'"$PLAT"'"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F]\{64\}\)".*/\1/p' "$TMP/latest.json" | head -1 | tr 'A-F' 'a-f')"
 fi
 if [ "$OS" = "Darwin" ]; then
-  LOCAL_CLI="$HOME/Applications/RedBeacon.app/Contents/MacOS/redbeacon-cli"
+  LOCAL_CLI="$HOME/Applications/$APP_NAME.app/Contents/MacOS/$CLI_NAME"
 else
-  LOCAL_CLI="$HOME/.local/share/redbeacon/RedBeacon/redbeacon-cli"
+  LOCAL_CLI="$HOME/.local/share/$SHARE_NAME/$APP_NAME/$CLI_NAME"
 fi
 CURRENT=""
 if [ -x "$LOCAL_CLI" ]; then
@@ -64,78 +106,84 @@ if [ -x "$LOCAL_CLI" ]; then
 fi
 if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "$LATEST" ]; then
   if [ "$OS" = "Darwin" ]; then
-    refresh_macos_app_registration "$HOME/Applications/RedBeacon.app"
+    refresh_macos_app_registration "$HOME/Applications/$APP_NAME.app"
   fi
-  say "RedBeacon $CURRENT is already installed. Skipping bundle download."
-  say "To reinstall anyway: curl -fsSL https://bytestaff.jiomig.com/install.sh | REDBEACON_FORCE_INSTALL=1 bash"
+  say "$APP_NAME $CURRENT is already installed. Skipping bundle download."
+  say "To reinstall anyway: curl -fsSL $OSS/install.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_FORCE_INSTALL=1 bash"
   exit 0
 fi
 
 # 3) download the bundle (OSS is fast in China; retry a few times)
-say "[1/3] Downloading RedBeacon ($PLAT) ..."
+say "[1/3] Downloading $APP_NAME ($PLAT) ..."
 ok=""
 for t in 1 2 3; do
   if curl -fSL --connect-timeout 15 -o "$TMP/rb.zip" "$BUNDLE_URL"; then ok=1; break; fi
   warn "  download attempt $t failed, retrying..."; sleep 2
 done
 [ -n "$ok" ] || die "Could not download $BUNDLE_URL -- check your network and re-run."
+if [ -n "$SHA" ]; then
+  GOT="$(sha256_file "$TMP/rb.zip" 2>/dev/null || true)"
+  [ "$GOT" = "$SHA" ] || die "Package checksum mismatch. Please re-run later."
+else
+  warn "  package checksum missing in $MANIFEST_NAME; installing without checksum verification."
+fi
 
 # 4) extract + place + wire the `redbeacon` command
 say "[2/3] Installing ..."
 mkdir -p "$TMP/x"
 unzip -q "$TMP/rb.zip" -d "$TMP/x" || die "unzip failed (corrupt download?)"
 if [ "$OS" = "Darwin" ]; then
-  APP="$HOME/Applications/RedBeacon.app"
+  APP="$HOME/Applications/$APP_NAME.app"
   mkdir -p "$HOME/Applications"; rm -rf "$APP"
-  mv "$TMP/x/RedBeacon.app" "$APP"
+  mv "$TMP/x/$APP_NAME.app" "$APP"
   xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true   # locally placed -> no Gatekeeper prompt
-  ln -sf "$APP/Contents/MacOS/redbeacon-cli" "$BINDIR/redbeacon"
+  ln -sf "$APP/Contents/MacOS/$CLI_NAME" "$BINDIR/$CMD_NAME"
   refresh_macos_app_registration "$APP"
-  OPEN_HINT="Launchpad / Spotlight -> RedBeacon (or ~/Applications/RedBeacon.app)"
+  OPEN_HINT="Launchpad / Spotlight -> $APP_NAME (or ~/Applications/$APP_NAME.app)"
 else
-  DEST="$HOME/.local/share/redbeacon"
+  DEST="$HOME/.local/share/$SHARE_NAME"
   rm -rf "$DEST"; mkdir -p "$DEST"
-  mv "$TMP/x/RedBeacon" "$DEST/RedBeacon"
-  ln -sf "$DEST/RedBeacon/redbeacon-cli" "$BINDIR/redbeacon"
-  ICON_PATH="$DEST/RedBeacon/_internal/assets/RedBeacon.png"
-  [ -f "$ICON_PATH" ] || ICON_PATH="$DEST/RedBeacon/assets/RedBeacon.png"
-  D="$HOME/.local/share/applications/redbeacon.desktop"; mkdir -p "$(dirname "$D")"
+  mv "$TMP/x/$APP_NAME" "$DEST/$APP_NAME"
+  ln -sf "$DEST/$APP_NAME/$CLI_NAME" "$BINDIR/$CMD_NAME"
+  ICON_PATH="$DEST/$APP_NAME/_internal/assets/RedBeacon.png"
+  [ -f "$ICON_PATH" ] || ICON_PATH="$DEST/$APP_NAME/assets/RedBeacon.png"
+  D="$HOME/.local/share/applications/$DESKTOP_ID.desktop"; mkdir -p "$(dirname "$D")"
   cat > "$D" <<EOF
 [Desktop Entry]
 Type=Application
-Name=RedBeacon
+Name=$APP_NAME
 Comment=Xiaohongshu operations digital worker
-Exec=$DEST/RedBeacon/RedBeacon
+Exec=$DEST/$APP_NAME/$APP_NAME
 Icon=$ICON_PATH
 Terminal=false
 Categories=Office;Utility;
 EOF
   chmod +x "$D" 2>/dev/null || true
-  OPEN_HINT="your app menu -> RedBeacon"
+  OPEN_HINT="your app menu -> $APP_NAME"
 fi
 
 # 5) skills -> AI assistant command dir (from OSS; non-blocking)
 say "[3/3] Fetching skills ..."
 skok=""
 for t in 1 2 3; do
-  if curl -fsSL --max-time 90 "$OSS/skill/redbeacon-skill.tar.gz" | tar -xz -C "$TMP" 2>/dev/null; then skok=1; break; fi
+  if curl -fsSL --max-time 90 "$OSS/$SKILL_PREFIX/redbeacon-skill.tar.gz" | tar -xz -C "$TMP" 2>/dev/null; then skok=1; break; fi
 done
 if [ -n "$skok" ]; then
   SRC="$(find "$TMP" -type d -path '*/.claude/commands' | head -1)"
   mkdir -p "$SKILL_DEST"
   [ -n "$SRC" ] && cp -f "$SRC"/*.md "$SKILL_DEST"/ 2>/dev/null || true
-  "$BINDIR/redbeacon" config set skill_install_dir "$SKILL_DEST" >/dev/null 2>&1 || true
+  "$BINDIR/$CMD_NAME" config set skill_install_dir "$SKILL_DEST" >/dev/null 2>&1 || true
 else
   warn "  skills not fetched this time (UI/app unaffected); re-run this command later to add them."
 fi
 
 echo
-say "RedBeacon installed."
+say "$APP_NAME installed."
 echo "  - Double-click the app:  $OPEN_HINT"
-echo "  - Or drive it via CLI:   redbeacon   (with an AI assistant: /redbeacon)"
+echo "  - Or drive it via CLI:   $CMD_NAME"
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
-  *) warn "Note: $BINDIR is not on your PATH yet. Add it (or reopen your terminal) to use the 'redbeacon' command."
+  *) warn "Note: $BINDIR is not on your PATH yet. Add it (or reopen your terminal) to use the '$CMD_NAME' command."
      warn "  e.g.  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
 esac
 echo "  (The browser engine downloads on first run -- give it a minute the first time.)"

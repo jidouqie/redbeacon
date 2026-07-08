@@ -1,0 +1,167 @@
+name: Windows installer smoke
+
+# Catches low-level PowerShell problems before a release:
+# - ps1 parser errors / bad quoting / accidental non-ASCII console issues
+# - install.ps1 path mistakes for stable and test channels
+# - uninstall.ps1 deleting the wrong channel
+#
+# This uses a local fake OSS server and tiny fake bundles. The real desktop
+# bundle is smoke-tested in cli/.github/workflows/build-bundle.yml.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ['main', 'ci/bundle']
+    paths:
+      - 'install/**'
+      - 'tools/release.sh'
+      - '.github/workflows/windows-installer-smoke.yml'
+  pull_request:
+    paths:
+      - 'install/**'
+      - 'tools/release.sh'
+      - '.github/workflows/windows-installer-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $OutputEncoding = [System.Text.UTF8Encoding]::new()
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+          [Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
+          $files = @(
+            "install/install.ps1",
+            "install/install-test.ps1",
+            "install/uninstall.ps1",
+            "install/uninstall-test.ps1"
+          )
+          foreach($file in $files){
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if($errors -and $errors.Count -gt 0){
+              $errors | Format-List | Out-String | Write-Error
+              throw "$file has PowerShell parser errors"
+            }
+            Write-Host "PowerShell syntax ok: $file"
+          }
+
+      - name: Install and uninstall against fake OSS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $OutputEncoding = [System.Text.UTF8Encoding]::new()
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+          [Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
+
+          $fake = Join-Path $env:RUNNER_TEMP "fake-oss"
+          $build = Join-Path $env:RUNNER_TEMP "fake-build"
+          New-Item -ItemType Directory -Force -Path $fake, $build | Out-Null
+
+          function New-FakeChannel($Channel){
+            if($Channel -eq "test"){
+              $appName = "RedBeacon_test"
+              $cliName = "redbeacon-test-cli"
+              $appPrefix = "app/test"
+              $manifestName = "latest-test.json"
+              $skillPrefix = "skill-test"
+            } else {
+              $appName = "RedBeacon"
+              $cliName = "redbeacon-cli"
+              $appPrefix = "app"
+              $manifestName = "latest.json"
+              $skillPrefix = "skill"
+            }
+
+            $pkgRoot = Join-Path $build "pkg-$Channel"
+            $appDir = Join-Path $pkgRoot $appName
+            $assetDir = Join-Path $appDir "_internal\assets"
+            New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+            Set-Content -Encoding ASCII -Path (Join-Path $appDir "$appName.exe") -Value "fake gui exe"
+            Set-Content -Encoding ASCII -Path (Join-Path $appDir "$cliName.exe") -Value "fake cli exe"
+            [System.IO.File]::WriteAllBytes((Join-Path $assetDir "RedBeacon.ico"), [byte[]](0))
+
+            $zipDir = Join-Path $fake $appPrefix
+            New-Item -ItemType Directory -Force -Path $zipDir | Out-Null
+            $zip = Join-Path $zipDir "$appName-win-x64.zip"
+            Compress-Archive -Path $appDir -DestinationPath $zip -Force
+            $sha = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
+
+            $manifest = @{
+              channel = $Channel
+              version = "9.9.9"
+              notes = "installer smoke"
+              skill_raw_base = "http://127.0.0.1:8765/$skillPrefix/commands"
+              skill_files = @("redbeacon.md")
+              app_sha256 = @{ "win-x64" = $sha }
+            } | ConvertTo-Json -Depth 5
+            Set-Content -Encoding UTF8 -Path (Join-Path $fake $manifestName) -Value $manifest
+
+            $skillRoot = Join-Path $build "skill-$Channel"
+            $commands = Join-Path $skillRoot ".claude\commands"
+            New-Item -ItemType Directory -Force -Path $commands | Out-Null
+            Set-Content -Encoding UTF8 -Path (Join-Path $commands "redbeacon.md") -Value "---`ndescription: smoke`n---`n# smoke"
+            $skillDir = Join-Path $fake $skillPrefix
+            New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
+            tar -czf (Join-Path $skillDir "redbeacon-skill.tar.gz") -C $skillRoot .
+          }
+
+          New-FakeChannel "stable"
+          New-FakeChannel "test"
+
+          $server = Start-Process -FilePath "python" -ArgumentList @("-m", "http.server", "8765", "--directory", $fake) -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            foreach($i in 1..30){
+              try {
+                Invoke-WebRequest -Uri "http://127.0.0.1:8765/latest.json" -UseBasicParsing -TimeoutSec 2 | Out-Null
+                $ready = $true
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if(-not $ready){ throw "fake OSS server did not start" }
+
+            foreach($channel in @("stable", "test")){
+              if($channel -eq "test"){
+                $appName = "RedBeacon_test"
+                $cmdName = "redbeacon-test"
+                $skillDir = Join-Path $env:RUNNER_TEMP "skills-test"
+              } else {
+                $appName = "RedBeacon"
+                $cmdName = "redbeacon"
+                $skillDir = Join-Path $env:RUNNER_TEMP "skills-stable"
+              }
+
+              $env:REDBEACON_OSS = "http://127.0.0.1:8765"
+              $env:REDBEACON_CHANNEL = $channel
+              $env:REDBEACON_FORCE_INSTALL = "1"
+              $env:REDBEACON_SKILL_DIR = $skillDir
+              & ./install/install.ps1
+
+              $dest = Join-Path $env:LOCALAPPDATA "Programs\$appName"
+              $shim = Join-Path $HOME ".local\bin\$cmdName.cmd"
+              if(-not (Test-Path $dest)){ throw "$channel install did not create $dest" }
+              if(-not (Test-Path $shim)){ throw "$channel install did not create $shim" }
+              if(-not (Test-Path (Join-Path $skillDir "redbeacon.md"))){ throw "$channel install did not copy skill" }
+
+              Remove-Item Env:\REDBEACON_FORCE_INSTALL -ErrorAction SilentlyContinue
+              & ./install/uninstall.ps1
+              if(Test-Path $dest){ throw "$channel uninstall did not remove $dest" }
+              if(Test-Path $shim){ throw "$channel uninstall did not remove $shim" }
+            }
+          }
+          finally {
+            if($server -and -not $server.HasExited){ Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+          }
