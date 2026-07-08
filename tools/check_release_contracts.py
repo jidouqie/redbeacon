@@ -45,6 +45,7 @@ def check_installers() -> None:
     unsh = read("install/uninstall.sh")
     unps1 = read("install/uninstall.ps1")
     setup_py = read("cli/src/redbeacon/routers/setup.py")
+    browser_engine_py = read("cli/src/redbeacon/services/browser_engine.py")
     bundle_spec = read("cli/packaging/RedBeacon.spec")
     win_smoke = read("cli/packaging/smoke_windows_bundle.ps1")
 
@@ -68,7 +69,9 @@ def check_installers() -> None:
     require(unps1, '$CodexSkillDir = "$HOME\\.codex\\skills"', "install/uninstall.ps1", "Windows 卸载必须清理对应通道 Codex skill")
     require(unsh, 'redbeacon-test*', "install/uninstall.sh", "测试版卸载只能动 redbeacon-test*")
     require(unps1, 'redbeacon-test*', "install/uninstall.ps1", "测试版卸载只能动 redbeacon-test*")
-    require(setup_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/routers/setup.py", "浏览器内核下载必须包含 RedBeacon OSS 兜底源")
+    require(setup_py, "browser_engine.ensure_browser_engine", "cli/src/redbeacon/routers/setup.py", "setup 命令必须走带进度的浏览器内核安装服务")
+    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/services/browser_engine.py", "浏览器内核下载必须包含 RedBeacon OSS 兜底源")
+    require(bundle_spec, 'collect_data_files("playwright")', "cli/packaging/RedBeacon.spec", "冻结包必须带 Playwright driver，才能在客户端内修复浏览器内核")
     require(bundle_spec, '"_sqlite3"', "cli/packaging/RedBeacon.spec", "Windows 冻结包必须显式包含 SQLite 扩展")
     require(win_smoke, "Traceback|ModuleNotFoundError|ImportError", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须捕获桌面初始化异常")
     require(win_smoke, "RedBeacon desktop smoke ok", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须确认桌面初始化到达 ready 标记")
