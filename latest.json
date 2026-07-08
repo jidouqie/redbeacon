@@ -1,6 +1,6 @@
 {
-  "version": "0.1.49",
-  "notes": "清理客户端旧入口：首页和空账号引导移除旧官网链接与 Claude Code 上手按钮，统一跳转到 bytestaff 市场页；新用户改为复制开张提示词，UI 明确可完整使用。",
+  "version": "0.1.50",
+  "notes": "修复安装与客户端更新：安装脚本会先读取版本清单并判断本机已装版本，已是最新版时跳过客户端大包下载；客户端内更新改为带进度的后台任务，下载完成后自动关闭当前客户端并整包覆盖替换。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",

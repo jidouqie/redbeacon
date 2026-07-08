@@ -2,7 +2,9 @@
 """生成版本清单 latest.json（升级检查的单一事实源）。
 
 version 取自 CLI 的 __version__（cli/src/redbeacon/__init__.py），
-skill_files 扫描 .claude/commands，避免手工维护漂移。发版流程见 memory release-flow。
+skill_files 扫描 .claude/commands，避免手工维护漂移。
+完整发布流程见根 CLAUDE.md「打包 / 交付」：客户端包先由 GitHub Actions 打包上传 OSS，
+本脚本只负责 latest.json 内容。
 
 用法（在 redbeacon 仓根目录）：
     python tools/gen_latest.py --notes "本次更新说明"
@@ -15,7 +17,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW_BASE = "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands"
+# skill 也走阿里云 OSS（散装 md，供 redbeacon update 逐个拉）——彻底不依赖 GitHub。
+RAW_BASE = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands"
 
 
 def read_version() -> str:

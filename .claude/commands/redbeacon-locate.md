@@ -1,7 +1,9 @@
 ---
-description: 账号定位 — 对话梳理赛道/受众/差异化/变现 → 写策略 → 初始化内容类型 → 生成选题入库
+description: 账号定位 — 对话梳理赛道/受众/差异化/变现 → 写本机账号档案 → 生成种子选题入选题库
 argument-hint: 无参数=从零给账号定位；多账号时说清是哪个（如「给账号2定位」）
 ---
+
+> 📦 **数据都在本机**：账号定位档案、选题库都存本地，审核在 `redbeacon ui app` 操作台或对话里。无需飞书。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
 > - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
@@ -9,7 +11,7 @@ argument-hint: 无参数=从零给账号定位；多账号时说清是哪个（�
 >   ```
 >   你想先做哪个？
 >   1. 写一篇（我列选题你挑）
->   2. 先审飞书里那几篇
+>   2. 先审那几篇待审的
 >   3. 补一批选题
 >   回数字就行，也可以直接跟我说。
 >   ```
@@ -18,9 +20,13 @@ argument-hint: 无参数=从零给账号定位；多账号时说清是哪个（�
 
 > **【定位 skill】** 账号建好后给它"定性"。通过对话把账号方向定下来，写进策略，并生成一批选题灌进选题库——这是账号能产出内容的前提。
 >
-> 上一步是绑飞书表（`/redbeacon-feishu`，账号此时已登录、已绑审核表），**下一步是弹「内容设定」面板让用户调样式并二次确认**（见本 skill 最后一步），通过后账号即进入正式运营。后续想单独改某一项（定位/文案预设/图片预设）走 `/redbeacon-strategy`；觉得产出的文案/图不对劲走 `/redbeacon-diagnose`。
+> 上一步是扫码登录小红书（`/redbeacon-xhslogin`，账号此时已登录），**下一步是请用户过一眼这次定位、确认/微调后进入正式运营**（见本 skill 最后一步）。后续想单独改某一项（定位/文案预设/图片预设）走 `/redbeacon-strategy`；觉得产出的文案/图不对劲走 `/redbeacon-diagnose`。
 >
-> **遵循主入口「自动推进原则」**：定位本身就是和用户的对话（需要他给赛道/受众/想法），聊定+铺完种子选题后，**直接弹面板进收尾确认**，别问"要不要弹面板"。这是 onboarding 的最后一关。
+> ⚠️ **账号资料真源 = 本机账号档案**。你写定位 = 写这份档案；用户日后要改账号资料，随口跟你说、你帮他改（`strategy patch`），或自己去操作台定位页改。
+>
+> 🔴 **想让用户可视化地过一眼/逐项核对这 26 项定位** → 深链把他送进操作台定位页：`redbeacon ui app --page 定位 --account-id {ID}`。**梳理/起草留对话（你的强项，联网+引导替他想），逐项核对/微调交给网页（它一屏铺开更直观）**——这正是两个入口的分工。
+>
+> **遵循主入口「自动推进原则」**：定位本身就是和用户的对话（需要他给赛道/受众/想法），聊定+铺完种子选题后，**直接引导用户过目确认**，别问"要不要确认"。这是 onboarding 的最后一关。
 >
 > **选题这件事的"家"是 `/redbeacon-topics`**（你出想法 + AI 联网取真痛点 + 应用域网格规划 + 你拍板）。本 skill 第四步只铺一批"快速起步"的种子选题让账号能先跑起来；以后补题 / 想认真规划 / 重铺都走 `/redbeacon-topics`。
 
@@ -63,59 +69,73 @@ redbeacon strategy get --account-id {ID}
 
 你（运行此 skill 的客户端）能读图、能读长文案。趁定位对话，主动邀请用户把**喜欢的封面图**和**喜欢的笔记文案**直接发到聊天窗——这是把抽象偏好变具体的最快方式：
 
-- **用户发参考封面图** → 你看图，反推出**视觉风格的一句大白话描述**：主体 / 构图 / 色调 / 留白 / 质感（如「明亮清新、ins 简约、主体居中、上方留白」）。第二步连同定位一起，用 `redbeacon strategy image-set` 落库（`prompt_template` 只写这句人话，**别写 `{niche}`/`{title}` 占位符或"竖版3:4"等格式词，程序会自动补**；要 AI 生图再配 `mode=ai` + `ai_model`）。
-- **用户发参考文案**（喜欢的博主笔记）→ 你抽象出风格：语气、句式长短、开场套路、分段方式、emoji 习惯、有无人设口头禅。把能映射到定位字段的填进去（`tone`/`opening_style`/`format_style`/`emoji_usage`）；更具体的"某类内容怎么写"用一句人话留到第三步 `strategy prompt-set` 写进对应内容类型（写人话，不写 JSON/占位符）。
+- **用户发参考封面图** → 你看图，反推出**视觉风格的一句大白话描述**：主体 / 构图 / 色调 / 留白 / 质感（如「明亮清新、ins 简约、主体居中、上方留白」）。第二步连同定位一起，用 `redbeacon strategy image-set` 落库（`prompt_template` 只写这句人话，**别写 `{niche}`/`{title}` 占位符或"竖版3:4"等格式词，程序会自动补**；要 AI 生图再配 `mode=ai`，模型平台侧定、不用传）。
+- **用户发参考文案**（喜欢的博主笔记）→ 你抽象出风格：语气、句式长短、开场套路、分段方式、emoji 习惯、有无人设口头禅。把能映射到定位字段的填进去（`tone`/`opening_style`/`format_style`/`emoji_usage`）；更具体的"这个号怎么写"用一段人话浓缩进 `copy_guide`（全局文案指南，管所有内容——按内容类型分别设写作要求已下线，统一走这一段）。
 
 > 图片只在对话里被你读懂，不会进 CLI；CLI 里存的永远是你抽象出来的**文本提示词**。用户没有参考样例也没关系，跳过即可，靠问答把风格说清楚也行。
 
 ---
 
-## 第二步：生成定位草稿 → 确认 → 写入
+## 第二步：深度起草账号档案（~26 字段）→ 逐块确认 → 写入本机账号档案
 
-根据对话整理成一份定位方案，清晰展示给用户：
+> 🎯 **深度在"覆盖"不在"拷问"**：账号档案有 ~26 项。别抛一堆空问题让用户填——**你（AI）联网+据第一步对话，先把每个字段都替用户起草一版**，再**分块**亮给用户逐块确认/微调。用户主要"拍板和改"，不打字。
+> - **核心层先钉死**（赛道/受众/内容支柱）：这几项错了全盘错，先确认。
+> - **蓝图层先草拟再磨**（人设/对标账号/选题边界/账号阶段）：你先拟一版，用户后续慢慢调。
+> - **少数要用户给料**：对标账号的具体名字、变现意图——这些 AI 猜不准，要问。
+
+先把起草的方案**分块**展示（不要一次甩 26 行），如：
 
 ```
-【核心定位】一句话：专注 [X] 的账号，帮 [目标受众] 实现 [核心价值]
-【目标受众】年龄/身份 · 核心痛点 · 使用场景
-【差异化】和同类账号的本质区别
-【内容调性】文字风格关键词 · 视觉风格关键词
-【内容支柱】3-4 个方向
-【痛点切入】最容易戳中受众的 3-5 个话题方向
+【核心定位】一句话定位 · 赛道 · 目标受众 · 用户痛点 · 内容支柱（3-4）
+【人设 & 差异化】我是谁 · 差异化优势 · 用户爽点 · 账号阶段与目标 · 变现方式
+【策略】对标账号 · 账号级关键词 · 话题标签策略 · 选题边界（不做什么）
+【文案预设】语气 · 开头风格 · 排版风格 · emoji用量 · 篇幅 · 文案指南 · 违禁词
+【视觉发布】视觉风格 · 默认配图方式 · 发布节奏
 ```
 
-把方向亮出来后**给编号选项**让用户拍板（别开放式问"准吗"）：
+每块给编号选项让用户拍板（别开放式问"准吗"）：
 
-> 这个方向我理解得准吗？回个数字：
-> 1. 准，就按这个来（**推荐**）
-> 2. 要调一下 —— 说说哪里不对（赛道/受众/痛点都行）
+> 【核心定位】这块我理解得准吗？回个数字：
+> 1. 准，下一块（**推荐**）
+> 2. 要调 —— 说哪里不对
 
-改到用户确认，再写入策略：
+逐块确认到位后，**一次性写入本机账号档案**（`strategy patch` 增量合并；字段名按下面这套 key）：
 
 ```bash
 redbeacon strategy patch --account-id {ID} --data '{
+  "positioning_oneline": "一句话定位：专注X、帮[受众]实现[价值]",
   "niche": "赛道",
   "target_audience": "受众画像",
-  "competitive_advantage": "差异化优势",
-  "monetization": "变现路径",
-  "content_pillars": [{"name":"方向1","description":"说明"},{"name":"方向2","description":"说明"},{"name":"方向3","description":"说明"}],
   "pain_points": ["痛点1","痛点2","痛点3"],
+  "persona": "人设·我是谁（背景/身份/为什么可信）",
+  "user_benefit": "用户利益点·爽点（看完能得到什么）",
+  "competitive_advantage": "差异化优势",
+  "monetization": "变现方式/意图",
+  "content_pillars": [{"name":"方向1","description":"说明"},{"name":"方向2","description":"说明"},{"name":"方向3","description":"说明"}],
+  "account_stage": "账号阶段与目标（如：冷启动，先涨粉到1k）",
+  "benchmark_accounts": "对标账号（用户给的具体名，逗号分隔）",
+  "account_keywords": ["账号级关键词1","关键词2"],
+  "hashtag_strategy": "话题标签策略（每篇带哪类话题）",
+  "topic_boundary": "选题边界·不做（哪些题材绝不碰）",
   "tone": "亲切自然，像朋友分享而非说教",
   "opening_style": "痛点戳入",
   "format_style": "分点列举",
   "emoji_usage": "适量",
   "content_length": "300-500字",
-  "visual_theme": "简洁高级感",
+  "copy_guide": "（必填！这个号「怎么写」的全局写作指引，一段人话——见下）",
   "forbidden_words": [],
-  "copy_guide": "（必填！把这个号「怎么写」的全局写作指引浓缩成一段人话——见下）"
+  "visual_theme": "简洁高级感",
+  "posting_frequency": "发布节奏（如：每周3篇）"
 }'
 ```
 
-> ⚠️ **`copy_guide`（全局文案提示词）必须一起写，别留空**——这是面板上「全局文案提示词」那个框，也是生成时注入每篇的全局写作要求。tone/opening/format 只是结构化的零散风格；`copy_guide` 是把这个号**独特的写法**用一段人话讲清楚，比如：「每篇用『因为X→所以Y』的因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留一个钩子引导评论；带点『聪明朋友』的口吻，不堆术语」。
-> **从这次定位对话里提炼**：用户喜欢的博主风格、他强调的写法、他的人设口头禅、内容差异化打法——综合成 2~4 句可执行的写作指引，写进 `copy_guide`。**不写 JSON/占位符，写人话。**
+> ⚠️ **`copy_guide`（全局文案指南）必须写、别留空**——生成时注入每篇的全局写作要求。tone/opening/format 只是结构化的零散风格；`copy_guide` 把这个号**独特的写法**用一段人话讲清楚，例：「每篇用『因为X→所以Y』的因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留钩子引导评论；聪明朋友口吻不堆术语」。**从这次定位对话提炼，2~4 句可执行，写人话、不写 JSON/占位符。**（按内容类型分别设写作要求已下线，统一就这一段。）
 
-> 写入成功后告知：✓ 账号定位已保存。
+> 写入成功后告知：✓ 账号定位已写进本机账号档案。
 >
-> **真正进文案生成的字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words / **copy_guide**（全局写作指引，权重高）（visual_theme 影响配图）。其余（competitive_advantage / monetization / content_length）作为上下文留存。改这些将来走 `/redbeacon-strategy`。
+> **真正进文案生成的字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words / **copy_guide**（权重高）+ visual_theme（配图）。其余作为账号上下文留存。这些全在**本机账号档案**里，用户随时可去操作台定位页改、或走 `/redbeacon-strategy` 让你改。
+>
+> ⚠️ **账号备注名/小红书昵称**这两项是账号身份（登录回填、只读），不在定位这套 26 项里改（改备注名走第四步半的 `accounts patch`）。
 
 ---
 
@@ -155,28 +175,25 @@ redbeacon strategy image-ref-add --account-id {ID} --file "<用户那张照片�
 
 存好后**生成时自动走图生图**——程序会自动在封面提示词里补上"用参考图里的这个人、保持同一张脸"，**不用你手写**。封面会把这个人放进大字报里、标题大字照常。
 
-> ⚠️ **图生图保脸要用对模型**：人物一致性最强的是 **`gemini-3.1-flash-image-preview`（nano-banana 系）**——实测能完美还原本人；`gemini-3-pro-image-preview` 在图生图保脸上偏弱（常画成别人、甚至换性别）。做人物封面就把账号图模型设成 flash 系：
-> ```bash
-> redbeacon strategy image-set --account-id {ID} --data '{"ai_model":"gemini-3.1-flash-image-preview"}'
-> ```
+> ⚠️ **图生图保脸的模型由平台侧定、你不用选**——做人物封面只要把本人形象照存为参考图即可，平台会用合适的保脸模型，无需也无法手指定。
 
 > **有参考图 = 自动图生图（保脸）；没有 = 文生图。** 参考图已拷进数据目录、路径稳定，不怕原图被移动/删除。
 
-> 视觉风格之后想改：随口说"封面太暗了/字往上挪/换风格"走 `/redbeacon-strategy`；或开 `/redbeacon-panel` 看着调 + 试生成对比。
+> 视觉风格之后想改：随口说"封面太暗了/字往上挪/换风格"走 `/redbeacon-strategy`（视觉风格/默认配图方式存本机账号档案，改一句即生效）。
+
+> 🎨 **这里种的是账号"默认封面"的兜底风格（一句话级）**。真正**成套、可多版、能"看喜欢的封面截图反推风格"的封面/文案方案**在 `/redbeacon-plans`——那边生成时按方案的 `image_template` 出图（比这里的账号兜底更细、优先级更高）。用户想认真磨封面风格、或想要日常版/带货版不同封面 → 顺一句引到 `/redbeacon-plans`（它会顾问式帮他把模糊感觉或一张截图落成提示词）。
+
+> ⚠️ 视觉配置全在本机账号档案（程序自动归位，你不用管）：默认配图方式 + 视觉风格那句人话、参考图文件、卡片配色主题。
 
 ---
 
-## 第三步：初始化内容类型
+## 第三步：定内容类型（不再单独初始化）
 
-```bash
-redbeacon topics types-init --account-id {ID}
-```
-
-播种三类内容类型（已存在则跳过）：**干货科普 / 痛点解析 / 经验分享**。
+「内容类型管理」已退役。**内容类型取值源 = 账号定位的「内容支柱」**（`strategy get` 的 `content_pillars`）+ 选题库里已有的种子。出选题时按账号内容支柱来分类即可；用户没特别想法就用通用三类（干货科普 / 痛点解析 / 经验分享）。内容类型是自由文本，写库时按实际说法填、不用预先播种。
 
 ---
 
-## 第四步：生成选题矩阵 → **先给用户过眼确认** → 批量入库
+## 第四步：生成选题矩阵 → **先给用户过眼确认** → 批量入本机选题库
 
 > 🚦 **硬规则（不可跳过）**：选题**必须先在对话里编号列给用户看、等他回数字确认或删改后**，才允许跑 `topics batch` 写库。**在用户确认前，一条 `topics batch` 都不许执行**——别在用户不知情的情况下把选题灌进库。这是 onboarding 里用户最容易"被跳过、感觉不受控"的一步，务必让他亲眼看过、点过头。
 
@@ -206,17 +223,20 @@ redbeacon topics types-init --account-id {ID}
 
 **用户回数字确认/删改之后**，才按类型批量写入（用 stdin 喂多行，中文最稳）：
 
-入库带上元数据用 `--json`（这步已做过应用域自检，每条都想清了落在哪个应用域 × 问题类型），让覆盖盘面从第一批起就准（避免一堆"未标应用域"）：
+入库带上元数据用 `--json`（这步已做过应用域自检，每条都想清了落在哪个应用域 × 问题类型），让覆盖盘面从第一批起就准（避免一堆"未标应用域"）。**每条除了核心归类，还要写上本条独有的 `angle`(切入角度)+`outline`(要点提纲)**——你定位聊下来已经知道这条从哪切、讲哪几点，别只丢标题；这俩每条不一样、账号默认里没有可继承的，留空 generate 写文案时就补不回来（这正是"选题信息不全"的病根）：
 
 ```bash
 redbeacon topics batch --account-id {ID} --json <<'EOF'
 [
-  {"content":"选题1","content_type":"干货科普","application_domain":"...","problem_type":"识别"},
-  {"content":"选题2","content_type":"痛点解析","application_domain":"...","problem_type":"反例"},
-  {"content":"选题3","content_type":"经验分享","application_domain":"...","problem_type":"后果"}
+  {"content":"选题1","content_type":"干货科普","application_domain":"...","problem_type":"识别",
+   "angle":"从一个反常识的判断切入","outline":"要点1;要点2;要点3"},
+  {"content":"选题2","content_type":"痛点解析","application_domain":"...","problem_type":"反例",
+   "angle":"先戳这类人最痛的一刀","outline":"要点1;要点2;要点3"}
 ]
 EOF
 ```
+
+> 阶段默认落「选题」（可被 generate 取用的库存）。返回 `{"inserted":N,"total":M,"record_ids":[...]}`，库里重复文本自动跳过。
 
 写完核对数量：
 
@@ -224,44 +244,33 @@ EOF
 redbeacon topics stats --account-id {ID}
 ```
 
-- `unused >= 10` → ✓ 告知已入库 N 条选题。
+- `unused >= 10` → ✓ 告知已入库 N 条选题（unused = 阶段为「选题」的库存数）。
 - `unused < 10` → 再生成补到 ≥ 10，追加 `topics batch`。
 
-### 选题维护：删除 / 清理（topics delete）
+### 选题维护：删除 / 清理（topics delete，按 record_id）
 
-> `reset` 只把选题重置为「未用」**不删除**；要**物理删除**用 `topics delete`。
-
-```bash
-redbeacon topics list   --account-id {ID} --limit 100         # 先看 id
-redbeacon topics delete --account-id {ID} --ids 3,4,5         # 删指定几条
-redbeacon topics delete --account-id {ID} --type "干货科普"    # 删某一类
-redbeacon topics delete --account-id {ID} --used 1            # 删所有已用过的
-redbeacon topics delete --account-id {ID} --all              # 清空全部（防误删，必须显式 --all）
-```
-
-返回 `{"ok":true,"deleted":N}`。**重新定位 / 选题跑偏想推倒重来**：先 `topics delete … --all` 清空，再走本步重建。不传 `--ids/--type/--used` 又不加 `--all` 会被拒绝（防手滑清库）。
-
-### 选题改写（topics edit）
-
-某条选题只是想改文字 / 换归类，不必删了重加：
+> 选题库在本机，**没有"已用/未用"态**（写成文案=删行）；`reset` / `types*` 已退役。
 
 ```bash
-redbeacon topics edit --account-id {ID} --id 7 --content "改后的选题文本"   # 改文案
-redbeacon topics edit --account-id {ID} --id 7 --type "痛点解析"           # 改归类
-redbeacon topics edit --account-id {ID} --id 7 --used 0                    # 标回未用
+redbeacon topics list   --account-id {ID} --limit 100              # 先看 record_id
+redbeacon topics delete --account-id {ID} --ids recXXXX,recYYYY    # 删指定几条（record_id）
+redbeacon topics delete --account-id {ID} --type "干货科普"         # 删某一类
+redbeacon topics delete --account-id {ID} --all                   # 清空全部（防误删，必须显式 --all）
 ```
 
-### 内容类型增删改名（types-add / types-rename / types-delete）
+返回 `{"ok":true,"deleted":N}`。**重新定位 / 选题跑偏想推倒重来**：先 `topics delete … --all` 清空，再走本步重建。不传 `--ids/--type` 又不加 `--all` 会被拒绝（防手滑清库）。
 
-默认三类（干货科普 / 痛点解析 / 经验分享）不够用或想改名时：
+### 选题改写（topics edit，按 record_id）
+
+某条选题想改文字 / 换归类 / 调阶段，不必删了重加：
 
 ```bash
-redbeacon topics types-add    --account-id {ID} --name "反共识" --prompt "专戳行业惯性认知"   # 加一类
-redbeacon topics types-rename --account-id {ID} --name "干货科普" --to "拆解"               # 改名（选题/已生成内容的归类自动跟着改）
-redbeacon topics types-delete --account-id {ID} --name "反共识"                            # 删一类（该类下还有未用选题需加 --force）
+redbeacon topics edit --account-id {ID} --id recXXXX --content "改后的选题文本"   # 改文案
+redbeacon topics edit --account-id {ID} --id recXXXX --type "痛点解析"           # 改归类
+redbeacon topics edit --account-id {ID} --id recXXXX --stage 弃用                # 软删除、不进列表
 ```
 
-> 改名是**级联**的（返回里 `topics_updated`/`content_updated` 是受影响条数）。删类型不删选题——失去归属的选题仍可被跨类型生成取用。「干货科普」这名字和"别堆干货"的写作信条有点冲，想改成「拆解」「认知」之类更贴定位的，就用 `types-rename`。
+> **内容类型不再单独管理**（types* 已退役）：要调内容类型，直接用 `topics edit --type` 改这条，或改账号定位「内容支柱」（`/redbeacon-strategy`）。
 
 ---
 
@@ -307,48 +316,50 @@ redbeacon accounts patch --account-id {ID} --data '{"display_name": "<最终备�
 
 ---
 
-## 第五步：弹「内容设定」面板 → 反馈迭代 → 二次确认 → 进入正式运营
+## 第五步：请用户过目确认定位 → 进入正式运营
 
-定位写完、种子选题也铺好了，但账号"内容长什么样、文案什么风格"还得让用户**亲眼在面板里调到满意**才算配置完成。这是 onboarding 的最后一关，**直接弹面板，别问"要不要弹"**。
+定位写完、种子选题也铺好了。最后一关：**请用户亲眼过一遍这次定位**，确认/微调后账号即进入正式运营。过目有两种方式，看用户习惯：
 
-**① 先把这次定位聊出来的全部落库，再开面板**（面板优先显示库里已有配置；落库后用户看到的才是"我们聊出来的方案"而非通用默认）：
+**① 请用户过一眼 + 说清看什么**：
+
+> 定位和选题都备好了，全写进了这个号的档案。想过一眼的话——
+> - 想**可视化逐项核对**：我给你把操作台定位页打开（26 项一屏铺开，哪格不对直接改）；
+> - 或者我**直接把关键几项念给你**：赛道 / 目标受众 / 内容支柱 / 文案指南 / 选题边界——你听着不对就喊停。
+> 哪项想改，直接跟我说"把语气改犀利点"我就改，或你在定位页里改那一格。回我个数字：
+> 1. 没问题，开始运营（**推荐**）
+> 2. 有几项想调 —— 说一下
+
+用户要可视化核对就深链送过去：
 
 ```bash
-# 定位/语气/受众/支柱 → strategy patch；各内容类型写法 → prompt-set；配图偏好 → image-set
-redbeacon ui account --account-id {ID}
+redbeacon ui app --page 定位 --account-id {ID}
 ```
 
-> 定位和选题都备好了。我开个「内容设定」面板，你在里面调**笔记长什么样、文案什么风格**——左边按我们聊的都预填好了，右边点「生成一篇预览」能直接出一篇看效果。调到顺眼点「完成返回对话」，回来告诉我哪还不对。
+**② 用户要改 → 你在对话里改**（增量、改哪项传哪项，写本机账号档案）：
 
-> ⚠️ `ui account` 是阻塞命令，会一直挂到用户点「完成返回」或超时，正常现象，耐心等它结束。
+```bash
+redbeacon strategy patch --account-id {ID} --data '{"tone":"更犀利直给"}'
+```
 
-**② 读回 `changed`，听用户反馈**：
+> 改完跟用户说一句"改好了"。可来回几轮直到用户满意（用户也可以自己在定位页里改）。
 
-- **用户说"哪里不好 / 还想改 X"** → 你**直接在对话里改并落库**（`strategy patch` / `prompt-set` / `image-set`），改完**再开一次面板做二次确认**：
-  > 改好了，我再开一次面板，你确认下这版对不对。
+**③ 用户确认没问题** → 宣布配置完成、进入正式运营（多账号用 per-账号判断这个号自己 ready）：
 
-  ```bash
-  redbeacon ui account --account-id {ID}
-  ```
+```bash
+redbeacon readiness --account-id {ID}
+```
 
-  这个「反馈 → 我改 → 再弹面板」可以来回几轮，直到用户满意。**每一轮改完都要再弹一次面板让用户复看**，不要改完就口头说"好了"。
+> ✓ 账号「{ID}号小红书 ·{备注名}」配置全部完成，进入正式运营 🎉
+> 以后随时 **`/redbeacon-generate`** 生成内容 → 自动进审核表（`/redbeacon-review` 审）→ 标「通过」后 **`/redbeacon-publish`** 发布。（生成/发布都是手动命令触发，本工具无后台自动排期。）
 
-- **用户确认没问题**（面板里没再改 / 明确说"可以了"）→ 宣布账号完整配置完成、进入正式运营（多账号用 per-账号判断确认这个号自己 ready）：
-
-  ```bash
-  redbeacon readiness --account-id {ID}
-  ```
-
-  > ✓ 账号「{ID}号小红书 ·{备注名}」配置全部完成，进入正式运营 🎉
-  > 以后随时 **`/redbeacon-generate`** 生成内容 → 自动进飞书表审核 → 标「通过」后 **`/redbeacon-publish`** 发布。（生成/发布都是手动命令触发，本工具无后台自动排期。）
-
-> 收尾逻辑：登录给"账号落地"的实感、绑表给"内容有处审"、定位+选题给"内容方向"，**面板这一步让用户把"内容长什么样/什么风格"亲手敲定并二次确认**——确认通过，账号才算真正配好、可以正式运营。
+> 收尾逻辑：登录给"账号落地"的实感、定位+选题给"内容方向"，**最后请用户亲眼过一遍并确认**——确认通过，账号才算真正配好、可以正式运营。账号档案在本机，用户日后随时让你改或去定位页改。
 
 ---
 
 ## 注意
 
 - 没有任何自动排期 / 常驻服务，内容生成一律手动 `/redbeacon-generate` 触发，别向用户承诺"定时自动发"。
-- 审核与改稿全在飞书多维表格，本地不存在审核环节，定位 skill 也不涉及审核。
+- 审核与改稿在本机（`/redbeacon-review` 或操作台审稿页），定位 skill 不涉及审核。
 - 命令失败走 stderr `{"error","next"}`，把 error 给用户看，按 next 自愈，别静默吞。
 - `strategy patch` 是增量合并（只覆盖传入字段），所以单项调整可以只传那一个字段——这正是 `/redbeacon-strategy` 的工作方式。
+- **定位完可顺带提一句方案**：想让 AI 出图/文案更贴这个号，可以帮他调一套生成方案（走 `/redbeacon-plans`）——不是必需，用户有意愿再提，别硬塞。
