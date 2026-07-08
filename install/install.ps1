@@ -64,6 +64,22 @@ function Run-BrowserSetup($CliPath){
   }
   Say "Browser engine is ready."
 }
+function Stop-RunningRedBeacon(){
+  Say "Stopping running $AppName processes ..."
+  $names = @($AppName, $CliName)
+  $deadline = (Get-Date).AddSeconds(15)
+  while((Get-Date) -lt $deadline){
+    $procs = @(Get-Process -Name $names -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID })
+    if($procs.Count -eq 0){ return }
+    $procs | Stop-Process -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 700
+  }
+  $procs = @(Get-Process -Name $names -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID })
+  if($procs.Count -gt 0){
+    $procs | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 800
+  }
+}
 
 $OSS = if($env:REDBEACON_OSS){ $env:REDBEACON_OSS } else { "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com" }
 $Channel = if($env:REDBEACON_CHANNEL){ $env:REDBEACON_CHANNEL.ToLowerInvariant() } else { "stable" }
@@ -136,6 +152,7 @@ try {
   Say "[2/4] Installing ..."
   $ex = Join-Path $tmp "x"
   Expand-Archive -Path $zip -DestinationPath $ex -Force
+  Stop-RunningRedBeacon
   if(Test-Path $Dest){ Remove-Item -Recurse -Force $Dest }
   New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null
   Move-Item (Join-Path $ex $AppName) $Dest

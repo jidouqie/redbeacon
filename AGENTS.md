@@ -9,6 +9,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - **平台只负责身份和 AI 能力**：设备令牌正式版在 `~/.bytestaff`，测试版在 `~/.bytestaff_test`。客户端不保存上游模型 key。
 - **官网旧地址已退役**：对外产品页是 `https://bytestaff.jiomig.com/market/redbeacon`。安装、更新、zip 包、skill、manifest 的下载源都是 OSS：`https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com`。
 - **GitHub 只做构建机**：三端包先由 GitHub Actions 在 Windows/macOS/Linux runner 上打包并上传 OSS；对外发布不走 GitHub Release、GitHub Raw 或服务器下载。GitHub 构建产物必须随用随清，不保留 Actions artifacts；连续触发时取消旧运行，避免无谓额度和存储成本。
+- **Windows 是首要兼容平台**：大多数终端用户在 Windows。安装、更新、卸载、CLI、skill、客户端启动、扫码登录和发布链路，都必须优先按 Windows PowerShell 5.1 / GBK 控制台 / 空格路径 / PyInstaller / Playwright 的约束设计；Windows 过不了，测试版也不准发布。
 
 ## 主流程
 
@@ -39,6 +40,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 ## 更新与卸载
 
 - 所有更新入口都应是**全量更新**：客户端设置页、`redbeacon update`、AI 助手触发升级，都下载当前通道的整包 zip 并替换客户端，同时刷新 CLI 兼容通道和 skill。
+- 更新入口必须委托当前通道的 OSS 安装脚本执行，不能在客户端里另写一套手工移动 zip/目录的替换流程。脚本负责拉 manifest 判断版本：已是最新则跳过大包下载，旧版则关闭旧客户端并覆盖安装。
 - 重复执行安装脚本时，只先拉很小的 manifest 判断版本；本地已是最新则跳过大包下载，避免浪费 OSS 流量。要强制重装并重新拉 skill，用 `REDBEACON_FORCE_INSTALL=1`。
 - 卸载默认保留业务数据；只有设置 `REDBEACON_PURGE=1` 才删除账号数据和平台登录令牌。测试版卸载只清测试版路径，不碰正式版。
 - 安装阶段必须预热 Playwright 浏览器内核（扫码登录、发布、卡片渲染都依赖它）。Windows/macOS/Linux 的内核包不同，由 `redbeacon setup` 按当前系统下载；下载源顺序包含 npmmirror、RedBeacon OSS `playwright/` 兜底和官方 CDN。不要再把内核下载留到用户第一次扫码。
@@ -50,6 +52,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 发布纪律是硬规则：**永远先发测试版，让用户测；用户明确确认通过后，才允许发正式版。**
 
 - 测试版和正式版的客户端打包必须走同一个 GitHub Actions `Build desktop bundles`、同一个 PyInstaller spec、同一份代码；只能因为 channel 不同导致应用名、命令名、bundle id、数据目录、manifest、OSS 路径、skill 名不同。
+- Windows job 是发布阻断项：`windows-latest` runner 必须完成 PyInstaller 打包、zip 解压、桌面 smoke、Traceback/ImportError 日志扫描和 OSS 上传；即使 macOS/Linux 通过，只要 Windows 未通过或未运行，都不能执行 `tools/release.sh --channel test`。
 - GitHub Actions 只允许把构建包上传到 OSS，不允许保留 GitHub artifacts 或走 GitHub Release 兜底；没有 OSS key / OSS 上传失败就让 workflow 失败，不能留下临时包继续占私有仓库额度。
 - 如果测试版发布后又改了任何客户端、CLI、skill、安装/更新/卸载、发布脚本相关代码，之前的测试结论作废，必须重新发测试版让用户测，不能直接发正式版。
 - 正式版发布必须是“把用户确认通过的测试版同一套代码切到 stable 通道再打一次包”。绝不允许测试版能跑、正式版因为另一套流程或另一份代码崩掉。
