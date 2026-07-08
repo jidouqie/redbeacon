@@ -135,15 +135,24 @@ echo "  ✓ ${MANIFEST_NAME} 上传（v${VER}）"
 echo "  ✓ 安装/卸载脚本上传（正式 + 测试入口）"
 
 # 6) skill → OSS（彻底不依赖 GitHub）：tarball 给装机(install.sh 解 .claude/commands/*.md)，
-#    散装 md 给 redbeacon update（按 skill_raw_base/<文件名> 逐个拉，见 gen_latest RAW_BASE）。
+#    散装 md 给 update（按 skill_raw_base/<文件名> 逐个拉）。测试版会自动生成
+#    redbeacon-test*.md，正文也调用 redbeacon-test，避免误驱动正式版。
 SKILLTMP="$(mktemp -d)"
-tar -czf "${SKILLTMP}/redbeacon-skill.tar.gz" .claude/commands/redbeacon*.md
+python3 tools/build_channel_skills.py --channel "$CHANNEL" --out-dir "$SKILLTMP" >/dev/null
+SKILL_COUNT="$(find "${SKILLTMP}/.claude/commands" -maxdepth 1 -name 'redbeacon*.md' | wc -l | tr -d ' ')"
+tar -czf "${SKILLTMP}/redbeacon-skill.tar.gz" -C "$SKILLTMP" .claude/commands
 "$OU" cp "${SKILLTMP}/redbeacon-skill.tar.gz" "oss://${BUCKET}/${SKILL_PREFIX}/redbeacon-skill.tar.gz" --profile "$PROFILE" -f >/dev/null
-for f in .claude/commands/redbeacon*.md; do
+for f in "${SKILLTMP}"/.claude/commands/redbeacon*.md; do
   "$OU" cp "$f" "oss://${BUCKET}/${SKILL_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null
 done
+if [ "$CHANNEL" = "test" ]; then
+  # 清掉早期测试通道里误传的正式 skill 文件名；manifest 只保留 redbeacon-test*.md。
+  for f in .claude/commands/redbeacon*.md; do
+    "$OU" rm "oss://${BUCKET}/${SKILL_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null 2>&1 || true
+  done
+fi
 rm -rf "$SKILLTMP"
-echo "  ✓ skill 上传到 ${SKILL_PREFIX}/（tarball + 散装 md，共 $(ls .claude/commands/redbeacon*.md | wc -l | tr -d ' ') 个命令）"
+echo "  ✓ skill 上传到 ${SKILL_PREFIX}/（tarball + 散装 md，共 ${SKILL_COUNT} 个命令）"
 
 echo "==> v${VER} [$CHANNEL] 已发布到 OSS。"
 if [ "$CHANNEL" = "test" ]; then

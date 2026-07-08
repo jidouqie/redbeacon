@@ -14,10 +14,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OSS_BASE = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com"
+sys.path.insert(0, str(ROOT / "tools"))
+
+from build_channel_skills import skill_names  # noqa: E402
 
 
 def read_version() -> str:
@@ -26,15 +30,6 @@ def read_version() -> str:
     if not m:
         raise SystemExit(f"未能从 {init} 解析 __version__")
     return m.group(1)
-
-
-def list_skill_files() -> list[str]:
-    cmd_dir = ROOT / ".claude" / "commands"
-    files = sorted(p.name for p in cmd_dir.glob("*.md"))
-    if not files:
-        raise SystemExit(f"{cmd_dir} 下没有 .md 命令文件")
-    files.sort(key=lambda n: (n != "redbeacon.md", n))  # 主入口排最前
-    return files
 
 
 def skill_raw_base(channel: str) -> str:
@@ -72,7 +67,7 @@ def main() -> None:
         "version": read_version(),
         "notes": args.notes,
         "skill_raw_base": skill_raw_base(args.channel),
-        "skill_files": list_skill_files(),
+        "skill_files": skill_names(args.channel),
     }
     if app_sha256:
         manifest["app_sha256"] = app_sha256
