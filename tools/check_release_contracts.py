@@ -14,6 +14,10 @@ from pathlib import Path
 import build_channel_skills
 
 ROOT = Path(__file__).resolve().parent.parent
+SINGLE_QUESTION_RULE = "一次只问一个问题，一次只推进一件事"
+FORBIDDEN_SKILL_PHRASES = (
+    "每次只问一到两件事",
+)
 
 
 def fail(message: str) -> None:
@@ -131,8 +135,14 @@ def _to_codex_skill(stem: str, text: str) -> str:
 def check_channel_skills() -> None:
     for src in sorted((ROOT / ".claude" / "commands").glob("redbeacon*.md")):
         text = src.read_text(encoding="utf-8")
+        rel = src.relative_to(ROOT)
         if "\ufffd" in text:
-            fail(f"{src.relative_to(ROOT)} 含有 Unicode replacement character，疑似编码损坏")
+            fail(f"{rel} 含有 Unicode replacement character，疑似编码损坏")
+        if SINGLE_QUESTION_RULE not in text:
+            fail(f"{rel} 缺少 skill 单题引导规则：{SINGLE_QUESTION_RULE}")
+        for phrase in FORBIDDEN_SKILL_PHRASES:
+            if phrase in text:
+                fail(f"{rel} 含有过时的多题引导口径：{phrase}")
 
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -158,6 +168,15 @@ def check_channel_skills() -> None:
         if bad_test_names:
             fail(f"test skill 文件名必须全部是 redbeacon-test*：{', '.join(bad_test_names)}")
 
+        for channel, files in (("stable", stable_files), ("test", test_files)):
+            for path in files:
+                text = path.read_text(encoding="utf-8")
+                if SINGLE_QUESTION_RULE not in text:
+                    fail(f"{channel} skill {path.name} 缺少单题引导规则：{SINGLE_QUESTION_RULE}")
+                for phrase in FORBIDDEN_SKILL_PHRASES:
+                    if phrase in text:
+                        fail(f"{channel} skill {path.name} 含有过时的多题引导口径：{phrase}")
+
         for path in test_files:
             text = path.read_text(encoding="utf-8")
             if "\ufffd" in text:
@@ -175,7 +194,7 @@ def main() -> None:
     check_installers()
     check_client_startup()
     check_channel_skills()
-    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/skill 隔离/客户端启动资源都满足")
+    print("  ✓ 发布契约检查通过：安装预热/Windows 编码/bundle smoke/skill 隔离/skill 单题引导/客户端启动资源都满足")
 
 
 if __name__ == "__main__":
