@@ -29,6 +29,12 @@ Windows PowerShell：
 irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install-test.ps1 | iex
 ```
 
+如果是从“运行窗口 / cmd / 平台按钮”触发，建议用留窗版命令，避免安装失败时一闪而过看不到错误：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -NoExit -Command "$env:REDBEACON_FORCE_INSTALL='1'; irm 'https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install-test.ps1' | iex"
+```
+
 如果本机已经装过同版本，安装脚本会只下载很小的 `latest-test.json` 做版本判断，然后跳过大包下载。要强制重新拉客户端包和测试版 skill，用：
 
 ```bash

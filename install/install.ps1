@@ -11,7 +11,19 @@
 $ErrorActionPreference = "Stop"
 function Say($m){ Write-Host "==> $m" -ForegroundColor Cyan }
 function Warn($m){ Write-Host "!! $m" -ForegroundColor Yellow }
-function Die($m){ Write-Host "xx $m" -ForegroundColor Red; exit 1 }
+function Pause-OnFailure(){
+  if($env:CI -eq "true" -or $env:GITHUB_ACTIONS -eq "true" -or $env:REDBEACON_NO_PAUSE -eq "1"){ return }
+  try { Read-Host "Press Enter to close this window" | Out-Null } catch {}
+}
+trap {
+  Write-Host ""
+  Write-Host "xx RedBeacon install failed. Details:" -ForegroundColor Red
+  Write-Host $_.Exception.Message -ForegroundColor Red
+  if($_.ScriptStackTrace){ Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray }
+  Pause-OnFailure
+  exit 1
+}
+function Die($m){ throw $m }
 function Write-CodexSkills($SrcDir){
   if(-not $SrcDir){ return }
   $codexDir = Join-Path $HOME ".codex\skills"
