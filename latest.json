@@ -1,7 +1,7 @@
 {
-  "version": "0.1.42",
-  "notes": "选题修复：skill补题把每条切入角度/要点提纲完整落库(写文案更精准)；发版改阿里云OSS主源",
-  "skill_raw_base": "https://raw.githubusercontent.com/jidouqie/redbeacon/main/.claude/commands",
+  "version": "0.1.47",
+  "notes": "补充卸载清理：卸载脚本现在会清理整包更新的 staging 目录和 previous-update 备份，默认仍保留账号、登录和内容数据。",
+  "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",
     "redbeacon-accounts.md",
