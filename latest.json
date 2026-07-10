@@ -1,6 +1,7 @@
 {
-  "version": "0.1.53",
-  "notes": "修复 macOS 启动台图标缓存：Mac 客户端包写入真实版本号，安装、卸载和应用内整包更新都会重注册 LaunchServices 并刷新 Dock/Launchpad 图标缓存。",
+  "channel": "stable",
+  "version": "0.1.66",
+  "notes": "0.1.66 修复小红书扫码浏览器会话复用问题：每次扫码前停止旧会话，关闭浏览器后再次扫码自动重启；重新扫码、退出登录或删除账号时彻底清理主浏览器数据和备用浏览器数据。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/commands",
   "skill_files": [
     "redbeacon.md",
@@ -17,5 +18,10 @@
     "redbeacon-strategy.md",
     "redbeacon-topics.md",
     "redbeacon-xhslogin.md"
-  ]
+  ],
+  "app_sha256": {
+    "win-x64": "294dc7f2085492917b86f88c56e1748a62acde858491740483a2972714539c13",
+    "mac-arm64": "fb65bf5e57db46d43d2eea202a3519843df63cfb6c484e9a27cef6f5b408232a",
+    "linux-x64": "80abd627cbf102e4854d53455e7a8b0273792df45f070a2b02021ed3effe6849"
+  }
 }

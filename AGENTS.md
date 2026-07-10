@@ -43,7 +43,12 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - 更新入口必须委托当前通道的 OSS 安装脚本执行，不能在客户端里另写一套手工移动 zip/目录的替换流程。脚本负责拉 manifest 判断版本：已是最新则跳过大包下载，旧版则关闭旧客户端并覆盖安装。
 - 重复执行安装脚本时，只先拉很小的 manifest 判断版本；本地已是最新则跳过大包下载，避免浪费 OSS 流量。要强制重装并重新拉 skill，用 `REDBEACON_FORCE_INSTALL=1`。
 - 卸载默认保留业务数据；只有设置 `REDBEACON_PURGE=1` 才删除账号数据和平台登录令牌。测试版卸载只清测试版路径，不碰正式版。
-- 安装阶段必须预热 Playwright 浏览器内核（扫码登录、发布、卡片渲染都依赖它）。Windows/macOS/Linux 的内核包不同，由 `redbeacon setup` 按当前系统下载；下载源顺序包含 npmmirror、RedBeacon OSS `playwright/` 兜底和官方 CDN。不要再把内核下载留到用户第一次扫码。
+- 卸载只能删除当前产品、当前通道拥有的浏览器缓存；不能删除系统全局 `ms-playwright`、`~/.cloakbrowser` 等可能被其他软件或另一通道使用的目录。
+- 安装阶段必须预热两套浏览器内核：Playwright Chromium（卡片渲染）和 CloakBrowser Chromium（扫码登录 / 发布）。Windows/macOS/Linux 的内核包不同，由 `redbeacon setup` 按当前系统下载；缓存必须固定在当前通道的 `~/.redbeacon/browser/` 或 `~/.redbeacon_test/browser/`，不要依赖系统默认 `ms-playwright`、`~/.cloakbrowser`、PATH、HOME 或用户已有浏览器。下载源顺序必须包含 RedBeacon OSS `playwright/` / `cloakbrowser/` 兜底；不要再把任一内核下载留到用户第一次扫码。
+- 小红书扫码 / 发布优先用 CloakBrowser；如果第三方内核虽然下载成功但启动后立即关闭，必须自动切到 RedBeacon 自己预热的 Playwright Chromium fallback，并使用当前通道下的独立 fallback profile。下载成功不等于可运行，关键链路必须验证“能启动并创建页面”。
+- 小红书扫码入口每次开始前都必须先停止旧会话，不能复用用户可能已经手动关闭的浏览器窗口；“重新扫码/重新登录”还必须删除当前通道下的浏览器 profile 与 cookie 文件，再出新二维码。运行中遇到 `Target page, context or browser has been closed` 这类死 context，必须停止旧会话并重启后重试一次，旧 worker 退出时必须释放排队任务，避免下一次扫码卡到超时。
+- 用户关闭扫码弹窗时必须同步取消后台等待并关闭对应浏览器会话；不能只隐藏 UI、让旧任务继续占用 profile。浏览器下载源不要先做脆弱的 HEAD 预检再决定是否使用 OSS，RedBeacon OSS 应直接优先尝试，失败才切官方源。
+- Windows ARM64 客户机不能直接判死。当前 Windows 桌面包是 x64 包，ARM64 Windows 通过系统 x64 仿真运行；CloakBrowser 要映射到 `windows-x64` 内核包，不能因为第三方库没有列 `Windows ARM64` 就让扫码登录失败。
 - Windows `.ps1/.cmd` 安装链路必须 ASCII-only；skill 和 Codex `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
 - Windows bundle smoke 必须捕获桌面初始化里的 `Traceback` / `ModuleNotFoundError` / `ImportError`；如果日志里有隐藏崩溃，即使 workflow 标绿也不准发布。PyInstaller spec 必须显式包含 `_sqlite3`。
 
@@ -51,9 +56,13 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 
 发布纪律是硬规则：**永远先发测试版，让用户测；用户明确确认通过后，才允许发正式版。**
 
-- 测试版和正式版的客户端打包必须走同一个 GitHub Actions `Build desktop bundles`、同一个 PyInstaller spec、同一份代码；只能因为 channel 不同导致应用名、命令名、bundle id、数据目录、manifest、OSS 路径、skill 名不同。
+- 测试版和正式版的客户端打包必须走同一个 GitHub Actions `Build desktop bundles`、同一个 PyInstaller spec、同一份代码、同一份 `cli/uv.lock` 冻结依赖；只能因为 channel 不同导致应用名、命令名、bundle id、数据目录、manifest、OSS 路径、skill 名不同。
+- 桌面运行依赖和 PyInstaller 必须锁定已验证版本，workflow 必须用 `uv sync --frozen`；三端 job 打包前先跑全量测试，macOS/Linux 和 Windows 都要跑冻结包桌面初始化 smoke。测试版与正式版分两次构建时，禁止临时解析到不同的上游依赖版本。
+- 构建包上传到带版本号的 OSS 路径（`app[/test]/releases/<version>/`），不能在构建阶段覆盖当前线上固定包。发布时先准备客户端、CLI、安装脚本和 skill，最后一步才上传 `latest.json` / `latest-test.json` 切流量；固定下载直链只是兼容别名，不是安装事务真源。
 - Windows job 是发布阻断项：`windows-latest` runner 必须完成 PyInstaller 打包、zip 解压、桌面 smoke、Traceback/ImportError 日志扫描和 OSS 上传；即使 macOS/Linux 通过，只要 Windows 未通过或未运行，都不能执行 `tools/release.sh --channel test`。
 - GitHub Actions 只允许把构建包上传到 OSS，不允许保留 GitHub artifacts 或走 GitHub Release 兜底；没有 OSS key / OSS 上传失败就让 workflow 失败，不能留下临时包继续占私有仓库额度。
+- 三端 matrix 全部成功后，独立 `mark-complete` job 才能在该版本 OSS 目录写入带 commit 的 `build-complete.json`。`tools/release.sh` 必须核对 marker 的 channel、version、commit 与本地 CLI HEAD 全部一致，防止同一版本重跑时混用旧平台包。
+- 发布前必须确认 Playwright / CloakBrowser 当前依赖版本的三端内核包在 RedBeacon OSS 可访问；CloakBrowser 用 `tools/mirror_cloakbrowser_browsers.py` 同步，脚本默认跳过已存在对象，只有需要重传时才加 `--force`。注意 Windows 包名是 `.zip`，不能按 macOS/Linux 的 `.tar.gz` 推导。
 - 如果测试版发布后又改了任何客户端、CLI、skill、安装/更新/卸载、发布脚本相关代码，之前的测试结论作废，必须重新发测试版让用户测，不能直接发正式版。
 - 正式版发布必须是“把用户确认通过的测试版同一套代码切到 stable 通道再打一次包”。绝不允许测试版能跑、正式版因为另一套流程或另一份代码崩掉。
 - 发布前必须通过 `tools/check_release_contracts.py`。其中一条硬约束是：测试版 Codex skill 只能写到 Codex 真正扫描的 `~/.codex/skills/redbeacon-test*/SKILL.md`，不能写到独立根目录；安装、更新、卸载都要保持正式版和测试版 skill 隔离。

@@ -3,4 +3,4 @@
 set -euo pipefail
 
 OSS="${REDBEACON_OSS:-https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com}"
-curl -fsSL "$OSS/install.sh" | REDBEACON_CHANNEL=test bash
+curl -fsSL --connect-timeout 10 --max-time 60 --retry 3 "$OSS/install.sh" | REDBEACON_CHANNEL=test bash

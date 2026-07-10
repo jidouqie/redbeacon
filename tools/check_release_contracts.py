@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 import build_channel_skills
+import mirror_cloakbrowser_browsers
 
 ROOT = Path(__file__).resolve().parent.parent
 SINGLE_QUESTION_RULE = "一次只问一个问题，一次只推进一件事"
@@ -61,9 +62,13 @@ def check_installers() -> None:
     unps1 = read("install/uninstall.ps1")
     setup_py = read("cli/src/redbeacon/routers/setup.py")
     browser_engine_py = read("cli/src/redbeacon/services/browser_engine.py")
+    xhs_login_py = read("cli/src/redbeacon/services/xhs/login.py")
+    ui_app_py = read("cli/src/redbeacon/adapters/ui_backend/app.py")
+    ui_index = read("cli/src/redbeacon/adapters/ui_backend/static/index.html")
     updater_py = read("cli/src/redbeacon/services/updater.py")
     bundle_spec = read("cli/packaging/RedBeacon.spec")
     win_smoke = read("cli/packaging/smoke_windows_bundle.ps1")
+    cloak_mirror = read("tools/mirror_cloakbrowser_browsers.py")
 
     for rel in (
         "install/install.ps1",
@@ -76,23 +81,72 @@ def check_installers() -> None:
 
     require(sh, 'codex_dir="$HOME/.codex/skills"', "install/install.sh", "Mac/Linux 安装必须写入 Codex 扫描目录")
     require(sh, 'install_codex_skills "$SRC"', "install/install.sh", "Mac/Linux 安装必须从 skill tarball 派生 Codex SKILL.md")
-    require(sh, 'run_browser_setup "$LOCAL_CLI"', "install/install.sh", "Mac/Linux 安装必须预热 Playwright 浏览器内核")
+    require(sh, 'run_browser_setup "$LOCAL_CLI"', "install/install.sh", "Mac/Linux 安装必须预热 Playwright + CloakBrowser 浏览器内核")
+    require(sh, 'install_skills "$LOCAL_CLI"', "install/install.sh", "Mac/Linux 重复安装即使版本最新也必须修复 skill")
+    require(sh, "--max-time 600", "install/install.sh", "Mac/Linux 大包下载必须有总超时，不能无限卡住")
+    require(sh, "/releases/$LATEST/", "install/install.sh", "Mac/Linux 安装必须使用版本化客户端包，避免构建覆盖现网")
     require(ps1, 'Join-Path $HOME ".codex\\skills"', "install/install.ps1", "Windows 安装必须写入 Codex 扫描目录")
     require(ps1, "Write-CodexSkills $src.FullName", "install/install.ps1", "Windows 安装必须从 skill tarball 派生 Codex SKILL.md")
-    require(ps1, "Run-BrowserSetup $cliExe", "install/install.ps1", "Windows 安装必须预热 Playwright 浏览器内核")
+    require(ps1, "Run-BrowserSetup $cliExe", "install/install.ps1", "Windows 安装必须预热 Playwright + CloakBrowser 浏览器内核")
+    require(ps1, "Install-Skills $tmp $cliExe", "install/install.ps1", "Windows 重复安装即使版本最新也必须修复 skill")
+    require(ps1, "/releases/$latest/", "install/install.ps1", "Windows 安装必须使用版本化客户端包，避免构建覆盖现网")
     require(ps1, "Stop-RunningRedBeacon", "install/install.ps1", "Windows 安装/更新覆盖前必须关闭正在运行的客户端和 CLI")
 
     require(unsh, 'CODEX_SKILL_DIR="$HOME/.codex/skills"', "install/uninstall.sh", "Mac/Linux 卸载必须清理对应通道 Codex skill")
     require(unps1, '$CodexSkillDir = "$HOME\\.codex\\skills"', "install/uninstall.ps1", "Windows 卸载必须清理对应通道 Codex skill")
     require(unsh, 'redbeacon-test*', "install/uninstall.sh", "测试版卸载只能动 redbeacon-test*")
     require(unps1, 'redbeacon-test*', "install/uninstall.ps1", "测试版卸载只能动 redbeacon-test*")
+    for rel, text in (("install/uninstall.sh", unsh), ("install/uninstall.ps1", unps1)):
+        for global_cache in ("Library/Caches/ms-playwright", ".cache/ms-playwright", "LOCALAPPDATA\\ms-playwright", ".cloakbrowser"):
+            if global_cache in text:
+                fail(f"{rel} 不能删除第三方全局浏览器缓存 {global_cache}；只能清当前 RedBeacon 通道自有目录")
     require(setup_py, "browser_engine.ensure_browser_engine", "cli/src/redbeacon/routers/setup.py", "setup 命令必须走带进度的浏览器内核安装服务")
-    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/services/browser_engine.py", "浏览器内核下载必须包含 RedBeacon OSS 兜底源")
+    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/services/browser_engine.py", "Playwright 浏览器内核下载必须包含 RedBeacon OSS 兜底源")
+    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/cloakbrowser", "cli/src/redbeacon/services/browser_engine.py", "CloakBrowser 小红书自动化内核下载必须包含 RedBeacon OSS 兜底源")
+    require(browser_engine_py, "PLAYWRIGHT_BROWSERS_PATH", "cli/src/redbeacon/services/browser_engine.py", "Playwright 缓存必须固定到 RedBeacon 通道目录")
+    require(browser_engine_py, "CLOAKBROWSER_CACHE_DIR", "cli/src/redbeacon/services/browser_engine.py", "CloakBrowser 缓存必须固定到 RedBeacon 通道目录")
+    require(browser_engine_py, "CLOAKBROWSER_WINDOWS_ARM64_ALIASES", "cli/src/redbeacon/services/browser_engine.py", "Windows ARM64 客户机必须映射到 Windows x64 CloakBrowser 内核，不能在扫码登录前被平台检测拦死")
+    xhs_session = read("cli/src/redbeacon/services/xhs/session.py")
+    require(xhs_session, "browser_engine.ensure_browser_engine", "cli/src/redbeacon/services/xhs/session.py", "小红书浏览器会话启动前必须自检并修复浏览器内核")
+    require(xhs_session, "_launch_playwright_context", "cli/src/redbeacon/services/xhs/session.py", "CloakBrowser 启动失败或启动后关闭时必须自动切到 Playwright Chromium 兜底")
+    require(xhs_session, "_fallback_profile_dir", "cli/src/redbeacon/services/xhs/session.py", "浏览器兜底必须使用稳定的独立 profile，避免坏锁文件影响后续扫码和发布")
+    require(xhs_session, "is_closed_error", "cli/src/redbeacon/services/xhs/session.py", "浏览器 context 运行中关闭后必须识别为死会话，避免继续复用坏 session")
+    require(xhs_session, "get_nowait", "cli/src/redbeacon/services/xhs/session.py", "浏览器 context 关闭导致 worker 退出时必须释放排队任务，避免下一次扫码卡到超时")
+    require(xhs_session, "_stop_requested", "cli/src/redbeacon/services/xhs/session.py", "关闭扫码窗口必须能协作取消后台等待，释放浏览器 profile")
+    require(xhs_login_py, "_exec_with_live_session", "cli/src/redbeacon/services/xhs/login.py", "扫码出码遇到死 context 必须自动重启会话并重试一次")
+    require(xhs_login_py, "_profile_dirs", "cli/src/redbeacon/services/xhs/login.py", "小红书登出/重新扫码必须删除当前通道浏览器 profile，不能只删 cookie 文件")
+    require(ui_app_py, "if req.force:", "cli/src/redbeacon/adapters/ui_backend/app.py", "客户端重新扫码必须先清理旧登录态再出新二维码")
+    require(ui_app_py, "xhs.session.stop(req.account_id)", "cli/src/redbeacon/adapters/ui_backend/app.py", "客户端每次扫码前必须停止旧小红书会话，不能复用用户可能已经手动关闭的浏览器")
+    require(ui_app_py, '"/api/accounts/xhs-login/cancel"', "cli/src/redbeacon/adapters/ui_backend/app.py", "关闭扫码窗口必须通知后端取消旧任务")
+    require(ui_index, "/api/accounts/xhs-login/cancel", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "扫码弹窗关闭按钮必须释放后端浏览器会话")
+    require(ui_index, "startXhsLogin(${a.id}, true)", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "已登录账号的重新扫码按钮必须传 force=true")
+    require(cloak_mirror, 'tag.startswith("windows-")', "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser OSS 镜像脚本必须按目标平台决定 Windows zip 包名")
+    require(cloak_mirror, "SHA256SUMS", "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser OSS 镜像必须同步校验文件")
+    require(cloak_mirror, "oss_exists", "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser OSS 镜像脚本必须跳过已存在对象，避免重复上传大包")
+    expected_archives = {
+        "windows-x64": "cloakbrowser-windows-x64.zip",
+        "linux-x64": "cloakbrowser-linux-x64.tar.gz",
+        "darwin-arm64": "cloakbrowser-darwin-arm64.tar.gz",
+    }
+    for platform_tag, expected in expected_archives.items():
+        actual = mirror_cloakbrowser_browsers.archive_name_for_tag(platform_tag)
+        if actual != expected:
+            fail(f"CloakBrowser {platform_tag} 镜像包名错误：{actual} != {expected}")
+    release_sh = read("tools/release.sh")
+    require(release_sh, "--max-time 300", "tools/release.sh", "发布阶段下载 OSS 大包计算 sha 必须有总超时，不能让发布流程无限卡住")
+    require(release_sh, "--retry 3", "tools/release.sh", "发布阶段下载 OSS 大包计算 sha 必须有重试，避免偶发网络抖动导致发版失败")
+    require(release_sh, 'APP_BUILD_PREFIX="${APP_PREFIX}/releases/${VER}"', "tools/release.sh", "发布构建包必须使用版本化 OSS 路径")
+    require(release_sh, "build-complete.json", "tools/release.sh", "发布前必须验证三端矩阵统一完成标记")
+    require(release_sh, "redbeacon-skill.tar.gz", "tools/release.sh", "发布和公网验证必须使用安装器约定的 skill tarball 文件名")
+    require(release_sh, "公网发布结果已验证", "tools/release.sh", "发布后必须从 OSS 公网入口反向验证清单、三端包和 skill")
+    require(release_sh, "CURRENT_COMMIT", "tools/release.sh", "发布标记必须核对当前 CLI 提交，防止混用旧平台包")
+    require(release_sh, "最后上传，正式切换", "tools/release.sh", "latest manifest 必须最后上传，避免半发布状态暴露给用户")
     require(updater_py, "launch_installer_update", "cli/src/redbeacon/services/updater.py", "所有更新入口必须委托 OSS 安装脚本执行")
     require(updater_py, "installer_url", "cli/src/redbeacon/services/updater.py", "更新入口必须选择当前通道的安装脚本 URL")
     if "schedule_bundle_replace(progress=progress" in updater_py:
         fail("cli/src/redbeacon/services/updater.py 的 run_update 不能再走手写 zip 替换流程，必须执行安装脚本")
     require(bundle_spec, 'collect_data_files("playwright")', "cli/packaging/RedBeacon.spec", "冻结包必须带 Playwright driver，才能在客户端内修复浏览器内核")
+    require(bundle_spec, '"cloakbrowser"', "cli/packaging/RedBeacon.spec", "冻结包必须带 CloakBrowser Python 包，才能在客户端内修复小红书自动化内核")
     require(bundle_spec, '"_sqlite3"', "cli/packaging/RedBeacon.spec", "Windows 冻结包必须显式包含 SQLite 扩展")
     require(win_smoke, "Traceback|ModuleNotFoundError|ImportError", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须捕获桌面初始化异常")
     require(win_smoke, "RedBeacon desktop smoke ok", "cli/packaging/smoke_windows_bundle.ps1", "Windows smoke 必须确认桌面初始化到达 ready 标记")
@@ -110,6 +164,7 @@ def check_cli_windows_json_contracts() -> None:
     setup_router = read("cli/src/redbeacon/routers/setup.py")
     platform_router = read("cli/src/redbeacon/routers/platform.py")
     login_router = read("cli/src/redbeacon/routers/login.py")
+    xhs_publish = read("cli/src/redbeacon/services/xhs/publish.py")
 
     require(cli_py, "--data-file", "cli/src/redbeacon/cli.py", "Windows 长 JSON 命令必须支持从 UTF-8 文件读取")
     require(cli_py, "--json-file", "cli/src/redbeacon/cli.py", "topics 批量/采纳必须支持从 UTF-8 JSON 文件读取")
@@ -119,6 +174,8 @@ def check_cli_windows_json_contracts() -> None:
     require(json_input, "sys.stdin.read()", "cli/src/redbeacon/routers/_json_input.py", "JSON 输入 helper 必须支持 stdin")
     require(json_input, "read_text(encoding=\"utf-8\")", "cli/src/redbeacon/routers/_json_input.py", "JSON 文件必须按 UTF-8 读取")
     require(json_input, "sanitize_json_value", "cli/src/redbeacon/routers/_json_input.py", "JSON 入库前必须清理非法 surrogate")
+    if "/tmp/" in xhs_publish:
+        fail("cli/src/redbeacon/services/xhs/publish.py 不能写死 Unix /tmp；Windows 发布排障文件必须走跨平台日志目录")
     require(accounts, "data_file", "cli/src/redbeacon/routers/accounts.py", "accounts patch 必须接入 --data-file")
     require(strategy, "data_file", "cli/src/redbeacon/routers/strategy.py", "strategy patch/image-set 必须接入 --data-file")
     require(topics, "json_file", "cli/src/redbeacon/routers/topics.py", "topics batch/accept 必须接入 --json-file")
@@ -212,6 +269,8 @@ def check_client_startup() -> None:
 def check_github_build_hygiene() -> None:
     agents = read("AGENTS.md")
     workflow = read("cli/.github/workflows/build-bundle.yml")
+    pyproject = read("cli/pyproject.toml")
+    read("cli/uv.lock")
     require(
         agents,
         "Windows 是首要兼容平台",
@@ -256,12 +315,66 @@ def check_github_build_hygiene() -> None:
     )
     require(
         workflow,
+        "Run regression tests",
+        "cli/.github/workflows/build-bundle.yml",
+        "三端打包前必须运行全量回归测试",
+    )
+    require(
+        workflow,
+        "uv sync --frozen --extra dev",
+        "cli/.github/workflows/build-bundle.yml",
+        "三端构建必须使用同一份冻结依赖锁，不能在测试版/正式版各自临时解依赖",
+    )
+    require(
+        workflow,
+        "Smoke test macOS/Linux bundle",
+        "cli/.github/workflows/build-bundle.yml",
+        "macOS/Linux 包也必须运行桌面初始化 smoke",
+    )
+    require(
+        workflow,
+        'default: "test"',
+        "cli/.github/workflows/build-bundle.yml",
+        "手动打包默认通道必须是 test，防止误覆盖正式包",
+    )
+    require(
+        workflow,
+        "/releases/${VERSION}",
+        "cli/.github/workflows/build-bundle.yml",
+        "GitHub 构建只能上传版本化包，不能覆盖当前正式直链",
+    )
+    require(
+        workflow,
+        "mark-complete:",
+        "cli/.github/workflows/build-bundle.yml",
+        "三端矩阵必须有统一完成标记 job",
+    )
+    require(
+        workflow,
+        "needs: build",
+        "cli/.github/workflows/build-bundle.yml",
+        "完成标记只能在全部三端 job 成功后写入",
+    )
+    require(
+        workflow,
+        "build-complete.json",
+        "cli/.github/workflows/build-bundle.yml",
+        "OSS 完成标记必须记录当前版本与提交",
+    )
+    require(
+        workflow,
         "smoke_windows_bundle.ps1",
         "cli/.github/workflows/build-bundle.yml",
         "Windows bundle smoke 必须运行项目内 PowerShell 脚本",
     )
     if "downloads on first run" in workflow:
         fail("cli/.github/workflows/build-bundle.yml 含有过时口径：浏览器内核不能留到用户首次运行再下载")
+    for package in (
+        "pydantic", "cryptography", "requests", "httpx", "openai", "playwright",
+        "cloakbrowser", "markdown", "pillow", "pyyaml", "fastapi", "uvicorn", "pywebview",
+    ):
+        if not re.search(rf'(?m)^\s*"{re.escape(package)}==[^\"]+",?\s*$', pyproject):
+            fail(f"cli/pyproject.toml 必须锁定桌面运行依赖 {package}，避免测试/正式构建漂移")
     forbidden = (
         "actions/upload-artifact",
         "Upload GitHub artifact",
@@ -294,7 +407,8 @@ def _to_codex_skill(stem: str, text: str) -> str:
 
 
 def check_channel_skills() -> None:
-    for src in sorted((ROOT / ".claude" / "commands").glob("redbeacon*.md")):
+    sources = sorted((ROOT / ".claude" / "commands").glob("redbeacon*.md"))
+    for src in sources:
         text = src.read_text(encoding="utf-8")
         rel = src.relative_to(ROOT)
         if "\ufffd" in text:
@@ -304,6 +418,23 @@ def check_channel_skills() -> None:
         for phrase in FORBIDDEN_SKILL_PHRASES:
             if phrase in text:
                 fail(f"{rel} 含有过时的多题引导口径：{phrase}")
+
+    workspace_skills = sorted((ROOT / ".agents" / "skills").glob("source-command-redbeacon*/SKILL.md"))
+    if len(workspace_skills) != len(sources):
+        fail(f"仓库 Codex skill 与真源数量不一致：{len(workspace_skills)} != {len(sources)}；请运行 tools/sync-codex-skills.py")
+    expected_workspace_names = {f"source-command-{src.stem}" for src in sources}
+    actual_workspace_names = {path.parent.name for path in workspace_skills}
+    if actual_workspace_names != expected_workspace_names:
+        fail("仓库 Codex skill 命名与真源不一致；请运行 tools/sync-codex-skills.py")
+    for path in workspace_skills:
+        text = path.read_text(encoding="utf-8")
+        if _frontmatter_name(text) != path.parent.name:
+            fail(f"{path.relative_to(ROOT)} 的 name 必须等于目录名")
+        if SINGLE_QUESTION_RULE not in text:
+            fail(f"{path.relative_to(ROOT)} 缺少 skill 单题引导规则")
+        for phrase in FORBIDDEN_SKILL_PHRASES:
+            if phrase in text:
+                fail(f"{path.relative_to(ROOT)} 含有 Windows 不友好或过时示例：{phrase}")
 
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)

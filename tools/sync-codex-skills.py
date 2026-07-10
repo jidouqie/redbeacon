@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""开发态：把 .claude/commands/redbeacon*.md（真源）派生同步到 Codex 端 ~/.codex/skills/。
+"""开发态：把 stable skill 真源同步到 Codex 用户目录和仓库工作台。
 
 - 真源唯一：长逻辑只在 .claude/commands/，本脚本只做派生，不反向写。
 - 转换逻辑复用 CLI 的 redbeacon.services.updater（与 `redbeacon update` 用户机派生同一套），
   保证开发态与线上派生完全一致。
+- `.agents/skills/source-command-redbeacon*` 是仓库工作台副本，用 source-command 前缀
+  避免覆盖用户已经安装的正式版/测试版 skill。
 用法：  python tools/sync-codex-skills.py
 """
+import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -20,16 +24,51 @@ except ImportError:
     from redbeacon.services import updater
 
 
-def main() -> int:
-    codex_dir = updater.find_codex_skill_dir()
-    if codex_dir is None:
-        print("✗ 没找到 ~/.codex/skills（本机未安装 Codex？）。建好该目录或装 Codex 后再跑。")
-        return 1
+def _workspace_skill(stem: str, md: str) -> tuple[str, str]:
+    name, skill_md = updater.claude_md_to_codex_skill(stem, md)
+    workspace_name = f"source-command-{name}"
+    skill_md = re.sub(r"(?m)^name:\s*[^\n]+$", f"name: {workspace_name}", skill_md, count=1)
+    # Rewrite only slash-command references. Product URLs such as
+    # /market/redbeacon have a word character before the slash and are kept.
+    skill_md = re.sub(r"(?<![\w.-])/redbeacon", "/source-command-redbeacon", skill_md)
+    return workspace_name, skill_md
 
+
+def _sync_workspace_skills(files: list[Path]) -> tuple[list[tuple[str, str]], list[str]]:
+    workspace_dir = ROOT / ".agents" / "skills"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    written: list[tuple[str, str]] = []
+    for f in files:
+        name, skill_md = _workspace_skill(f.stem, f.read_text(encoding="utf-8"))
+        folder = workspace_dir / name
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "SKILL.md").write_text(skill_md, encoding="utf-8")
+        written.append((f.stem, name))
+
+    keep = {name for _stem, name in written}
+    removed: list[str] = []
+    for folder in sorted(workspace_dir.glob("source-command-redbeacon*")):
+        if folder.is_dir() and folder.name not in keep:
+            shutil.rmtree(folder, ignore_errors=True)
+            removed.append(folder.name)
+    return written, removed
+
+
+def main() -> int:
     files = sorted(SRC_DIR.glob("redbeacon*.md"))
     if not files:
         print(f"✗ 真源目录无 skill：{SRC_DIR}")
         return 1
+
+    workspace_written, workspace_removed = _sync_workspace_skills(files)
+    print(f"✓ 已派生 {len(workspace_written)} 个仓库 Codex skill → {ROOT / '.agents' / 'skills'}")
+    if workspace_removed:
+        print(f"🗑 清理了 {len(workspace_removed)} 个仓库旧 skill：{', '.join(workspace_removed)}")
+
+    codex_dir = updater.find_codex_skill_dir()
+    if codex_dir is None:
+        print("! 没找到 ~/.codex/skills；仓库工作台已刷新，跳过用户目录。")
+        return 0
 
     written = []
     for f in files:
@@ -43,7 +82,6 @@ def main() -> int:
 
     # 清理孤儿：删掉真源里已不存在的旧 redbeacon* skill 目录（如封存/改名后残留），
     # 让 Codex 端与真源严格一致（与 `redbeacon update` 用户机清理逻辑对齐）。
-    import shutil
     keep = {name for _stem, name in written}
     removed = []
     for d in sorted(codex_dir.glob("redbeacon*")):

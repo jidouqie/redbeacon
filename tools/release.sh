@@ -6,8 +6,8 @@
 #      如果 test 发布后改过客户端/CLI/skill/安装更新卸载/发布脚本，必须重发 test。
 #   1. 先在 cli/ 子仓库改版本、提交并推到 ci/bundle（或手动触发 GitHub Actions
 #      "Build desktop bundles"）。GitHub Actions 只作为三端构建机，打 PyInstaller 客户端包：
-#      stable: app/RedBeacon-win-x64.zip、app/RedBeacon-mac-arm64.zip、app/RedBeacon-linux-x64.zip
-#      test  : app/test/RedBeacon_test-win-x64.zip、app/test/RedBeacon_test-mac-arm64.zip ...
+#      stable: app/releases/<version>/RedBeacon-{win-x64,mac-arm64,linux-x64}.zip
+#      test  : app/test/releases/<version>/RedBeacon_test-{win-x64,mac-arm64,linux-x64}.zip
 #      并上传到 OSS。
 #   2. 等三端 job 全绿后，再运行本脚本：
 #      stable：打 wheel(cli/) → 传 OSS pip/simple/redbeacon/ → 重建 PEP503 index
@@ -80,18 +80,40 @@ command -v "$OU" >/dev/null 2>&1 || { echo "xx 未找到 ossutil（$OU）；装�
 command -v curl >/dev/null 2>&1 || { echo "xx 未找到 curl；需要用它检查 OSS 客户端包"; exit 1; }
 
 VER="$(python3 -c "import re,pathlib;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', pathlib.Path('cli/src/redbeacon/__init__.py').read_text()).group(1))")"
+APP_BUILD_PREFIX="${APP_PREFIX}/releases/${VER}"
 echo "==> 发版 v$VER [$CHANNEL] → OSS $BUCKET"
 
 TMPAPP="$(mktemp -d)"
 trap 'rm -rf "$TMPAPP"' EXIT
 APP_SHA_ARGS=()
 
-# 0) 客户端包由 GitHub Actions 先打并上传。本脚本只做发布阶段，确认三端包可公开访问，
+# 0) 只有三端矩阵全部成功，workflow 的 mark-complete job 才会写此标记。
+#    同时核对 commit，防止同一版本号反复构建时拼到旧平台包。
+MARKER_URL="${BASE_URL}/${APP_BUILD_PREFIX}/build-complete.json"
+MARKER_FILE="${TMPAPP}/build-complete.json"
+curl -fsSL --connect-timeout 20 --max-time 60 --retry 3 "$MARKER_URL" -o "$MARKER_FILE" || {
+  echo "xx 缺少三端构建完成标记：$MARKER_URL"
+  echo "   必须等 GitHub Actions 的 Windows/macOS/Linux 和 mark-complete 全部通过。"
+  exit 1
+}
+CURRENT_COMMIT="$(git -C cli rev-parse HEAD)"
+python3 - "$MARKER_FILE" "$CHANNEL" "$VER" "$CURRENT_COMMIT" <<'PY'
+import json, sys
+path, channel, version, commit = sys.argv[1:]
+marker = json.load(open(path, encoding="utf-8"))
+expected = {"channel": channel, "version": version, "commit": commit}
+actual = {key: str(marker.get(key, "")) for key in expected}
+if actual != expected:
+    raise SystemExit(f"xx 三端构建标记不匹配：expected={expected}, actual={actual}")
+PY
+echo "  ✓ 三端构建完成标记已核对：commit ${CURRENT_COMMIT}"
+
+# 1) 客户端包由 GitHub Actions 先打并上传。本脚本只做发布阶段，确认三端包可公开访问，
 #    并对 OSS 上的实际包计算 sha256 写进 latest.json，供安装/更新时校验。
 for plat in win-x64 mac-arm64 linux-x64; do
-  url="${BASE_URL}/${APP_PREFIX}/${APP_NAME}-${plat}.zip"
+  url="${BASE_URL}/${APP_BUILD_PREFIX}/${APP_NAME}-${plat}.zip"
   pkg="${TMPAPP}/${APP_NAME}-${plat}.zip"
-  curl -fsSL "$url" -o "$pkg" || {
+  curl -fsSL --connect-timeout 20 --max-time 300 --retry 3 --retry-delay 2 --retry-connrefused "$url" -o "$pkg" || {
     echo "xx 找不到客户端包：$url"
     echo "   请先推 cli/ci/bundle 或手动触发 GitHub Actions「Build desktop bundles」，等三端上传 OSS 成功后再跑本脚本。"
     exit 1
@@ -108,9 +130,9 @@ PY
 )"
   APP_SHA_ARGS+=(--app-sha256 "${plat}=${sha}")
 done
-echo "  ✓ 客户端包已在 OSS ${APP_PREFIX}/ 就绪，sha256 已计算（GitHub Actions 负责构建上传）"
+echo "  ✓ 客户端包已在 OSS ${APP_BUILD_PREFIX}/ 就绪，sha256 已计算（GitHub Actions 负责构建上传）"
 
-# 1-3) 正式通道保留 wheel 兼容升级源；测试通道只走独立整包，避免污染正式 CLI 源。
+# 2-4) 正式通道保留 wheel 兼容升级源；测试通道只走独立整包，避免污染正式 CLI 源。
 if [ "$CHANNEL" = "stable" ]; then
   ( cd cli && rm -rf dist && uv build >/dev/null )
   WHL="cli/dist/redbeacon-${VER}-py3-none-any.whl"
@@ -134,10 +156,9 @@ else
   echo "  ✓ 测试通道跳过 wheel/PEP503（只发布独立整包 + 独立 skill + latest-test.json）"
 fi
 
-# 4) 生成版本清单（skill_raw_base 指 OSS）→ 上传 OSS
+# 4) 先在本地生成版本清单。真正上传必须是发布的最后一次关键写入：
+#    客户端、wheel、安装脚本和 skill 全部就绪后才切换用户看到的版本。
 python3 tools/gen_latest.py --channel "$CHANNEL" --notes "$NOTES" --out "$MANIFEST_NAME" "${APP_SHA_ARGS[@]}" >/dev/null
-"$OU" cp "$MANIFEST_NAME" "oss://${BUCKET}/${MANIFEST_NAME}" --profile "$PROFILE" -f >/dev/null
-echo "  ✓ ${MANIFEST_NAME} 上传（v${VER}）"
 
 # 5) 安装/卸载脚本上传 OSS：一键命令直指 OSS，不依赖官网/服务器（官网已废弃，介绍页并入平台）
 "$OU" cp install/install.sh  "oss://${BUCKET}/install.sh"  --profile "$PROFILE" -f >/dev/null
@@ -169,6 +190,57 @@ if [ "$CHANNEL" = "test" ]; then
 fi
 rm -rf "$SKILLTMP"
 echo "  ✓ skill 上传到 ${SKILL_PREFIX}/（tarball + 散装 md，共 ${SKILL_COUNT} 个命令）"
+
+# 7) 原子切换版本清单。安装/更新入口只在这一刻开始看到新版本。
+"$OU" cp "$MANIFEST_NAME" "oss://${BUCKET}/${MANIFEST_NAME}" --profile "$PROFILE" -f >/dev/null
+echo "  ✓ ${MANIFEST_NAME} 最后上传，正式切换到 v${VER}"
+
+# 8) 保留固定直链给下载页和人工测试；安装器使用 manifest 里的版本化路径，
+#    所以更新这些兼容别名不会影响安装事务的一致性。
+for plat in win-x64 mac-arm64 linux-x64; do
+  "$OU" cp \
+    "oss://${BUCKET}/${APP_BUILD_PREFIX}/${APP_NAME}-${plat}.zip" \
+    "oss://${BUCKET}/${APP_PREFIX}/${APP_NAME}-${plat}.zip" \
+    --profile "$PROFILE" -f >/dev/null
+done
+echo "  ✓ 固定客户端直链已更新（安装器仍使用版本化包）"
+
+# 9) 从用户实际访问的公网入口反向读取一次。上传命令成功不代表对象路径、
+#    文件名和最终清单一定一致；这里把缺包、命名漂移和半发布状态挡在发布端。
+PUBLISHED_MANIFEST="${TMPAPP}/published-${MANIFEST_NAME}"
+curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 \
+  "${BASE_URL}/${MANIFEST_NAME}" -o "$PUBLISHED_MANIFEST"
+cmp -s "$MANIFEST_NAME" "$PUBLISHED_MANIFEST" || {
+  echo "xx 公网 ${MANIFEST_NAME} 与本地发布清单不一致"
+  exit 1
+}
+
+PUBLISHED_SKILLS="${TMPAPP}/redbeacon-skill.tar.gz"
+curl -fsSL --connect-timeout 10 --max-time 90 --retry 3 \
+  "${BASE_URL}/${SKILL_PREFIX}/redbeacon-skill.tar.gz" -o "$PUBLISHED_SKILLS"
+PUBLISHED_SKILL_COUNT="$(tar -tzf "$PUBLISHED_SKILLS" | grep -cE '/redbeacon[^/]*\.md$' | tr -d ' ')"
+[ "$PUBLISHED_SKILL_COUNT" = "$SKILL_COUNT" ] || {
+  echo "xx 公网 skill tarball 数量不对：expected=${SKILL_COUNT}, actual=${PUBLISHED_SKILL_COUNT}"
+  exit 1
+}
+
+python3 - "$PUBLISHED_MANIFEST" <<'PY' | while IFS= read -r skill_file; do
+import json, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+for name in manifest.get("skill_files", []):
+    print(name)
+PY
+  curl -fsSI --connect-timeout 10 --max-time 30 --retry 3 \
+    "${BASE_URL}/${SKILL_PREFIX}/commands/${skill_file}" >/dev/null
+done
+
+for plat in win-x64 mac-arm64 linux-x64; do
+  curl -fsSI --connect-timeout 10 --max-time 30 --retry 3 \
+    "${BASE_URL}/${APP_BUILD_PREFIX}/${APP_NAME}-${plat}.zip" >/dev/null
+  curl -fsSI --connect-timeout 10 --max-time 30 --retry 3 \
+    "${BASE_URL}/${APP_PREFIX}/${APP_NAME}-${plat}.zip" >/dev/null
+done
+echo "  ✓ 公网发布结果已验证（manifest / 三端包 / skill tarball + ${SKILL_COUNT} 个命令）"
 
 echo "==> v${VER} [$CHANNEL] 已发布到 OSS。"
 if [ "$CHANNEL" = "test" ]; then

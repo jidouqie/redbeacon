@@ -64,6 +64,26 @@ function Run-BrowserSetup($CliPath){
   }
   Say "Browser engine is ready."
 }
+function Install-Skills($TempDir, $CliPath){
+  Say "[4/4] Fetching skills ..."
+  $skok = $false
+  foreach($t in 1..3){
+    try {
+      $star = Join-Path $TempDir "skill.tar.gz"
+      Invoke-WebRequest -Uri "$OSS/$SkillPrefix/redbeacon-skill.tar.gz" -OutFile $star -UseBasicParsing -TimeoutSec 90
+      tar -xzf $star -C $TempDir
+      if($LASTEXITCODE -ne 0){ throw "skill archive extraction failed" }
+      $skok = $true; break
+    } catch { Warn "  skills fetch failed, retrying..." }
+  }
+  if($skok){
+    $src = Get-ChildItem -Path $TempDir -Recurse -Directory | Where-Object { $_.FullName -match "\.claude[\\/]commands$" } | Select-Object -First 1
+    New-Item -ItemType Directory -Force -Path $SkillDest | Out-Null
+    if($src){ Copy-Item -Force (Join-Path $src.FullName "*.md") $SkillDest }
+    if($src){ Write-CodexSkills $src.FullName }
+    try { & $CliPath config set skill_install_dir $SkillDest | Out-Null } catch {}
+  } else { Warn "  skills not fetched this time (app unaffected); re-run this command later to add them." }
+}
 function Stop-RunningRedBeacon(){
   Say "Stopping running $AppName processes ..."
   $names = @($AppName, $CliName)
@@ -103,7 +123,8 @@ if($Channel -eq "test"){
 }
 $SkillDest = if($env:REDBEACON_SKILL_DIR){ $env:REDBEACON_SKILL_DIR } else { $DefaultSkillDest }
 $Plat = "win-x64"
-$Url  = "$OSS/$AppPrefix/$AppName-$Plat.zip"
+$LegacyUrl = "$OSS/$AppPrefix/$AppName-$Plat.zip"
+$Url  = $LegacyUrl # fallback for manifests published before versioned packages
 $Dest = "$env:LOCALAPPDATA\Programs\$AppName"
 $BinDir = "$HOME\.local\bin"
 $cliExe = Join-Path $Dest "$CliName.exe"
@@ -122,6 +143,7 @@ try {
       if($prop){ $sha = ([string]$prop.Value).ToLowerInvariant() }
     }
   } catch {}
+  if($latest -and $manifest.app){ $Url = "$OSS/$AppPrefix/releases/$latest/$AppName-$Plat.zip" }
   $current = ""
   if(Test-Path $cliExe){
     try { $current = ((& $cliExe --version 2>$null) -split "\s+")[-1] } catch {}
@@ -129,6 +151,9 @@ try {
   if(-not $env:REDBEACON_FORCE_INSTALL -and $latest -and $current -eq $latest){
     Say "$AppName $current is already installed. Skipping bundle download."
     Run-BrowserSetup $cliExe
+    # Re-running the installer repairs missing/outdated skills without pulling
+    # the large desktop bundle again.
+    Install-Skills $tmp $cliExe
     Say "To reinstall anyway: `$env:REDBEACON_CHANNEL='$Channel'; `$env:REDBEACON_FORCE_INSTALL=1; irm $OSS/install.ps1 | iex"
     return
   }
@@ -139,6 +164,13 @@ try {
   foreach($t in 1..3){
     try { Invoke-WebRequest -Uri $Url -OutFile $zip -UseBasicParsing -TimeoutSec 600; $ok = $true; break }
     catch { Warn "  download attempt $t failed, retrying..."; Start-Sleep -Seconds 2 }
+  }
+  if(-not $ok -and $Url -ne $LegacyUrl){
+    Warn "  versioned package unavailable; trying the compatible package URL..."
+    foreach($t in 1..3){
+      try { Invoke-WebRequest -Uri $LegacyUrl -OutFile $zip -UseBasicParsing -TimeoutSec 600; $ok = $true; $Url = $LegacyUrl; break }
+      catch { Warn "  compatible download attempt $t failed, retrying..."; Start-Sleep -Seconds 2 }
+    }
   }
   if(-not $ok){ Die "Could not download $Url -- check your network and re-run." }
   if($sha){
@@ -186,23 +218,7 @@ try {
   Run-BrowserSetup $cliExe
 
   # 6) skills -> AI assistant command dir (from OSS; non-blocking)
-  Say "[4/4] Fetching skills ..."
-  $skok = $false
-  foreach($t in 1..3){
-    try {
-      $star = Join-Path $tmp "skill.tar.gz"
-      Invoke-WebRequest -Uri "$OSS/$SkillPrefix/redbeacon-skill.tar.gz" -OutFile $star -UseBasicParsing -TimeoutSec 90
-      tar -xzf $star -C $tmp
-      $skok = $true; break
-    } catch { Warn "  skills fetch failed, retrying..." }
-  }
-  if($skok){
-    $src = Get-ChildItem -Path $tmp -Recurse -Directory | Where-Object { $_.FullName -match "\.claude[\\/]commands$" } | Select-Object -First 1
-    New-Item -ItemType Directory -Force -Path $SkillDest | Out-Null
-    if($src){ Copy-Item -Force (Join-Path $src.FullName "*.md") $SkillDest }
-    if($src){ Write-CodexSkills $src.FullName }
-    try { & $cliExe config set skill_install_dir $SkillDest | Out-Null } catch {}
-  } else { Warn "  skills not fetched this time (app unaffected); re-run this command later to add them." }
+  Install-Skills $tmp $cliExe
 
   Write-Host ""
   Say "$AppName installed."

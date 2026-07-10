@@ -99,7 +99,7 @@ if(Test-Path $CodexSkillDir){
 }
 
 Say "Removing browser engine cache..."
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$DataHome\browser" -ErrorAction SilentlyContinue
 
 if($Purge){
   Say "PURGE: removing your $AppName data ($DataHome, $TokenHome)..."

@@ -62,15 +62,25 @@ def main() -> None:
             raise SystemExit(f"--app-sha256 不合法：{item}")
         app_sha256[plat] = sha
 
+    version = read_version()
+    app_prefix = "app/test" if args.channel == "test" else "app"
+    app_name = "RedBeacon_test" if args.channel == "test" else "RedBeacon"
     manifest = {
         "channel": args.channel,
-        "version": read_version(),
+        "version": version,
         "notes": args.notes,
         "skill_raw_base": skill_raw_base(args.channel),
         "skill_files": skill_names(args.channel),
     }
     if app_sha256:
         manifest["app_sha256"] = app_sha256
+        manifest["app"] = {
+            plat: {
+                "url": f"{OSS_BASE}/{app_prefix}/releases/{version}/{app_name}-{plat}.zip",
+                "sha256": sha,
+            }
+            for plat, sha in app_sha256.items()
+        }
     Path(out).write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

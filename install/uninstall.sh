@@ -95,10 +95,11 @@ fi
 say "Removing desktop entry..."
 rm -f  "$HOME/.local/share/applications/$DESKTOP_ID.desktop" 2>/dev/null || true
 
-# 5) browser engine cache (Playwright Chromium; re-downloadable)
+# 5) channel-owned browser engine cache (re-downloadable). Never remove the
+# global Playwright/CloakBrowser caches: other apps or the other RedBeacon
+# channel may still own and use them.
 say "Removing browser engine cache..."
-rm -rf "$HOME/Library/Caches/ms-playwright" 2>/dev/null || true   # macOS
-rm -rf "$HOME/.cache/ms-playwright" 2>/dev/null || true           # Linux
+rm -rf "$DATA_HOME/browser" 2>/dev/null || true
 
 # 6) business data -- only when REDBEACON_PURGE=1
 if [ -n "$PURGE" ]; then

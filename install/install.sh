@@ -95,6 +95,26 @@ install_codex_skills() {
   done
 }
 
+install_skills() {
+  cli="$1"
+  say "[4/4] Fetching skills ..."
+  skok=""
+  for t in 1 2 3; do
+    if curl -fsSL --connect-timeout 10 --max-time 90 "$OSS/$SKILL_PREFIX/redbeacon-skill.tar.gz" | tar -xz -C "$TMP" 2>/dev/null; then
+      skok=1; break
+    fi
+  done
+  if [ -n "$skok" ]; then
+    SRC="$(find "$TMP" -type d -path '*/.claude/commands' | head -1)"
+    mkdir -p "$SKILL_DEST"
+    [ -n "$SRC" ] && cp -f "$SRC"/*.md "$SKILL_DEST"/ 2>/dev/null || true
+    install_codex_skills "$SRC"
+    "$cli" config set skill_install_dir "$SKILL_DEST" >/dev/null 2>&1 || true
+  else
+    warn "  skills not fetched this time (UI/app unaffected); re-run this command later to add them."
+  fi
+}
+
 run_browser_setup() {
   cli="$1"
   [ -n "$cli" ] && [ -x "$cli" ] || die "CLI executable not found for browser setup: $cli"
@@ -131,7 +151,8 @@ case "$OS" in
   Linux)  PLAT=linux-x64 ;;
   *) die "Unsupported OS: $OS (use the Windows installer on Windows)" ;;
 esac
-BUNDLE_URL="$OSS/$APP_PREFIX/$APP_NAME-$PLAT.zip"
+LEGACY_BUNDLE_URL="$OSS/$APP_PREFIX/$APP_NAME-$PLAT.zip"
+BUNDLE_URL="$LEGACY_BUNDLE_URL"  # fallback for manifests published before versioned packages
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$BINDIR"
@@ -140,9 +161,14 @@ mkdir -p "$BINDIR"
 # large bundle when the installed client is already current.
 LATEST=""
 SHA=""
+HAS_VERSIONED_APP=""
 if curl -fsSL --connect-timeout 8 --max-time 20 "$OSS/$MANIFEST_NAME" -o "$TMP/latest.json" 2>/dev/null; then
   LATEST="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -1)"
   SHA="$(sed -n 's/.*"'"$PLAT"'"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F]\{64\}\)".*/\1/p' "$TMP/latest.json" | head -1 | tr 'A-F' 'a-f')"
+  grep -q '"app"[[:space:]]*:' "$TMP/latest.json" && HAS_VERSIONED_APP=1 || true
+fi
+if [ -n "$LATEST" ] && [ -n "$HAS_VERSIONED_APP" ]; then
+  BUNDLE_URL="$OSS/$APP_PREFIX/releases/$LATEST/$APP_NAME-$PLAT.zip"
 fi
 if [ "$OS" = "Darwin" ]; then
   LOCAL_CLI="$HOME/Applications/$APP_NAME.app/Contents/MacOS/$CLI_NAME"
@@ -159,6 +185,9 @@ if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "
   fi
   say "$APP_NAME $CURRENT is already installed. Skipping bundle download."
   run_browser_setup "$LOCAL_CLI"
+  # A repeated install is also the repair path for missing/outdated skills.
+  # Keep the large app zip skipped, but always refresh the small skill bundle.
+  install_skills "$LOCAL_CLI"
   say "To reinstall anyway: curl -fsSL $OSS/install.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_FORCE_INSTALL=1 bash"
   exit 0
 fi
@@ -167,9 +196,16 @@ fi
 say "[1/4] Downloading $APP_NAME ($PLAT) ..."
 ok=""
 for t in 1 2 3; do
-  if curl -fSL --connect-timeout 15 -o "$TMP/rb.zip" "$BUNDLE_URL"; then ok=1; break; fi
+  if curl -fSL --connect-timeout 15 --max-time 600 -o "$TMP/rb.zip" "$BUNDLE_URL"; then ok=1; break; fi
   warn "  download attempt $t failed, retrying..."; sleep 2
 done
+if [ -z "$ok" ] && [ "$BUNDLE_URL" != "$LEGACY_BUNDLE_URL" ]; then
+  warn "  versioned package unavailable; trying the compatible package URL..."
+  for t in 1 2 3; do
+    if curl -fSL --connect-timeout 15 --max-time 600 -o "$TMP/rb.zip" "$LEGACY_BUNDLE_URL"; then ok=1; BUNDLE_URL="$LEGACY_BUNDLE_URL"; break; fi
+    warn "  compatible download attempt $t failed, retrying..."; sleep 2
+  done
+fi
 [ -n "$ok" ] || die "Could not download $BUNDLE_URL -- check your network and re-run."
 if [ -n "$SHA" ]; then
   GOT="$(sha256_file "$TMP/rb.zip" 2>/dev/null || true)"
@@ -218,20 +254,7 @@ fi
 run_browser_setup "$LOCAL_CLI"
 
 # 6) skills -> AI assistant command dir (from OSS; non-blocking)
-say "[4/4] Fetching skills ..."
-skok=""
-for t in 1 2 3; do
-  if curl -fsSL --max-time 90 "$OSS/$SKILL_PREFIX/redbeacon-skill.tar.gz" | tar -xz -C "$TMP" 2>/dev/null; then skok=1; break; fi
-done
-if [ -n "$skok" ]; then
-  SRC="$(find "$TMP" -type d -path '*/.claude/commands' | head -1)"
-  mkdir -p "$SKILL_DEST"
-  [ -n "$SRC" ] && cp -f "$SRC"/*.md "$SKILL_DEST"/ 2>/dev/null || true
-  install_codex_skills "$SRC"
-  "$BINDIR/$CMD_NAME" config set skill_install_dir "$SKILL_DEST" >/dev/null 2>&1 || true
-else
-  warn "  skills not fetched this time (UI/app unaffected); re-run this command later to add them."
-fi
+install_skills "$LOCAL_CLI"
 
 echo
 say "$APP_NAME installed."
