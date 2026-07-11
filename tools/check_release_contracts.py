@@ -551,6 +551,8 @@ def check_platform_account_contracts() -> None:
     image_gen = read("cli/src/redbeacon/services/image_gen.py")
     client = read("cli/src/redbeacon/platform_account/client.py")
     errors = read("cli/src/redbeacon/platform_account/errors.py")
+    ui_app = read("cli/src/redbeacon/adapters/ui_backend/app.py")
+    ui_index = read("cli/src/redbeacon/adapters/ui_backend/static/index.html")
 
     require(checkin, "json_body={}", "cli/src/redbeacon/platform_account/checkin.py", "新版 checkin 必须发送空对象，产品码只做兼容来源标签")
     require(checkin, '"entitlements": []', "cli/src/redbeacon/platform_account/checkin.py", "员工 entitlement 已归档，不能继续作为客户端权限真源")
@@ -564,6 +566,10 @@ def check_platform_account_contracts() -> None:
     require(image_gen, 'scheduler.execute_ai(', "cli/src/redbeacon/services/image_gen.py", "平台生图必须经过账号级共享调度器")
     require(client, '"Accept-Encoding": "gzip"', "cli/src/redbeacon/platform_account/client.py", "平台 HTTP 客户端必须复用 gzip 连接配置")
     require(errors, "parsedate_to_datetime", "cli/src/redbeacon/platform_account/errors.py", "Retry-After 必须同时兼容秒数和 HTTP 日期")
+    require(ui_app, "_gen_queue = _SerialJobQueue(max_pending=20)", "cli/src/redbeacon/adapters/ui_backend/app.py", "客户端笔记生成必须使用有上限的串行队列")
+    if ui_app.count("_enqueue_generation_job(job_id, _bg") != 4:
+        fail("cli/src/redbeacon/adapters/ui_backend/app.py 四个生成入口必须全部进入同一个串行队列")
+    require(ui_index, "客户端会按顺序逐篇生成", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "客户端必须向用户显示生成排队状态")
 
 
 def main() -> None:

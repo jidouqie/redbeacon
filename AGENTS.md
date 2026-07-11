@@ -61,6 +61,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - 平台设备令牌代表 ByteStaff 账号，不代表某个数字员工。`product` / `product_code` 只做来源归因，不参与权限；客户端不得发送 `account_id`，不得再从 `entitlements`、员工激活状态或产品上下架推导 AI 能力。
 - `/device/checkin` 默认发送 `{}`，返回的账号、点数和 `limits.ai` 是客户端真源。checkin 要按 `refresh_after_seconds` 缓存并做账号级 single-flight；旧平台缺少 limits 时保守回退总并发 3、embedding 2、chat 2、image 1。
 - 同一账号的客户端窗口、CLI 和 skill 必须共用账号级 AI 调度状态。RedBeacon 使用 `~/.bytestaff/ai_scheduler.sqlite3`（测试版对应测试目录）协调总并发、能力并发、令牌桶、租约、重试次数和熔断，不能只做单进程 Semaphore。
+- 客户端生成笔记必须严格串行：普通生成、带货生成、预生成和继续出图共用一个 FIFO 工位，多选只负责入队，必须等前一篇完整成功或失败后才开始下一篇。禁止按“每篇一个线程/Promise”同时生成；本机等待队列最多保留 20 个任务，满了要明确提示用户。
 - `request_id` 必须遵守平台幂等语义：429 / duplicate_pending 沿用原 id；明确收到 duplicate_failed / 502 upstream_error 后换新 id；网络断线 / 503 结果未知时只沿用原 id 确认一次。所有重试先释放运行槽，遵守 Retry-After（秒数或 HTTP 日期）并做退避；连续故障触发短熔断。
 
 ## 发布流程
