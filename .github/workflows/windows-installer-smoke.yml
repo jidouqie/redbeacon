@@ -120,7 +120,12 @@ jobs:
             }
           }
           "@
-            Add-Type -TypeDefinition $cliSource -OutputAssembly $cliPath -OutputType ConsoleApplication
+            $csc = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+            if(-not (Test-Path $csc)){ throw "Windows C# compiler not found: $csc" }
+            $cliCs = Join-Path $pkgRoot "FakeCli-$Channel.cs"
+            [System.IO.File]::WriteAllText($cliCs, $cliSource, [System.Text.UTF8Encoding]::new($false))
+            & $csc /nologo /target:exe "/out:$cliPath" $cliCs
+            if($LASTEXITCODE -ne 0){ throw "Fake CLI compilation failed with exit code $LASTEXITCODE" }
             Copy-Item -Force $cliPath (Join-Path $appDir "$appName.exe")
 
             $rendererPath = Join-Path $appDir "RedBeaconRenderer.exe"
@@ -141,7 +146,10 @@ jobs:
             }
           }
           "@
-            Add-Type -TypeDefinition $rendererSource -OutputAssembly $rendererPath -OutputType ConsoleApplication
+            $rendererCs = Join-Path $pkgRoot "FakeRenderer-$Channel.cs"
+            [System.IO.File]::WriteAllText($rendererCs, $rendererSource, [System.Text.UTF8Encoding]::new($false))
+            & $csc /nologo /target:exe "/out:$rendererPath" $rendererCs
+            if($LASTEXITCODE -ne 0){ throw "Fake renderer compilation failed with exit code $LASTEXITCODE" }
             [System.IO.File]::WriteAllBytes((Join-Path $assetDir "RedBeacon.ico"), [byte[]](0))
 
             $zipDir = Join-Path $fake $appPrefix
