@@ -50,7 +50,8 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - 用户关闭扫码弹窗时必须同步取消后台等待并关闭对应浏览器会话；不能只隐藏 UI、让旧任务继续占用 profile。浏览器下载源不要先做脆弱的 HEAD 预检再决定是否使用 OSS，RedBeacon OSS 应直接优先尝试，失败才切官方源。
 - Windows ARM64 客户机不能直接判死。当前 Windows 桌面包是 x64 包，ARM64 Windows 通过系统 x64 仿真运行；CloakBrowser 要映射到 `windows-x64` 内核包，不能因为第三方库没有列 `Windows ARM64` 就让扫码登录失败。
 - Windows `.ps1/.cmd` 安装链路必须 ASCII-only；skill 和 Codex `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
-- Windows bundle smoke 必须捕获桌面初始化里的 `Traceback` / `ModuleNotFoundError` / `ImportError`；如果日志里有隐藏崩溃，即使 workflow 标绿也不准发布。PyInstaller spec 必须显式包含 `_sqlite3`。
+- Windows bundle smoke 必须捕获桌面初始化里的 `Traceback` / `ModuleNotFoundError` / `ImportError`；如果日志里有隐藏崩溃，即使 workflow 标绿也不准发布。PyInstaller spec 必须显式包含 `_sqlite3`，并把文字卡片所需的 `RedBeaconRenderer(.exe)` 作为独立可执行文件打进同一个包；三端 smoke 都要确认渲染器存在且能启动，不能只验证主客户端。
+- 组合业务结果必须逐项验收：例如“AI 封面 + 文字卡片”要求两部分都成功，不能因为 AI 图存在就吞掉卡片渲染错误并保存半成品。渲染失败要阻止入库、记录完整日志，并给用户短而可操作的修复提示。
 
 ## 发布流程
 

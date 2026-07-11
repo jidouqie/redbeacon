@@ -270,6 +270,10 @@ def check_github_build_hygiene() -> None:
     agents = read("AGENTS.md")
     workflow = read("cli/.github/workflows/build-bundle.yml")
     pyproject = read("cli/pyproject.toml")
+    spec = read("cli/packaging/RedBeacon.spec")
+    windows_smoke = read("cli/packaging/smoke_windows_bundle.ps1")
+    generate_usecase = read("cli/src/redbeacon/core/usecases/generate.py")
+    generate_task = read("cli/src/redbeacon/tasks/generate.py")
     read("cli/uv.lock")
     require(
         agents,
@@ -367,6 +371,12 @@ def check_github_build_hygiene() -> None:
         "cli/.github/workflows/build-bundle.yml",
         "Windows bundle smoke 必须运行项目内 PowerShell 脚本",
     )
+    require(spec, 'name="RedBeaconRenderer"', "cli/packaging/RedBeacon.spec", "冻结包必须包含独立文字卡片渲染器")
+    require(workflow, "RENDERER_SMOKE", "cli/.github/workflows/build-bundle.yml", "macOS/Linux 冻结包必须启动检查卡片渲染器")
+    require(windows_smoke, "RedBeaconRenderer.exe", "cli/packaging/smoke_windows_bundle.ps1", "Windows 冻结包必须包含并启动检查 RedBeaconRenderer.exe")
+    require(generate_task, '"RedBeaconRenderer.exe" if sys.platform == "win32"', "cli/src/redbeacon/tasks/generate.py", "Windows 必须显式解析渲染器 .exe 路径")
+    require(generate_task, "subprocess.CREATE_NO_WINDOW", "cli/src/redbeacon/tasks/generate.py", "Windows 后台卡片渲染不能弹出黑窗")
+    require(generate_usecase, "if want_cards and not cards:", "cli/src/redbeacon/core/usecases/generate.py", "组合配图要求文字卡片时不能静默保存 AI 单图半成品")
     if "downloads on first run" in workflow:
         fail("cli/.github/workflows/build-bundle.yml 含有过时口径：浏览器内核不能留到用户首次运行再下载")
     for package in (
