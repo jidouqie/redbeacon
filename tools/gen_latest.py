@@ -7,7 +7,7 @@ skill_files 扫描 .claude/commands，避免手工维护漂移。
 本脚本只负责 latest.json 内容。
 
 用法（在 redbeacon 仓根目录）：
-    python tools/gen_latest.py --notes "本次更新说明"
+    python tools/gen_latest.py --notes "本次更新说明" --skill-sha256 <64位哈希>
 """
 from __future__ import annotations
 
@@ -32,9 +32,13 @@ def read_version() -> str:
     return m.group(1)
 
 
-def skill_raw_base(channel: str) -> str:
+def skill_prefix(channel: str) -> str:
+    return "skill-test" if channel == "test" else "skill"
+
+
+def skill_raw_base(channel: str, version: str) -> str:
     prefix = "skill-test" if channel == "test" else "skill"
-    return f"{OSS_BASE}/{prefix}/commands"
+    return f"{OSS_BASE}/{prefix}/releases/{version}/commands"
 
 
 def main() -> None:
@@ -47,6 +51,11 @@ def main() -> None:
         default=[],
         metavar="PLAT=SHA256",
         help="客户端整包哈希，如 win-x64=<64位sha256>；可重复传",
+    )
+    ap.add_argument(
+        "--skill-sha256",
+        required=True,
+        help="与该版本客户端绑定的 skill tarball SHA-256",
     )
     ap.add_argument("--out", default="", help="输出文件；默认 stable=latest.json, test=latest-test.json")
     args = ap.parse_args()
@@ -63,13 +72,20 @@ def main() -> None:
         app_sha256[plat] = sha
 
     version = read_version()
+    skill_sha256 = args.skill_sha256.strip().lower()
+    if len(skill_sha256) != 64 or any(c not in "0123456789abcdef" for c in skill_sha256):
+        raise SystemExit("--skill-sha256 必须是 64 位十六进制 SHA-256")
     app_prefix = "app/test" if args.channel == "test" else "app"
     app_name = "RedBeacon_test" if args.channel == "test" else "RedBeacon"
+    skill_release_prefix = f"{skill_prefix(args.channel)}/releases/{version}"
     manifest = {
         "channel": args.channel,
         "version": version,
         "notes": args.notes,
-        "skill_raw_base": skill_raw_base(args.channel),
+        "skill_version": version,
+        "skill_bundle_url": f"{OSS_BASE}/{skill_release_prefix}/redbeacon-skill.tar.gz",
+        "skill_sha256": skill_sha256,
+        "skill_raw_base": skill_raw_base(args.channel, version),
         "skill_files": skill_names(args.channel),
     }
     if app_sha256:

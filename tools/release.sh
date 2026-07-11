@@ -84,7 +84,8 @@ APP_BUILD_PREFIX="${APP_PREFIX}/releases/${VER}"
 echo "==> 发版 v$VER [$CHANNEL] → OSS $BUCKET"
 
 TMPAPP="$(mktemp -d)"
-trap 'rm -rf "$TMPAPP"' EXIT
+SKILLTMP=""
+trap 'rm -rf "$TMPAPP"; [ -z "$SKILLTMP" ] || rm -rf "$SKILLTMP"' EXIT
 APP_SHA_ARGS=()
 
 # 0) 只有三端矩阵全部成功，workflow 的 mark-complete job 才会写此标记。
@@ -156,11 +157,46 @@ else
   echo "  ✓ 测试通道跳过 wheel/PEP503（只发布独立整包 + 独立 skill + latest-test.json）"
 fi
 
-# 4) 先在本地生成版本清单。真正上传必须是发布的最后一次关键写入：
-#    客户端、wheel、安装脚本和 skill 全部就绪后才切换用户看到的版本。
-python3 tools/gen_latest.py --channel "$CHANNEL" --notes "$NOTES" --out "$MANIFEST_NAME" "${APP_SHA_ARGS[@]}" >/dev/null
+# 4) skill 也使用版本化不可变路径，并和客户端版本、channel、commit 绑定。
+#    固定别名要等 manifest 切换后再更新，发布窗口内运行安装器的旧版本用户
+#    仍会拿到旧 app + 旧 skill，不会出现跨版本混装。
+SKILLTMP="$(mktemp -d)"
+SKILL_RELEASE_PREFIX="${SKILL_PREFIX}/releases/${VER}"
+python3 tools/build_channel_skills.py --channel "$CHANNEL" --out-dir "$SKILLTMP" >/dev/null
+SKILL_COUNT="$(find "${SKILLTMP}/.claude/commands" -maxdepth 1 -name 'redbeacon*.md' | wc -l | tr -d ' ')"
+python3 - "${SKILLTMP}/redbeacon-skill-manifest.json" "$CHANNEL" "$VER" "$CURRENT_COMMIT" <<'PY'
+import json, pathlib, sys
+path, channel, version, commit = sys.argv[1:]
+files = sorted(p.name for p in (pathlib.Path(path).parent / ".claude" / "commands").glob("redbeacon*.md"))
+pathlib.Path(path).write_text(json.dumps({
+    "channel": channel,
+    "version": version,
+    "commit": commit,
+    "skill_files": files,
+}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+PY
+tar -czf "${SKILLTMP}/redbeacon-skill.tar.gz" -C "$SKILLTMP" .claude/commands redbeacon-skill-manifest.json
+SKILL_SHA="$(python3 - "${SKILLTMP}/redbeacon-skill.tar.gz" <<'PY'
+import hashlib, sys
+h = hashlib.sha256()
+with open(sys.argv[1], "rb") as f:
+    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+        h.update(chunk)
+print(h.hexdigest())
+PY
+)"
+"$OU" cp "${SKILLTMP}/redbeacon-skill.tar.gz" \
+  "oss://${BUCKET}/${SKILL_RELEASE_PREFIX}/redbeacon-skill.tar.gz" --profile "$PROFILE" -f >/dev/null
+for f in "${SKILLTMP}"/.claude/commands/redbeacon*.md; do
+  "$OU" cp "$f" "oss://${BUCKET}/${SKILL_RELEASE_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null
+done
+echo "  ✓ 版本化 skill 已上传：${SKILL_RELEASE_PREFIX}/（sha256=${SKILL_SHA}）"
 
-# 5) 安装/卸载脚本上传 OSS：一键命令直指 OSS，不依赖官网/服务器（官网已废弃，介绍页并入平台）
+# 5) 生成清单；skill URL + SHA 与当前版本客户端一起成为安装事务真源。
+python3 tools/gen_latest.py --channel "$CHANNEL" --notes "$NOTES" --out "$MANIFEST_NAME" \
+  --skill-sha256 "$SKILL_SHA" "${APP_SHA_ARGS[@]}" >/dev/null
+
+# 6) 安装/卸载脚本上传 OSS：一键命令直指 OSS，不依赖官网/服务器（官网已废弃，介绍页并入平台）
 "$OU" cp install/install.sh  "oss://${BUCKET}/install.sh"  --profile "$PROFILE" -f >/dev/null
 "$OU" cp install/install.ps1 "oss://${BUCKET}/install.ps1" --profile "$PROFILE" -f >/dev/null
 "$OU" cp install/install-test.sh  "oss://${BUCKET}/install-test.sh"  --profile "$PROFILE" -f >/dev/null
@@ -171,32 +207,12 @@ python3 tools/gen_latest.py --channel "$CHANNEL" --notes "$NOTES" --out "$MANIFE
 "$OU" cp install/uninstall-test.ps1 "oss://${BUCKET}/uninstall-test.ps1" --profile "$PROFILE" -f >/dev/null
 echo "  ✓ 安装/卸载脚本上传（正式 + 测试入口）"
 
-# 6) skill → OSS（彻底不依赖 GitHub）：tarball 给装机(install.sh 解 .claude/commands/*.md)，
-#    散装 md 给 update（按 skill_raw_base/<文件名> 逐个拉）。测试版会自动生成
-#    redbeacon-test*.md，正文也调用 redbeacon-test，避免误驱动正式版。
-SKILLTMP="$(mktemp -d)"
-python3 tools/build_channel_skills.py --channel "$CHANNEL" --out-dir "$SKILLTMP" >/dev/null
-SKILL_COUNT="$(find "${SKILLTMP}/.claude/commands" -maxdepth 1 -name 'redbeacon*.md' | wc -l | tr -d ' ')"
-tar -czf "${SKILLTMP}/redbeacon-skill.tar.gz" -C "$SKILLTMP" .claude/commands
-"$OU" cp "${SKILLTMP}/redbeacon-skill.tar.gz" "oss://${BUCKET}/${SKILL_PREFIX}/redbeacon-skill.tar.gz" --profile "$PROFILE" -f >/dev/null
-for f in "${SKILLTMP}"/.claude/commands/redbeacon*.md; do
-  "$OU" cp "$f" "oss://${BUCKET}/${SKILL_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null
-done
-if [ "$CHANNEL" = "test" ]; then
-  # 清掉早期测试通道里误传的正式 skill 文件名；manifest 只保留 redbeacon-test*.md。
-  for f in .claude/commands/redbeacon*.md; do
-    "$OU" rm "oss://${BUCKET}/${SKILL_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null 2>&1 || true
-  done
-fi
-rm -rf "$SKILLTMP"
-echo "  ✓ skill 上传到 ${SKILL_PREFIX}/（tarball + 散装 md，共 ${SKILL_COUNT} 个命令）"
-
 # 7) 原子切换版本清单。安装/更新入口只在这一刻开始看到新版本。
 "$OU" cp "$MANIFEST_NAME" "oss://${BUCKET}/${MANIFEST_NAME}" --profile "$PROFILE" -f >/dev/null
 echo "  ✓ ${MANIFEST_NAME} 最后上传，正式切换到 v${VER}"
 
-# 8) 保留固定直链给下载页和人工测试；安装器使用 manifest 里的版本化路径，
-#    所以更新这些兼容别名不会影响安装事务的一致性。
+# 8) manifest 切换后再更新 app/skill 固定别名，仅供旧入口兼容。当前安装器
+#    始终使用 manifest 中带版本号和 SHA 的不可变路径。
 for plat in win-x64 mac-arm64 linux-x64; do
   "$OU" cp \
     "oss://${BUCKET}/${APP_BUILD_PREFIX}/${APP_NAME}-${plat}.zip" \
@@ -204,6 +220,20 @@ for plat in win-x64 mac-arm64 linux-x64; do
     --profile "$PROFILE" -f >/dev/null
 done
 echo "  ✓ 固定客户端直链已更新（安装器仍使用版本化包）"
+"$OU" cp \
+  "oss://${BUCKET}/${SKILL_RELEASE_PREFIX}/redbeacon-skill.tar.gz" \
+  "oss://${BUCKET}/${SKILL_PREFIX}/redbeacon-skill.tar.gz" --profile "$PROFILE" -f >/dev/null
+for f in "${SKILLTMP}"/.claude/commands/redbeacon*.md; do
+  "$OU" cp \
+    "oss://${BUCKET}/${SKILL_RELEASE_PREFIX}/commands/$(basename "$f")" \
+    "oss://${BUCKET}/${SKILL_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null
+done
+if [ "$CHANNEL" = "test" ]; then
+  for f in .claude/commands/redbeacon*.md; do
+    "$OU" rm "oss://${BUCKET}/${SKILL_PREFIX}/commands/$(basename "$f")" --profile "$PROFILE" -f >/dev/null 2>&1 || true
+  done
+fi
+echo "  ✓ 固定 skill 兼容别名已更新（安装器仍使用版本化 skill）"
 
 # 9) 从用户实际访问的公网入口反向读取一次。上传命令成功不代表对象路径、
 #    文件名和最终清单一定一致；这里把缺包、命名漂移和半发布状态挡在发布端。
@@ -217,7 +247,16 @@ cmp -s "$MANIFEST_NAME" "$PUBLISHED_MANIFEST" || {
 
 PUBLISHED_SKILLS="${TMPAPP}/redbeacon-skill.tar.gz"
 curl -fsSL --connect-timeout 10 --max-time 90 --retry 3 \
-  "${BASE_URL}/${SKILL_PREFIX}/redbeacon-skill.tar.gz" -o "$PUBLISHED_SKILLS"
+  "${BASE_URL}/${SKILL_RELEASE_PREFIX}/redbeacon-skill.tar.gz" -o "$PUBLISHED_SKILLS"
+PUBLISHED_SKILL_SHA="$(python3 - "$PUBLISHED_SKILLS" <<'PY'
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())
+PY
+)"
+[ "$PUBLISHED_SKILL_SHA" = "$SKILL_SHA" ] || {
+  echo "xx 公网版本化 skill 哈希不一致"
+  exit 1
+}
 PUBLISHED_SKILL_COUNT="$(tar -tzf "$PUBLISHED_SKILLS" | grep -cE '/redbeacon[^/]*\.md$' | tr -d ' ')"
 [ "$PUBLISHED_SKILL_COUNT" = "$SKILL_COUNT" ] || {
   echo "xx 公网 skill tarball 数量不对：expected=${SKILL_COUNT}, actual=${PUBLISHED_SKILL_COUNT}"
@@ -231,6 +270,8 @@ for name in manifest.get("skill_files", []):
     print(name)
 PY
   curl -fsSI --connect-timeout 10 --max-time 30 --retry 3 \
+    "${BASE_URL}/${SKILL_RELEASE_PREFIX}/commands/${skill_file}" >/dev/null
+  curl -fsSI --connect-timeout 10 --max-time 30 --retry 3 \
     "${BASE_URL}/${SKILL_PREFIX}/commands/${skill_file}" >/dev/null
 done
 
@@ -240,7 +281,8 @@ for plat in win-x64 mac-arm64 linux-x64; do
   curl -fsSI --connect-timeout 10 --max-time 30 --retry 3 \
     "${BASE_URL}/${APP_PREFIX}/${APP_NAME}-${plat}.zip" >/dev/null
 done
-echo "  ✓ 公网发布结果已验证（manifest / 三端包 / skill tarball + ${SKILL_COUNT} 个命令）"
+rm -rf "$SKILLTMP"
+echo "  ✓ 公网发布结果已验证（manifest / 三端包 / 版本化 skill 哈希 + ${SKILL_COUNT} 个命令）"
 
 echo "==> v${VER} [$CHANNEL] 已发布到 OSS。"
 if [ "$CHANNEL" = "test" ]; then
@@ -256,7 +298,7 @@ else
   echo "   wheel 源 : ${BASE_URL}/${PREFIX}/index.html"
 fi
 echo "   版本清单 : ${BASE_URL}/${MANIFEST_NAME}"
-echo "   skill 源 : ${BASE_URL}/${SKILL_PREFIX}/（tarball + commands/ 散装 md）"
+echo "   skill 真源 : ${BASE_URL}/${SKILL_RELEASE_PREFIX}/（版本化 tarball + commands/）"
 echo "   客户端包 : ${BASE_URL}/${APP_PREFIX}/${APP_NAME}-{win-x64,mac-arm64,linux-x64}.zip"
 if [ "$CHANNEL" = "test" ]; then
   echo "   客户端：测试版新装和更新都只看 latest-test.json / app/test / skill-test，不影响正式用户。GitHub Actions 只参与打包，不作为发布源。"

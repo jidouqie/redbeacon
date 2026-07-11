@@ -78,6 +78,8 @@ jobs:
               $skillPrefix = "skill-test"
               $skillFile = "redbeacon-test.md"
               $skillCommand = "redbeacon-test"
+              $runtimeFolder = ".redbeacon_test"
+              $typeSuffix = "Test"
             } else {
               $appName = "RedBeacon"
               $cliName = "redbeacon-cli"
@@ -86,14 +88,60 @@ jobs:
               $skillPrefix = "skill"
               $skillFile = "redbeacon.md"
               $skillCommand = "redbeacon"
+              $runtimeFolder = ".redbeacon"
+              $typeSuffix = "Stable"
             }
 
             $pkgRoot = Join-Path $build "pkg-$Channel"
             $appDir = Join-Path $pkgRoot $appName
             $assetDir = Join-Path $appDir "_internal\assets"
             New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
-            Set-Content -Encoding ASCII -Path (Join-Path $appDir "$appName.exe") -Value "fake gui exe"
-            Set-Content -Encoding ASCII -Path (Join-Path $appDir "$cliName.exe") -Value "fake cli exe"
+            $cliPath = Join-Path $appDir "$cliName.exe"
+            $cliSource = @"
+using System;
+using System.IO;
+namespace RedBeaconInstallerSmoke$typeSuffix {
+  public static class Cli {
+    public static int Main(string[] args) {
+      if (args.Length > 0 && args[0] == "--version") { Console.WriteLine("redbeacon 9.9.9"); return 0; }
+      if (args.Length > 0 && args[0] == "setup") {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var root = Path.Combine(home, "$runtimeFolder");
+        if (Environment.GetEnvironmentVariable("REDBEACON_DATA_DIR") != Path.Combine(root, "data")) return 34;
+        if (Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH") != Path.Combine(root, "browser", "ms-playwright")) return 35;
+        if (Environment.GetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR") != Path.Combine(root, "browser", "cloakbrowser")) return 36;
+        Console.WriteLine("{\"ok\":true}"); return 0;
+      }
+      if (Environment.GetEnvironmentVariable("REDBEACON_DESKTOP_SMOKE") == "1") {
+        Console.WriteLine("RedBeacon desktop smoke ok");
+      }
+      return 0;
+    }
+  }
+}
+"@
+            Add-Type -TypeDefinition $cliSource -OutputAssembly $cliPath -OutputType ConsoleApplication
+            Copy-Item -Force $cliPath (Join-Path $appDir "$appName.exe")
+
+            $rendererPath = Join-Path $appDir "RedBeaconRenderer.exe"
+            $rendererSource = @"
+using System;
+using System.IO;
+namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
+  public static class Renderer {
+    public static int Main(string[] args) {
+      string output = null;
+      for (var i = 0; i + 1 < args.Length; i++) if (args[i] == "--output-dir") output = args[i + 1];
+      if (String.IsNullOrEmpty(output)) return 41;
+      Directory.CreateDirectory(output);
+      File.WriteAllBytes(Path.Combine(output, "cover.png"), new byte[] { 1, 2, 3 });
+      File.WriteAllBytes(Path.Combine(output, "card_1.png"), new byte[] { 1, 2, 3 });
+      return 0;
+    }
+  }
+}
+"@
+            Add-Type -TypeDefinition $rendererSource -OutputAssembly $rendererPath -OutputType ConsoleApplication
             [System.IO.File]::WriteAllBytes((Join-Path $assetDir "RedBeacon.ico"), [byte[]](0))
 
             $zipDir = Join-Path $fake $appPrefix
@@ -177,6 +225,11 @@ jobs:
             $env:REDBEACON_CHANNEL = $Channel
             $env:REDBEACON_FORCE_INSTALL = "1"
             $env:REDBEACON_SKILL_DIR = $spec.SkillDir
+            $env:REDBEACON_DATA_DIR = Join-Path $env:RUNNER_TEMP "foreign-data"
+            $env:REDBEACON_PLAYWRIGHT_DIR = Join-Path $env:RUNNER_TEMP "foreign-playwright"
+            $env:REDBEACON_CLOAKBROWSER_DIR = Join-Path $env:RUNNER_TEMP "foreign-cloak"
+            $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:RUNNER_TEMP "foreign-system-playwright"
+            $env:CLOAKBROWSER_CACHE_DIR = Join-Path $env:RUNNER_TEMP "foreign-system-cloak"
             & ./install/install.ps1
             Remove-Item Env:\REDBEACON_FORCE_INSTALL -ErrorAction SilentlyContinue
             Assert-Installed $Channel
