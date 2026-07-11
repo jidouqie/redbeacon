@@ -3,7 +3,7 @@ name: Unix installer transaction smoke
 on:
   workflow_dispatch: {}
   push:
-    branches: ['main', 'ci/bundle']
+    branches: ['main', 'ci/bundle', 'refactor/**']
     paths:
       - 'install/**'
       - 'tools/smoke_unix_install_transaction.py'

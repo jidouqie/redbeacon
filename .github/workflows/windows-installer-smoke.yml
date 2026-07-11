@@ -12,7 +12,7 @@ name: Windows installer smoke
 on:
   workflow_dispatch: {}
   push:
-    branches: ['main', 'ci/bundle']
+    branches: ['main', 'ci/bundle', 'refactor/**']
     paths:
       - 'install/**'
       - 'tools/release.sh'
@@ -98,49 +98,49 @@ jobs:
             New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
             $cliPath = Join-Path $appDir "$cliName.exe"
             $cliSource = @"
-using System;
-using System.IO;
-namespace RedBeaconInstallerSmoke$typeSuffix {
-  public static class Cli {
-    public static int Main(string[] args) {
-      if (args.Length > 0 && args[0] == "--version") { Console.WriteLine("redbeacon 9.9.9"); return 0; }
-      if (args.Length > 0 && args[0] == "setup") {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var root = Path.Combine(home, "$runtimeFolder");
-        if (Environment.GetEnvironmentVariable("REDBEACON_DATA_DIR") != Path.Combine(root, "data")) return 34;
-        if (Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH") != Path.Combine(root, "browser", "ms-playwright")) return 35;
-        if (Environment.GetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR") != Path.Combine(root, "browser", "cloakbrowser")) return 36;
-        Console.WriteLine("{\"ok\":true}"); return 0;
-      }
-      if (Environment.GetEnvironmentVariable("REDBEACON_DESKTOP_SMOKE") == "1") {
-        Console.WriteLine("RedBeacon desktop smoke ok");
-      }
-      return 0;
-    }
-  }
-}
-"@
+          using System;
+          using System.IO;
+          namespace RedBeaconInstallerSmoke$typeSuffix {
+            public static class Cli {
+              public static int Main(string[] args) {
+                if (args.Length > 0 && args[0] == "--version") { Console.WriteLine("redbeacon 9.9.9"); return 0; }
+                if (args.Length > 0 && args[0] == "setup") {
+                  var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                  var root = Path.Combine(home, "$runtimeFolder");
+                  if (Environment.GetEnvironmentVariable("REDBEACON_DATA_DIR") != Path.Combine(root, "data")) return 34;
+                  if (Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH") != Path.Combine(root, "browser", "ms-playwright")) return 35;
+                  if (Environment.GetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR") != Path.Combine(root, "browser", "cloakbrowser")) return 36;
+                  Console.WriteLine("{\"ok\":true}"); return 0;
+                }
+                if (Environment.GetEnvironmentVariable("REDBEACON_DESKTOP_SMOKE") == "1") {
+                  Console.WriteLine("RedBeacon desktop smoke ok");
+                }
+                return 0;
+              }
+            }
+          }
+          "@
             Add-Type -TypeDefinition $cliSource -OutputAssembly $cliPath -OutputType ConsoleApplication
             Copy-Item -Force $cliPath (Join-Path $appDir "$appName.exe")
 
             $rendererPath = Join-Path $appDir "RedBeaconRenderer.exe"
             $rendererSource = @"
-using System;
-using System.IO;
-namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
-  public static class Renderer {
-    public static int Main(string[] args) {
-      string output = null;
-      for (var i = 0; i + 1 < args.Length; i++) if (args[i] == "--output-dir") output = args[i + 1];
-      if (String.IsNullOrEmpty(output)) return 41;
-      Directory.CreateDirectory(output);
-      File.WriteAllBytes(Path.Combine(output, "cover.png"), new byte[] { 1, 2, 3 });
-      File.WriteAllBytes(Path.Combine(output, "card_1.png"), new byte[] { 1, 2, 3 });
-      return 0;
-    }
-  }
-}
-"@
+          using System;
+          using System.IO;
+          namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
+            public static class Renderer {
+              public static int Main(string[] args) {
+                string output = null;
+                for (var i = 0; i + 1 < args.Length; i++) if (args[i] == "--output-dir") output = args[i + 1];
+                if (String.IsNullOrEmpty(output)) return 41;
+                Directory.CreateDirectory(output);
+                File.WriteAllBytes(Path.Combine(output, "cover.png"), new byte[] { 1, 2, 3 });
+                File.WriteAllBytes(Path.Combine(output, "card_1.png"), new byte[] { 1, 2, 3 });
+                return 0;
+              }
+            }
+          }
+          "@
             Add-Type -TypeDefinition $rendererSource -OutputAssembly $rendererPath -OutputType ConsoleApplication
             [System.IO.File]::WriteAllBytes((Join-Path $assetDir "RedBeacon.ico"), [byte[]](0))
 
