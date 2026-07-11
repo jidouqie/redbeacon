@@ -1,7 +1,7 @@
 {
   "channel": "test",
-  "version": "0.1.67",
-  "notes": "0.1.67：修复扫码窗口关闭后再次登录、会话取消与账号清理；完善全量更新提示、重复安装 skill 修复、参考图处理、Windows 路径与编码；加强三端冻结包测试和发布完整性校验。",
+  "version": "0.1.68",
+  "notes": "0.1.68：修复 AI 封面+文字卡片在 Windows 只生成 AI 图的问题；将 RedBeaconRenderer 作为独立组件打入三端客户端并加入启动检查；组合模式缺少文字卡片时阻止保存半成品；修正 CloakBrowser OSS 下载地址实际未生效。",
   "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill-test/commands",
   "skill_files": [
     "redbeacon-test.md",
@@ -20,22 +20,22 @@
     "redbeacon-test-xhslogin.md"
   ],
   "app_sha256": {
-    "win-x64": "7c060d8050a1d3ea314eaab0e8c40e906952d448b64e6078d4c0b2bcfeb6d3d5",
-    "mac-arm64": "af1d2254a293a7e73c0674bae1a56cb3a03235a424ad100214e89ec5638befc6",
-    "linux-x64": "8889db26b4062e9d8a643ade86dc8c6f34392cd26d8c03944d7f02151964272a"
+    "win-x64": "85b672046889fae6913f47f7d84ab41868c78ac176395fec380243082bda10f2",
+    "mac-arm64": "16da10e49f549d900694573cc628556fa7c8c530e42ff290577dd9a8caac2d58",
+    "linux-x64": "e74b3bca3f5e0a3aa55829517dad188540e327a057ddc8e2a4ef9ecf58c4f4df"
   },
   "app": {
     "win-x64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.67/RedBeacon_test-win-x64.zip",
-      "sha256": "7c060d8050a1d3ea314eaab0e8c40e906952d448b64e6078d4c0b2bcfeb6d3d5"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.68/RedBeacon_test-win-x64.zip",
+      "sha256": "85b672046889fae6913f47f7d84ab41868c78ac176395fec380243082bda10f2"
     },
     "mac-arm64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.67/RedBeacon_test-mac-arm64.zip",
-      "sha256": "af1d2254a293a7e73c0674bae1a56cb3a03235a424ad100214e89ec5638befc6"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.68/RedBeacon_test-mac-arm64.zip",
+      "sha256": "16da10e49f549d900694573cc628556fa7c8c530e42ff290577dd9a8caac2d58"
     },
     "linux-x64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.67/RedBeacon_test-linux-x64.zip",
-      "sha256": "8889db26b4062e9d8a643ade86dc8c6f34392cd26d8c03944d7f02151964272a"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.68/RedBeacon_test-linux-x64.zip",
+      "sha256": "e74b3bca3f5e0a3aa55829517dad188540e327a057ddc8e2a4ef9ecf58c4f4df"
     }
   }
 }
