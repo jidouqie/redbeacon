@@ -16,6 +16,11 @@ import mirror_cloakbrowser_browsers
 
 ROOT = Path(__file__).resolve().parent.parent
 SINGLE_QUESTION_RULE = "一次只问一个问题，一次只推进一件事"
+SKILL_BOOTSTRAP_RULE = "不得猜测、拼接或直接下载任何 zip 包名"
+STABLE_INSTALL_PS1 = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1"
+STABLE_INSTALL_SH = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh"
+TEST_INSTALL_PS1 = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install-test.ps1"
+TEST_INSTALL_SH = "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install-test.sh"
 FORBIDDEN_SKILL_PHRASES = (
     "每次只问一到两件事",
     "<<'EOF'",
@@ -477,6 +482,9 @@ def check_channel_skills() -> None:
             fail(f"{rel} 含有 Unicode replacement character，疑似编码损坏")
         if SINGLE_QUESTION_RULE not in text:
             fail(f"{rel} 缺少 skill 单题引导规则：{SINGLE_QUESTION_RULE}")
+        for required in (SKILL_BOOTSTRAP_RULE, STABLE_INSTALL_PS1, STABLE_INSTALL_SH):
+            if required not in text:
+                fail(f"{rel} 缺少 CLI 缺失时的官方安装自举规则：{required}")
         for phrase in FORBIDDEN_SKILL_PHRASES:
             if phrase in text:
                 fail(f"{rel} 含有过时的多题引导口径：{phrase}")
@@ -494,6 +502,8 @@ def check_channel_skills() -> None:
             fail(f"{path.relative_to(ROOT)} 的 name 必须等于目录名")
         if SINGLE_QUESTION_RULE not in text:
             fail(f"{path.relative_to(ROOT)} 缺少 skill 单题引导规则")
+        if SKILL_BOOTSTRAP_RULE not in text:
+            fail(f"{path.relative_to(ROOT)} 缺少禁止猜测客户端 zip 的自举规则")
         for phrase in FORBIDDEN_SKILL_PHRASES:
             if phrase in text:
                 fail(f"{path.relative_to(ROOT)} 含有 Windows 不友好或过时示例：{phrase}")
@@ -527,6 +537,14 @@ def check_channel_skills() -> None:
                 text = path.read_text(encoding="utf-8")
                 if SINGLE_QUESTION_RULE not in text:
                     fail(f"{channel} skill {path.name} 缺少单题引导规则：{SINGLE_QUESTION_RULE}")
+                required_installers = (
+                    (TEST_INSTALL_PS1, TEST_INSTALL_SH)
+                    if channel == "test"
+                    else (STABLE_INSTALL_PS1, STABLE_INSTALL_SH)
+                )
+                for required in (SKILL_BOOTSTRAP_RULE, *required_installers):
+                    if required not in text:
+                        fail(f"{channel} skill {path.name} 缺少官方安装自举规则：{required}")
                 for phrase in FORBIDDEN_SKILL_PHRASES:
                     if phrase in text:
                         fail(f"{channel} skill {path.name} 含有过时的多题引导口径：{phrase}")
@@ -537,6 +555,8 @@ def check_channel_skills() -> None:
                 fail(f"{path.name} 含有 Unicode replacement character，疑似编码损坏")
             if "redbeacon-test" not in text:
                 fail(f"{path.name} 正文没有指向测试版命令 redbeacon-test")
+            if STABLE_INSTALL_PS1 in text or STABLE_INSTALL_SH in text:
+                fail(f"{path.name} 测试版 skill 仍指向正式版安装器")
             codex = _to_codex_skill(path.stem, text)
             if "\ufffd" in codex:
                 fail(f"{path.name} 派生 Codex SKILL.md 后疑似编码损坏")

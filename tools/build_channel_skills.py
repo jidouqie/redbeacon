@@ -41,6 +41,8 @@ def transform_test_text(text: str) -> str:
                   "redbeacon-test", text)
     text = text.replace("~/.redbeacon", "~/.redbeacon_test")
     text = text.replace("~/.bytestaff", "~/.bytestaff_test")
+    text = text.replace("/install.ps1", "/install-test.ps1")
+    text = text.replace("/install.sh", "/install-test.sh")
     return text
 
 

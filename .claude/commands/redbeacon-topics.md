@@ -3,6 +3,8 @@ description: 选题规划会 — 不知道写什么就托管给 AI：按账号�
 argument-hint: 无参数=开一场选题规划会（可"帮我想写什么"全托管，或直接抛想法如「讲讲为什么很多公司 AI 项目都失败了」）
 ---
 
+> **运行前自检**：先执行 `redbeacon --version`。如果提示命令不存在，必须按系统调用官方 OSS 一键安装器后再继续：Windows PowerShell 用 `irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex`；macOS/Linux 用 `curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash`。不得猜测、拼接或直接下载任何 zip 包名。
+
 > 📦 **数据都在本机**：选题存本地库（`~/.redbeacon`），无需飞书。`topics` 命令读写这一份。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。

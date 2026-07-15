@@ -5,6 +5,8 @@ metadata:
   short-description: "配置检测与设置"
 ---
 
+> **运行前自检**：先执行 `redbeacon --version`。如果提示命令不存在，必须按系统调用官方 OSS 一键安装器后再继续：Windows PowerShell 用 `irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex`；macOS/Linux 用 `curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash`。不得猜测、拼接或直接下载任何 zip 包名。
+
 > 📦 **默认纯本机**：业务数据都在本地，**不需要配飞书**。配置只剩两件事：**平台登录（必需，管生图/计费）** + **代理（可选，多账号防关联）**。（飞书云端源现阶段搁置、配置入口已隐藏，以后线上模式再启。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。

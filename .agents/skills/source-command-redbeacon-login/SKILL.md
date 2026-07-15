@@ -5,6 +5,8 @@ metadata:
   short-description: "登录数字员工平台"
 ---
 
+> **运行前自检**：先执行 `redbeacon --version`。如果提示命令不存在，必须按系统调用官方 OSS 一键安装器后再继续：Windows PowerShell 用 `irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex`；macOS/Linux 用 `curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash`。不得猜测、拼接或直接下载任何 zip 包名。
+
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
 > - **全程人话**：给用户的回复不出现 /source-command-redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的）；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。

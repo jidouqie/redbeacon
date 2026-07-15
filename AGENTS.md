@@ -34,6 +34,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 
 - `.claude/commands/redbeacon*.md` 只是历史命名下的 **stable skill 真源目录**，不代表项目必须继续用 Claude Code 维护。
 - Codex skill 由真源派生；测试版 skill 由 `tools/build_channel_skills.py --channel test` 生成，文件名是 `redbeacon-test*.md`，正文调用 `redbeacon-test`。
+- skill 可能被平台单独分发到一台尚未安装客户端的新机器，因此每个 skill 都必须先验证对应 CLI 是否存在；不存在时只能调用当前通道的 OSS 官方安装脚本。禁止让 AI 猜测 zip 文件名、大小写或目录，也禁止绕过安装脚本直接解压客户端，否则会跳过哈希校验、依赖预热、skill 收敛和失败回滚。
 - 正式版和测试版必须隔离：
   - 正式版：`RedBeacon`、`redbeacon`、`~/.redbeacon`、`~/.bytestaff`、`latest.json`、`skill/`
   - 测试版：`RedBeacon_test`、`redbeacon-test`、`~/.redbeacon_test`、`~/.bytestaff_test`、`latest-test.json`、`skill-test/`
