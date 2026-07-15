@@ -293,6 +293,18 @@ verify_bundle() {
   say "New client runtime verification passed."
 }
 
+verify_macos_bundle_entry() {
+  app="$1"
+  [ "$OS" = "Darwin" ] || return 0
+  plist="$app/Contents/Info.plist"
+  [ -f "$plist" ] || die "The macOS bundle is missing Contents/Info.plist."
+  bundle_executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist" 2>/dev/null || true)"
+  [ "$bundle_executable" = "$APP_NAME" ] \
+    || die "The macOS icon points to $bundle_executable instead of $APP_NAME."
+  [ -x "$app/Contents/MacOS/$bundle_executable" ] \
+    || die "The macOS icon target is not executable: $bundle_executable."
+}
+
 stop_running_redbeacon() {
   [ "${REDBEACON_SKIP_PROCESS_STOP:-}" != "1" ] || return 0
   say "Stopping running $APP_NAME processes ..."
@@ -388,7 +400,9 @@ if [ -x "$LOCAL_CLI" ]; then
 fi
 if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "$LATEST" ]; then
   prepare_skills
-  if (run_browser_setup "$LOCAL_CLI" && verify_bundle "$LOCAL_CLI" "$LOCAL_RENDERER" "$LATEST"); then
+  if (run_browser_setup "$LOCAL_CLI" \
+      && verify_bundle "$LOCAL_CLI" "$LOCAL_RENDERER" "$LATEST" \
+      && verify_macos_bundle_entry "$HOME/Applications/$APP_NAME.app"); then
     say "$APP_NAME $CURRENT is already installed and healthy. Skipping bundle download."
     # A repeated install is also the repair path for missing/outdated skills.
     # Keep the large app zip skipped, but always refresh the small skill bundle.
@@ -447,6 +461,7 @@ else
 fi
 [ -d "$STAGED_APP" ] || die "Downloaded bundle does not contain $APP_NAME."
 [ -x "$STAGED_CLI" ] || die "Downloaded bundle does not contain an executable $CLI_NAME."
+verify_macos_bundle_entry "$STAGED_APP"
 say "[2/4] Preparing and verifying new-version dependencies before replacement ..."
 run_browser_setup "$STAGED_CLI"
 verify_bundle "$STAGED_CLI" "$STAGED_RENDERER" "$LATEST"
@@ -490,6 +505,7 @@ install_skills "$LOCAL_CLI"
 # The final-path smoke happens after all version-coupled pieces are in place.
 # Any failure still restores both the old app and the old skills.
 verify_bundle "$LOCAL_CLI" "$LOCAL_RENDERER" "$LATEST"
+verify_macos_bundle_entry "$FINAL_PATH"
 
 # Launchers are switched last because they are the user's visible commit point.
 if [ "$OS" = "Darwin" ]; then

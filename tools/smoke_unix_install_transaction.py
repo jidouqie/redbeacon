@@ -72,6 +72,17 @@ def _build_bundle(oss: Path, version: str, base_url: str, failure: str = "") -> 
         "esac\n",
     )
     _write_executable(build / executable_dir / "RedBeacon", "#!/bin/sh\nexit 0\n")
+    if platform.system() == "Darwin":
+        bundle_entry = "RedBeaconRenderer" if failure == "bundle_entry" else "RedBeacon"
+        (build / "RedBeacon.app/Contents/Info.plist").write_text(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+            "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+            "<plist version=\"1.0\"><dict>"
+            f"<key>CFBundleExecutable</key><string>{bundle_entry}</string>"
+            "</dict></plist>\n",
+            encoding="utf-8",
+        )
     _write_executable(
         build / executable_dir / "RedBeaconRenderer",
         "#!/bin/sh\n"
@@ -193,6 +204,12 @@ def main() -> None:
             assert codex_skill.is_file()
             assert "9.9.1" in codex_skill.read_text(encoding="utf-8")
             assert "9.9.1" in claude_skill.read_text(encoding="utf-8")
+
+            if platform.system() == "Darwin":
+                _build_bundle(oss, "9.9.15", base_url, failure="bundle_entry")
+                result = _run_installer(home, base_url, expect_ok=False)
+                assert "icon points to RedBeaconRenderer" in result.stdout
+                assert _version(cli) == "9.9.1", "bad macOS icon target replaced old app"
 
             _build_bundle(oss, "9.9.2", base_url, failure="stage")
             _run_installer(home, base_url, expect_ok=False)
