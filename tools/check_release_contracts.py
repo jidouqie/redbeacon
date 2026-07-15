@@ -76,6 +76,7 @@ def check_installers() -> None:
     bundle_spec = read("cli/packaging/RedBeacon.spec")
     runtime_sanitize = read("cli/packaging/_runtime_sanitize.py")
     win_smoke = read("cli/packaging/smoke_windows_bundle.ps1")
+    workflow = read("cli/.github/workflows/build-bundle.yml")
     cloak_mirror = read("tools/mirror_cloakbrowser_browsers.py")
     playwright_mirror = read("tools/mirror_playwright_browsers.py")
     browser_mirror_check = read("tools/check_browser_mirrors.py")
@@ -183,6 +184,12 @@ def check_installers() -> None:
     require(playwright_mirror, '"--continue-at"', "tools/mirror_playwright_browsers.py", "Playwright 镜像同步必须支持断点续传")
     require(cloak_mirror, '"--continue-at"', "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser 镜像同步必须支持断点续传")
     require(browser_mirror_check, '"--range"', "tools/check_browser_mirrors.py", "发布前必须对当前三端浏览器对象执行真实 Range GET")
+    if "REDBEACON_SETUP_COMPONENT=playwright" in workflow:
+        fail("cli/.github/workflows/build-bundle.yml 三端 smoke 必须准备 Playwright 和 CloakBrowser，不能只测 Playwright")
+    if "REDBEACON_SETUP_COMPONENT" in win_smoke:
+        fail("cli/packaging/smoke_windows_bundle.ps1 必须准备两套浏览器内核，不能跳过 CloakBrowser")
+    require(workflow, '"cloakbrowser_installed"', ".github/workflows/build-bundle.yml", "macOS/Linux 冻结包 smoke 必须确认 CloakBrowser 已安装")
+    require(win_smoke, '"cloakbrowser_installed"', "cli/packaging/smoke_windows_bundle.ps1", "Windows 冻结包 smoke 必须确认 CloakBrowser 已安装")
     expected_archives = {
         "windows-x64": "cloakbrowser-windows-x64.zip",
         "linux-x64": "cloakbrowser-linux-x64.tar.gz",
@@ -449,7 +456,7 @@ def check_github_build_hygiene() -> None:
     )
     require(spec, 'name="RedBeaconRenderer"', "cli/packaging/RedBeacon.spec", "冻结包必须包含独立文字卡片渲染器")
     require(workflow, "RENDERER_SMOKE", "cli/.github/workflows/build-bundle.yml", "macOS/Linux 冻结包必须启动检查卡片渲染器")
-    require(workflow, "REDBEACON_SETUP_COMPONENT=playwright", "cli/.github/workflows/build-bundle.yml", "macOS/Linux 冻结包必须准备精确 Playwright revision 后真实渲染")
+    require(workflow, '"$CLI" setup', "cli/.github/workflows/build-bundle.yml", "macOS/Linux 冻结包必须准备 Playwright 与 CloakBrowser 后真实渲染")
     require(workflow, 'card_*.png', "cli/.github/workflows/build-bundle.yml", "macOS/Linux 冻结包必须产出正文卡片 PNG")
     require(windows_smoke, "RedBeaconRenderer.exe", "cli/packaging/smoke_windows_bundle.ps1", "Windows 冻结包必须包含并启动检查 RedBeaconRenderer.exe")
     require(generate_task, '"RedBeaconRenderer.exe" if sys.platform == "win32"', "cli/src/redbeacon/tasks/generate.py", "Windows 必须显式解析渲染器 .exe 路径")
