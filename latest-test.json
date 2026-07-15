@@ -1,11 +1,11 @@
 {
   "channel": "test",
-  "version": "0.1.76",
-  "notes": "0.1.76：修复 macOS 测试版图标误启动卡片渲染器、导致点击后立即退出的问题；打包时显式绑定桌面主程序，CI 读取 Info.plist 并真实启动 GUI，安装器会拒绝或回滚图标入口错误的坏包。同时保留图片元数据净化与 skill 官方安装自举。",
-  "skill_version": "0.1.76",
-  "skill_bundle_url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill-test/releases/0.1.76/redbeacon-skill.tar.gz",
-  "skill_sha256": "a2ac6ef14007113720de9361ccb1d8e72751b415468637ccf60c832f9bbf97ac",
-  "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill-test/releases/0.1.76/commands",
+  "version": "0.1.77",
+  "notes": "优化自动化浏览器下载：上海 OSS 优先、四段断点续传、实时速度、停滞自动切源，并裁剪未使用的浏览器附件；三端双内核 smoke 已通过",
+  "skill_version": "0.1.77",
+  "skill_bundle_url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill-test/releases/0.1.77/redbeacon-skill.tar.gz",
+  "skill_sha256": "6897e61d20769fd9a553e69b516fe65c16f474c0a7fbb0689d1314c08a885125",
+  "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill-test/releases/0.1.77/commands",
   "skill_files": [
     "redbeacon-test.md",
     "redbeacon-test-accounts.md",
@@ -23,22 +23,22 @@
     "redbeacon-test-xhslogin.md"
   ],
   "app_sha256": {
-    "win-x64": "1808448e0580ecf7f45392976a9eeba8bccb00a907d5b53de737bf41de0a3de2",
-    "mac-arm64": "71f413ad7ed74f494e306ea24d09b6bedc493a161bc5dd9f8f68ae0071329159",
-    "linux-x64": "22497de1524a35a9775139cb7f06d08d00e4c673ad9ead7fe8e524fd6b1e45ff"
+    "win-x64": "ab69ea8f50165bc82e3eb4d68a98d3b289f7edd1368454c50dfc144859554cef",
+    "mac-arm64": "bd067bf79bdacc26863cca29926b9bedb80dc280956e61ce10dd35d8a4c26c69",
+    "linux-x64": "5229d215ea785c2af90f2f8b12e24fca7a10384e705c6f6506b8a796a9ab4036"
   },
   "app": {
     "win-x64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.76/RedBeacon_test-win-x64.zip",
-      "sha256": "1808448e0580ecf7f45392976a9eeba8bccb00a907d5b53de737bf41de0a3de2"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.77/RedBeacon_test-win-x64.zip",
+      "sha256": "ab69ea8f50165bc82e3eb4d68a98d3b289f7edd1368454c50dfc144859554cef"
     },
     "mac-arm64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.76/RedBeacon_test-mac-arm64.zip",
-      "sha256": "71f413ad7ed74f494e306ea24d09b6bedc493a161bc5dd9f8f68ae0071329159"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.77/RedBeacon_test-mac-arm64.zip",
+      "sha256": "bd067bf79bdacc26863cca29926b9bedb80dc280956e61ce10dd35d8a4c26c69"
     },
     "linux-x64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.76/RedBeacon_test-linux-x64.zip",
-      "sha256": "22497de1524a35a9775139cb7f06d08d00e4c673ad9ead7fe8e524fd6b1e45ff"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/test/releases/0.1.77/RedBeacon_test-linux-x64.zip",
+      "sha256": "5229d215ea785c2af90f2f8b12e24fca7a10384e705c6f6506b8a796a9ab4036"
     }
   }
 }
