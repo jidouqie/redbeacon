@@ -1,11 +1,11 @@
 {
   "channel": "stable",
-  "version": "0.1.72",
-  "notes": "0.1.72：修复上游偶发二次转义换行导致正文和卡片显示可见反斜杠 n；生成解析与预览提交双重兜底，保留 Windows 路径和代码文本。",
-  "skill_version": "0.1.72",
-  "skill_bundle_url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/releases/0.1.72/redbeacon-skill.tar.gz",
-  "skill_sha256": "93617074a590b01faa7ba396108cba7bc951642500a757c319b437c3f153a79e",
-  "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/releases/0.1.72/commands",
+  "version": "0.1.73",
+  "notes": "0.1.73：发布页支持每篇笔记选择立即发布或北京时间定时发布；定时范围为提交时至少 1 小时后、最多 14 天内；单篇与批量均逐篇携带并在实际提交前重验，无效或过期时间不会降级成立即发布。",
+  "skill_version": "0.1.73",
+  "skill_bundle_url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/releases/0.1.73/redbeacon-skill.tar.gz",
+  "skill_sha256": "b9fb73aa0bf289ffb94fd1924947ee31b71837f4e6215a14ab1c99c411e0b010",
+  "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/releases/0.1.73/commands",
   "skill_files": [
     "redbeacon.md",
     "redbeacon-accounts.md",
@@ -23,22 +23,22 @@
     "redbeacon-xhslogin.md"
   ],
   "app_sha256": {
-    "win-x64": "07141ae350ac2c4a8aac4d17db88679df7855ed1f31973ee0eef9173888640fa",
-    "mac-arm64": "c0a0c365f450d3db42b59db15f50c7da551163bc7947366b5330ced10f3f2ced",
-    "linux-x64": "937de796d80217b248464d7004930bb3720738c72db1d307db69beb2b33dc23c"
+    "win-x64": "703d381072818feca560360f0b5f9d9e030daf383bafca124b98344b631d8503",
+    "mac-arm64": "e1263aa0ef4fa6b453f1c9cb7edf59c3032a9dbf25ca6f0fa92805fd6fee0407",
+    "linux-x64": "cf85771070699959f0fda2738b22c80432cc62c5e1b83abc1b142c26caa67184"
   },
   "app": {
     "win-x64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/releases/0.1.72/RedBeacon-win-x64.zip",
-      "sha256": "07141ae350ac2c4a8aac4d17db88679df7855ed1f31973ee0eef9173888640fa"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/releases/0.1.73/RedBeacon-win-x64.zip",
+      "sha256": "703d381072818feca560360f0b5f9d9e030daf383bafca124b98344b631d8503"
     },
     "mac-arm64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/releases/0.1.72/RedBeacon-mac-arm64.zip",
-      "sha256": "c0a0c365f450d3db42b59db15f50c7da551163bc7947366b5330ced10f3f2ced"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/releases/0.1.73/RedBeacon-mac-arm64.zip",
+      "sha256": "e1263aa0ef4fa6b453f1c9cb7edf59c3032a9dbf25ca6f0fa92805fd6fee0407"
     },
     "linux-x64": {
-      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/releases/0.1.72/RedBeacon-linux-x64.zip",
-      "sha256": "937de796d80217b248464d7004930bb3720738c72db1d307db69beb2b33dc23c"
+      "url": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/app/releases/0.1.73/RedBeacon-linux-x64.zip",
+      "sha256": "cf85771070699959f0fda2738b22c80432cc62c5e1b83abc1b142c26caa67184"
     }
   }
 }
