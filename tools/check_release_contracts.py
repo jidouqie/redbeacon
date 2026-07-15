@@ -13,6 +13,7 @@ from pathlib import Path
 
 import build_channel_skills
 import mirror_cloakbrowser_browsers
+import mirror_playwright_browsers
 
 ROOT = Path(__file__).resolve().parent.parent
 SINGLE_QUESTION_RULE = "一次只问一个问题，一次只推进一件事"
@@ -67,6 +68,7 @@ def check_installers() -> None:
     unps1 = read("install/uninstall.ps1")
     setup_py = read("cli/src/redbeacon/routers/setup.py")
     browser_engine_py = read("cli/src/redbeacon/services/browser_engine.py")
+    browser_downloads_py = read("cli/src/redbeacon/services/browser_downloads.py")
     xhs_login_py = read("cli/src/redbeacon/services/xhs/login.py")
     ui_app_py = read("cli/src/redbeacon/adapters/ui_backend/app.py")
     ui_index = read("cli/src/redbeacon/adapters/ui_backend/static/index.html")
@@ -75,6 +77,8 @@ def check_installers() -> None:
     runtime_sanitize = read("cli/packaging/_runtime_sanitize.py")
     win_smoke = read("cli/packaging/smoke_windows_bundle.ps1")
     cloak_mirror = read("tools/mirror_cloakbrowser_browsers.py")
+    playwright_mirror = read("tools/mirror_playwright_browsers.py")
+    browser_mirror_check = read("tools/check_browser_mirrors.py")
     unix_transaction_smoke = read("tools/smoke_unix_install_transaction.py")
     unix_transaction_workflow = read(".github/workflows/unix-installer-transaction-smoke.yml")
     latest_generator = read("tools/gen_latest.py")
@@ -137,8 +141,16 @@ def check_installers() -> None:
                 fail(f"{rel} 不能删除第三方全局浏览器缓存 {global_cache}；只能清当前 RedBeacon 通道自有目录")
     require(setup_py, "browser_engine.ensure_browser_engine", "cli/src/redbeacon/routers/setup.py", "setup 命令必须走带进度的浏览器内核安装服务")
     require(setup_py, "verify_launch=True", "cli/src/redbeacon/routers/setup.py", "安装完成必须真实启动当前浏览器内核，不能只检查文件存在")
-    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/services/browser_engine.py", "Playwright 浏览器内核下载必须包含 RedBeacon OSS 兜底源")
-    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/cloakbrowser", "cli/src/redbeacon/services/browser_engine.py", "CloakBrowser 小红书自动化内核下载必须包含 RedBeacon OSS 兜底源")
+    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/playwright", "cli/src/redbeacon/services/browser_engine.py", "Playwright 浏览器内核下载必须包含 RedBeacon OSS 主源")
+    require(browser_engine_py, "bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/cloakbrowser", "cli/src/redbeacon/services/browser_engine.py", "CloakBrowser 小红书自动化内核下载必须包含 RedBeacon OSS 主源")
+    require(browser_engine_py, "PLAYWRIGHT_OSS_HOST,", "cli/src/redbeacon/services/browser_engine.py", "Playwright 源顺序必须把 RedBeacon OSS 放在第一位")
+    if browser_engine_py.index("PLAYWRIGHT_OSS_HOST,") > browser_engine_py.index("registry.npmmirror.com"):
+        fail("cli/src/redbeacon/services/browser_engine.py 必须先尝试 RedBeacon OSS，再尝试 npmmirror")
+    require(browser_engine_py, "no_shell=True", "cli/src/redbeacon/services/browser_engine.py", "只下载 RedBeacon 实际使用的完整 Chromium，不能额外拉无用 headless shell")
+    require(browser_engine_py, "download_resumable", "cli/src/redbeacon/services/browser_engine.py", "两套浏览器内核必须共用分段续传下载器")
+    require(browser_downloads_py, '"Range"', "cli/src/redbeacon/services/browser_downloads.py", "大文件下载必须使用 Range 分段与断点续传")
+    require(browser_downloads_py, "ThreadPoolExecutor", "cli/src/redbeacon/services/browser_downloads.py", "大文件下载必须支持受控并行分段")
+    require(browser_downloads_py, "_READ_TIMEOUT_SECONDS", "cli/src/redbeacon/services/browser_downloads.py", "下载停滞必须超时切源，不能无限卡在 0%")
     require(browser_engine_py, "PLAYWRIGHT_BROWSERS_PATH", "cli/src/redbeacon/services/browser_engine.py", "Playwright 缓存必须固定到 RedBeacon 通道目录")
     require(browser_engine_py, "CLOAKBROWSER_CACHE_DIR", "cli/src/redbeacon/services/browser_engine.py", "CloakBrowser 缓存必须固定到 RedBeacon 通道目录")
     require(browser_engine_py, "CLOAKBROWSER_WINDOWS_ARM64_ALIASES", "cli/src/redbeacon/services/browser_engine.py", "Windows ARM64 客户机必须映射到 Windows x64 CloakBrowser 内核，不能在扫码登录前被平台检测拦死")
@@ -165,6 +177,12 @@ def check_installers() -> None:
     require(cloak_mirror, 'tag.startswith("windows-")', "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser OSS 镜像脚本必须按目标平台决定 Windows zip 包名")
     require(cloak_mirror, "SHA256SUMS", "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser OSS 镜像必须同步校验文件")
     require(cloak_mirror, "oss_exists", "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser OSS 镜像脚本必须跳过已存在对象，避免重复上传大包")
+    require(playwright_mirror, "oss_exists", "tools/mirror_playwright_browsers.py", "Playwright OSS 镜像脚本必须跳过已存在对象，避免重复上传大包")
+    require(playwright_mirror, '"--no-shell"', "tools/mirror_playwright_browsers.py", "Playwright 镜像清单不能包含未使用的 headless shell")
+    require(playwright_mirror, "full_chromium_urls", "tools/mirror_playwright_browsers.py", "Playwright 镜像只能同步业务实际使用的完整 Chromium")
+    require(playwright_mirror, '"--continue-at"', "tools/mirror_playwright_browsers.py", "Playwright 镜像同步必须支持断点续传")
+    require(cloak_mirror, '"--continue-at"', "tools/mirror_cloakbrowser_browsers.py", "CloakBrowser 镜像同步必须支持断点续传")
+    require(browser_mirror_check, '"--range"', "tools/check_browser_mirrors.py", "发布前必须对当前三端浏览器对象执行真实 Range GET")
     expected_archives = {
         "windows-x64": "cloakbrowser-windows-x64.zip",
         "linux-x64": "cloakbrowser-linux-x64.tar.gz",
@@ -175,6 +193,7 @@ def check_installers() -> None:
         if actual != expected:
             fail(f"CloakBrowser {platform_tag} 镜像包名错误：{actual} != {expected}")
     release_sh = read("tools/release.sh")
+    require(release_sh, "check_browser_mirrors.py", "tools/release.sh", "每次发布前必须阻断检查三端浏览器镜像")
     require(release_sh, "--max-time 300", "tools/release.sh", "发布阶段下载 OSS 大包计算 sha 必须有总超时，不能让发布流程无限卡住")
     require(release_sh, "--retry 3", "tools/release.sh", "发布阶段下载 OSS 大包计算 sha 必须有重试，避免偶发网络抖动导致发版失败")
     require(release_sh, 'APP_BUILD_PREFIX="${APP_PREFIX}/releases/${VER}"', "tools/release.sh", "发布构建包必须使用版本化 OSS 路径")

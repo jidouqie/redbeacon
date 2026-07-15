@@ -79,6 +79,12 @@ python3 tools/check_release_contracts.py
 command -v "$OU" >/dev/null 2>&1 || { echo "xx 未找到 ossutil（$OU）；装它并配好 profile $PROFILE 后重试"; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "xx 未找到 curl；需要用它检查 OSS 客户端包"; exit 1; }
 
+# Browser packages are version-coupled to the locked Playwright/CloakBrowser
+# dependencies. Probe the exact three-platform OSS objects with a real Range
+# GET before any release upload, so a missing/slow-fallback-only runtime can
+# never reach users.
+( cd cli && uv run --frozen python ../tools/check_browser_mirrors.py )
+
 VER="$(python3 -c "import re,pathlib;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', pathlib.Path('cli/src/redbeacon/__init__.py').read_text()).group(1))")"
 APP_BUILD_PREFIX="${APP_PREFIX}/releases/${VER}"
 echo "==> 发版 v$VER [$CHANNEL] → OSS $BUCKET"

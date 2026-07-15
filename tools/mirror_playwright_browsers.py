@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Mirror the Playwright browser archives required by RedBeacon to OSS.
+"""Mirror the Playwright browser archive required by RedBeacon to OSS.
 
-The installer runs `redbeacon setup`, which calls `playwright install chromium`.
-For the current Playwright version this downloads three archives per platform:
-Chrome for Testing, Chrome Headless Shell, and FFmpeg. This script discovers the
-exact URLs via Playwright's own `--dry-run` output, downloads them, and uploads
-them to:
+RedBeacon launches the full Chrome for Testing executable directly and does not
+use Playwright video recording or its headless-shell executable. This script
+therefore discovers and mirrors only that one platform-specific archive via
+Playwright's own `--dry-run --no-shell` output:
 
   oss://bytestaff-redbeacon/playwright/...
 
@@ -63,7 +62,15 @@ def dry_run_urls(py: str, platform_key: str, host: str | None) -> list[str]:
     with tempfile.TemporaryDirectory() as td:
         env["PLAYWRIGHT_BROWSERS_PATH"] = td
         proc = subprocess.run(
-            [py, "-m", "playwright", "install", "chromium", "--dry-run"],
+            [
+                py,
+                "-m",
+                "playwright",
+                "install",
+                "chromium",
+                "--no-shell",
+                "--dry-run",
+            ],
             text=True,
             capture_output=True,
             env=env,
@@ -79,6 +86,14 @@ def dry_run_urls(py: str, platform_key: str, host: str | None) -> list[str]:
     if not urls:
         fail(f"no browser download URLs discovered for {platform_key}")
     return urls
+
+
+def full_chromium_urls(urls: list[str]) -> list[str]:
+    return [
+        url
+        for url in urls
+        if "/builds/cft/" in url and "headless-shell" not in url
+    ]
 
 
 def relative_target_path(target_url: str, endpoint: str, prefix: str) -> str:
@@ -99,15 +114,27 @@ def run(cmd: list[str], *, timeout: int | None = None) -> None:
         fail(f"command failed: {' '.join(cmd)}")
 
 
+def oss_exists(ossutil: str, profile: str, uri: str) -> bool:
+    proc = subprocess.run(
+        [ossutil, "stat", uri, "--profile", profile],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=120,
+    )
+    return proc.returncode == 0
+
+
 def download_first(urls: list[str], dest: Path) -> str:
     for url in urls:
         try:
-            run(["curl", "-fL", "--connect-timeout", "20", "--retry", "2", "-o", str(dest), url], timeout=1800)
+            run([
+                "curl", "-fL", "--connect-timeout", "10", "--retry", "3",
+                "--retry-all-errors", "--speed-limit", "16384", "--speed-time", "30",
+                "--continue-at", "-", "-o", str(dest), url,
+            ], timeout=1800)
             return url
         except SystemExit:
-            if dest.exists():
-                dest.unlink()
-            print(f"!! download failed, trying next source: {url}")
+            print(f"!! download stalled or failed, keeping partial bytes and trying next source: {url}")
     fail("all browser archive sources failed")
 
 
@@ -123,6 +150,8 @@ def main() -> None:
     ap.add_argument("--platform", action="append", choices=sorted(PLATFORMS), default=[],
                     help="Platform to mirror; can repeat. Default: all release platforms.")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="Re-upload objects even when they already exist in OSS.")
     args = ap.parse_args()
 
     py = bundled_python()
@@ -143,11 +172,16 @@ def main() -> None:
     try:
         for plat in platforms:
             override = PLATFORMS[plat]
-            target_urls = dry_run_urls(py, override, target_host)
-            official_urls = dry_run_urls(py, override, None)
+            target_urls = full_chromium_urls(dry_run_urls(py, override, target_host))
+            official_urls = full_chromium_urls(dry_run_urls(py, override, None))
+            if len(target_urls) != 1:
+                fail(f"expected one full Chromium archive for {override}, got {target_urls}")
             source_urls_by_rel: dict[str, list[str]] = {}
             for source_host in source_hosts:
-                for url in dry_run_urls(py, override, source_host):
+                source_urls = full_chromium_urls(
+                    dry_run_urls(py, override, source_host)
+                )
+                for url in source_urls:
                     rel = relative_target_path(url.replace(source_host, target_host, 1), endpoint, prefix)
                     source_urls_by_rel.setdefault(rel, []).append(url)
             official_by_name: dict[str, list[str]] = {}
@@ -156,19 +190,25 @@ def main() -> None:
 
             for target_url in target_urls:
                 rel = relative_target_path(target_url, endpoint, prefix)
-                source_urls_by_rel.setdefault(rel, []).extend(
-                    official_by_name.get(Path(urlparse(target_url).path).name, [])
-                )
+                # GitHub runners normally reach Microsoft's official CDN best;
+                # mainland public mirrors remain maintenance-time fallbacks.
+                sources = [
+                    *official_by_name.get(Path(urlparse(target_url).path).name, []),
+                    *source_urls_by_rel.get(rel, []),
+                ]
                 oss_path = f"oss://{args.bucket}/{prefix}/{rel}"
                 print(f"==> {plat}: {rel}")
                 if args.dry_run:
-                    for src in source_urls_by_rel.get(rel, []):
+                    for src in sources:
                         print(f"    source: {src}")
                     print(f"    target: {oss_path}")
                     continue
+                if not args.force and oss_exists(args.ossutil, args.profile, oss_path):
+                    print(f"    object exists, skip: {oss_path}")
+                    continue
                 dest = work / plat / rel.replace("/", "_")
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                used = download_first(source_urls_by_rel.get(rel, []), dest)
+                used = download_first(sources, dest)
                 print(f"    downloaded from: {used}")
                 run([args.ossutil, "cp", str(dest), oss_path, "--profile", args.profile, "-f"], timeout=1800)
     finally:

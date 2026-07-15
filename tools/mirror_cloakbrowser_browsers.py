@@ -92,12 +92,14 @@ def oss_exists(ossutil: str, profile: str, uri: str) -> bool:
 def download_first(urls: list[str], dest: Path) -> str:
     for url in urls:
         try:
-            run(["curl", "-fL", "--connect-timeout", "20", "--retry", "2", "-o", str(dest), url], timeout=1800)
+            run([
+                "curl", "-fL", "--connect-timeout", "10", "--retry", "3",
+                "--retry-all-errors", "--speed-limit", "16384", "--speed-time", "30",
+                "--continue-at", "-", "-o", str(dest), url,
+            ], timeout=1800)
             return url
         except SystemExit:
-            if dest.exists():
-                dest.unlink()
-            print(f"!! download failed, trying next source: {url}")
+            print(f"!! download stalled or failed, keeping partial bytes and trying next source: {url}")
     fail("all download sources failed")
 
 
