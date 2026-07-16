@@ -61,6 +61,11 @@ def require(text: str, needle: str, rel: str, why: str) -> None:
         fail(f"{rel} 缺少发布契约：{why}（需要包含 {needle!r}）")
 
 
+def forbid(text: str, needle: str, rel: str, why: str) -> None:
+    if needle in text:
+        fail(f"{rel} 违反发布契约：{why}（不得包含 {needle!r}）")
+
+
 def check_installers() -> None:
     sh = read("install/install.sh")
     ps1 = read("install/install.ps1")
@@ -287,6 +292,8 @@ def check_cli_windows_json_contracts() -> None:
 
 def check_content_guardrails() -> None:
     generate_py = read("cli/src/redbeacon/core/usecases/generate.py")
+    presets_py = read("cli/src/redbeacon/core/presets.py")
+    image_gen_py = read("cli/src/redbeacon/services/image_gen.py")
     publish_py = read("cli/src/redbeacon/core/usecases/publish.py")
     publish_task = read("cli/src/redbeacon/tasks/publish.py")
     local_data = read("cli/src/redbeacon/infra/local_data.py")
@@ -297,6 +304,9 @@ def check_content_guardrails() -> None:
     require(generate_py, "平台返回不是合法的文案 JSON", "cli/src/redbeacon/core/usecases/generate.py", "生成解析失败必须 fail fast，不能写脏审核表")
     require(generate_py, "_ensure_clean_copy_field", "cli/src/redbeacon/core/usecases/generate.py", "生成入库前必须校验标题/正文/标签")
     require(generate_py, "if (image_mode or \"\").strip()", "cli/src/redbeacon/core/usecases/generate.py", "--image-mode 必须覆盖默认方案配图方式")
+    require(presets_py, "IMAGE_TEXT_LANGUAGE_RULE", "cli/src/redbeacon/core/presets.py", "所有内置视觉提示词必须共用简体中文文字规范")
+    require(presets_py, "禁止使用繁体字、异体字", "cli/src/redbeacon/core/presets.py", "图片文字规范必须明确禁止繁体字和异体字")
+    require(image_gen_py, "with_image_text_language_rule(combined)", "cli/src/redbeacon/services/image_gen.py", "真正发送生图请求前必须补齐简体中文文字规范")
     if "正在入飞书审核表" in generate_py or "飞书补图" in generate_py:
         fail("cli/src/redbeacon/core/usecases/generate.py 不能在本机主流程进度里继续写飞书审核表/飞书补图")
     require(publish_py, "validate_publish_payload", "cli/src/redbeacon/core/usecases/publish.py", "发布前必须校验坏标题/坏正文/raw JSON/损坏标签")
@@ -621,7 +631,9 @@ def check_platform_account_contracts() -> None:
     require(ui_app, "_gen_queue = _SerialJobQueue(max_pending=20)", "cli/src/redbeacon/adapters/ui_backend/app.py", "客户端笔记生成必须使用有上限的串行队列")
     if ui_app.count("_enqueue_generation_job(job_id, _bg") != 4:
         fail("cli/src/redbeacon/adapters/ui_backend/app.py 四个生成入口必须全部进入同一个串行队列")
-    require(ui_index, "客户端会按顺序逐篇生成", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "客户端必须向用户显示生成排队状态")
+    require(ui_index, "RedBeacon 会按顺序一篇篇完成", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "客户端必须用数字员工口吻显示真实排队状态")
+    require(ui_index, "RedBeacon 在工作 · ${step}/4", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "客户端创作进度必须体现有名字的数字员工")
+    forbid(ui_index, "生成中 ${step}/4", "cli/src/redbeacon/adapters/ui_backend/static/index.html", "客户端不能退回冷冰冰的通用生成状态")
 
 
 def main() -> None:
