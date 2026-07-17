@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedBeacon 操作台 · 视觉稿挑选</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--garnet:#8E2434;--deep:#641628;--verm:#C0392B;--ink:#1E1413;--soft:#6E5C58;--bone:#F6EFE8;--line:#E6D9CA}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans SC',sans-serif;background:var(--bone);color:var(--ink);min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;padding:60px 24px}
+  h1{font-family:'Noto Serif SC',serif;font-weight:900;font-size:30px}
+  h1 span{color:var(--garnet)}
+  .sub{color:var(--soft);font-size:14px;margin-top:10px;text-align:center;line-height:1.7;max-width:540px}
+  .grid{display:grid;grid-template-columns:repeat(3,260px);gap:22px;margin-top:46px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;
+    box-shadow:0 16px 38px -22px rgba(100,22,40,.3);transition:.22s}
+  .card:hover{transform:translateY(-5px);border-color:var(--garnet)}
+  .swatch{height:120px;display:flex;align-items:flex-end;padding:16px;color:#fff;font-family:'Noto Serif SC',serif;font-weight:700;font-size:17px}
+  .a{background:linear-gradient(135deg,#F6EFE8 0%,#fff 100%);color:var(--garnet);border-bottom:1px solid var(--line)}
+  .b{background:linear-gradient(135deg,var(--deep),#3E0C16)}
+  .c{background:linear-gradient(150deg,#7E1F2E,#B23A35 60%,#D6634C)}
+  .body{padding:18px 20px 22px}
+  .body .t{font-weight:500;font-size:15px}
+  .body .d{font-size:12.5px;color:var(--soft);line-height:1.7;margin-top:8px}
+  .body .go{margin-top:14px;font-size:13px;color:var(--garnet);font-weight:500}
+  .foot{margin-top:46px;font-size:12px;color:#A2928C;text-align:center;line-height:1.8}
+</style>
+</head>
+<body>
+  <h1>红<span>信</span> · 操作台视觉稿</h1>
+  <div class="sub">3 个方向，都走"高级红"，结构一致（顶栏账号/登录/点数 + 左侧对象导航 + 定位向导）。<br>挑一个你最有感觉的，或指着说"哪块要哪版的"。点不动是正常的——只看气质/布局/配色。</div>
+  <div class="grid">
+    <a class="card" href="variant-a-clean.html">
+      <div class="swatch a">A</div>
+      <div class="body"><div class="t">干净工具风</div>
+        <div class="d">象牙底、发丝描边、克制绛红、留白足。新手不慌、一眼一个重点。像 Notion/Linear。</div>
+        <div class="go">打开 A →</div></div>
+    </a>
+    <a class="card" href="variant-b-dashboard.html">
+      <div class="swatch b">B</div>
+      <div class="body"><div class="t">数据看板风</div>
+        <div class="d">深绛红侧栏、大数据卡片 + 图表。首页就是全局运营态，适合"一眼看全盘"。</div>
+        <div class="go">打开 B →</div></div>
+    </a>
+    <a class="card" href="variant-c-canvas.html">
+      <div class="swatch c">C</div>
+      <div class="body"><div class="t">共创画布风</div>
+        <div class="d">左边跟 AI 聊、右边实时看成品（小红书笔记预览）。最贴"人机共创"那块画布。</div>
+        <div class="go">打开 C →</div></div>
+    </a>
+  </div>
+  <div class="foot">RedBeacon · 本机操作台 · 风格稿（假数据，不可点击）<br>数据真源 = 飞书 · 充值跳平台账户页</div>
+</body>
+</html>

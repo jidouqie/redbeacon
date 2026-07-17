@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # RedBeacon uninstaller (Mac/Linux). Run:
-#     curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.sh | bash
+#     Fetch installers/uninstall.sh from the current central manifest and run it.
 #
 # Removes the software bundle, update leftovers, CLI shim, skills, desktop entry,
 # and browser cache.
@@ -9,15 +9,17 @@
 #     ~/.redbeacon   (accounts / cookies / generated content / local DB)
 #     ~/.bytestaff   (platform login / device token)
 # To also wipe that data, run:
-#     curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.sh | REDBEACON_PURGE=1 bash
+#     Fetch the same central uninstaller, then run it with REDBEACON_PURGE=1.
 # All output is English on purpose (avoids garbled text on some consoles).
 # ------------------------------------------------------------------------------
 set -uo pipefail
 say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 
-OSS="${REDBEACON_OSS:-https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com}"
-PURGE="${REDBEACON_PURGE:-}"
+case "${REDBEACON_PURGE:-}" in
+  1|true|TRUE|yes|YES|on|ON) PURGE=1 ;;
+  *) PURGE="" ;;
+esac
 CHANNEL="${REDBEACON_CHANNEL:-stable}"
 case "$CHANNEL" in test|testing|beta) CHANNEL="test" ;; *) CHANNEL="stable" ;; esac
 if [ "$CHANNEL" = "test" ]; then
@@ -108,7 +110,7 @@ if [ -n "$PURGE" ]; then
   rm -rf "$TOKEN_HOME" 2>/dev/null || true
 else
   warn "Kept your data: $DATA_HOME (accounts/content) + $TOKEN_HOME (login)."
-  warn "To wipe it too: curl -fsSL $OSS/uninstall.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_PURGE=1 bash"
+  warn "To wipe it too, set REDBEACON_PURGE=1 and run the current central uninstaller again."
 fi
 
 say "$APP_NAME uninstalled."

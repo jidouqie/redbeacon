@@ -1,0 +1,53 @@
+schema: bytestaff-download-project-intake/v2
+project_name: RedBeacon desktop application
+project_slug: redbeacon
+repository_contract_repo: /Users/diaojiawang/code/auto-redbook/redbeacon
+owner: ByteStaff RedBeacon maintainer
+revocation_contact: ByteStaff download-node administrator
+channels:
+  - test
+  - stable
+repository_contract_commit_authority: git-head-containing-the-three-canonical-contracts
+release_units:
+  - release_unit_id: app
+    kind: application
+    artifact_source_repo: /Users/diaojiawang/code/auto-redbook/redbeacon
+    artifact_source_commit_authority: repository-contract-commit
+    artifact_source_provenance_path: release/release-contract.json
+    version_rule: strict-three-part-semver
+    artifact_path_rules: committed non-empty safe relative POSIX paths under packages installers skill dependencies and metadata
+    artifact_tree_layout: one clean release-artifacts directory containing two desktop packages eight installer scripts one channel skill bundle four platform runtime archives and build metadata
+manifest_transactions:
+  - transaction_id: test-app
+    channel: test
+    referenced_release_unit_ids:
+      - app
+    public_url: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json
+    local_source: /Users/diaojiawang/code/auto-redbook/redbeacon/dist/local-build/test/release-artifacts
+    canonical_field_mapping: path size sha256 url node_url and ordered download_urls
+    client_consume_procedure: fetch fixed HTTPS canonical manifest then validate project channel version path size and SHA; try one node Range stream without redirects and fall back to immutable central OSS
+  - transaction_id: stable-app
+    channel: stable
+    referenced_release_unit_ids:
+      - app
+    public_url: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json
+    local_source: /Users/diaojiawang/code/auto-redbook/redbeacon/dist/local-build/stable/release-artifacts
+    canonical_field_mapping: path size sha256 url node_url and ordered download_urls
+    client_consume_procedure: fetch fixed HTTPS canonical manifest then validate project channel version path size and SHA; try one node Range stream without redirects and fall back to immutable central OSS
+client_files:
+  manifest_parser: cli/src/redbeacon/services/release_download.py
+  downloader: cli/src/redbeacon/services/release_download.py and cli/src/redbeacon/services/browser_downloads.py
+  installer_updater: install/install.sh install/install.ps1 cli/src/redbeacon/services/updater.py
+  runtime_dependency_consumer: cli/src/redbeacon/services/browser_engine.py
+test_commands:
+  unit: cd cli and run .venv/bin/pytest -q
+  integration: python3 tools/smoke_unix_install_transaction.py and PowerShell tools/smoke_windows_install_transaction.ps1 on the Windows build VM
+  build: tools/build_desktop_local.sh with the selected channel
+  install_smoke: install or update from the fixed canonical manifest in isolated channel directories and verify desktop CLI renderer browsers skills rollback and business database preservation
+capacity:
+  max_single_upload_bytes: 1073741824
+  peak_overlap_bytes: 4294967296
+  current_test_bytes: 0
+publication_custody: central-download-node-window
+central_oss_contract: bytestaff-central-oss/v1
+secrets_in_record: false

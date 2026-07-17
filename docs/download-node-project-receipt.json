@@ -1,0 +1,41 @@
+{
+  "schema": "bytestaff-download-project-receipt/v1",
+  "receipt_id": "redbeacon-onboarding-20260717t110057z",
+  "issued_at": "2026-07-17T11:00:57Z",
+  "intake_filename": "download-node-project-intake.yaml",
+  "intake_sha256": "cfc736f3cd6201d3619d253689de315f29da94af70291cd31735e595ae81b567",
+  "project_slug": "redbeacon",
+  "allowed": true,
+  "node_base_url": "https://47.110.125.34",
+  "publication_custody": "central-download-node-window",
+  "publisher_scope_held_by_node_window": "project",
+  "publisher_profile_project": "redbeacon",
+  "rsync_destination_shape_held_by_node_window": "upload-id-only",
+  "server_enforced_channels": [
+    "stable",
+    "test"
+  ],
+  "default_policy_authorized_channels": [
+    "test"
+  ],
+  "stable_requires_per_release_user_approval": true,
+  "global_allowed_components": [
+    "playwright",
+    "cloakbrowser",
+    "skill"
+  ],
+  "project_declared_components": [
+    "playwright",
+    "cloakbrowser",
+    "skill"
+  ],
+  "approved_peak_overlap_bytes": 4294967296,
+  "shared_capacity_not_reserved": true,
+  "incoming_ready": true,
+  "project_publisher_key_ready": true,
+  "project_publisher_key_not_distributed": true,
+  "admin_inspection_profile_ready": true,
+  "healthz_verified": true,
+  "readyz_verified": true,
+  "secrets_in_receipt": false
+}

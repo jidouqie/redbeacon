@@ -1,124 +1,129 @@
-# RedBeacon 客户端 · 平台接入开发规范（v1）
+# RedBeacon 客户端 · 平台接入开发规范
 
-> 本文 = RedBeacon 客户端（CLI/skill）接入「数字员工平台」**线上后台**的操作规范，供客户端开发**照此对接**。
-> **契约真源 = 平台文档**（bytestaff `项目文档/`：§3.3a 会员模型 / §5.4 生图网关 / §6 接口清单 / §9 错误码 / §14.6 客户端接入规范）。本文是**客户端侧落地指南**、不重复后端设计（避免第二真源）；本文与平台真源冲突时以平台真源为准，实现有偏离回报平台 PM 同步。
-> 本文**已按最新平台校准**（会员重构 2026-06-24 + 平台上线 2026-06-25），**取代《RedBeacon-重构开发方案.md》§5 中与会员重构冲突的旧描述**（见末节「与方案 §5 的差异」）。
-> 线上后台域名：`https://bytestaff.jiomig.com`（唯一入口，**勿硬编码**、走配置项；平台后端 T0–T5 已上线在产）。
-> 编写：2026-06-25 · 平台侧 PM。
+> RedBeacon 客户端（CLI/skill/UI）接入「数字员工平台」(bytestaff) 线上后台的对接契约。
+> **契约真源 = 平台文档**（bytestaff `项目文档/11-客户端接入指南.md` + §3.3a 会员 / §5 对话 / §5.4 生图 / §6 接口 / §9 错误码）。本文 = RedBeacon 落地指南，逐字字段已对在产代码核实；与平台真源冲突以平台为准、实现有偏离回报平台 PM。
+> 线上域名 `https://bytestaff.jiomig.com`（走配置项、**勿硬编码**）。
 
----
-
-## 0. 铁律红线（违反任一 = 改方案，别绕）
-1. **客户端永不持上游 / 中转站 key**——唯一凭据 = 账号级**设备令牌**。
-2. **免费能力（定位/选题/文案/内容/文字卡渲染/发布）走宿主 AI + 本地**，不带令牌、不调平台、不烧平台钱。**只有「生图」带令牌调平台**。
+## 0. 铁律红线（违反 = 改方案）
+1. **客户端永不持上游/中转站 key**——唯一凭据 = 账号级**设备令牌**。
+2. **AI 能力（文案/定位/选题/生图）一律带设备令牌走平台扣点**：文案/定位/选题走对话接口（§7）、生图走生图接口（§4）。**免费/本地只剩**文字卡渲染、发布、飞书读写。靠"每日赠点"让免费用户也能用 AI（§6），不靠白嫖宿主 AI。
 3. **`account_id` 永远由服务端从令牌解出，客户端不传**（防 IDOR）。
-4. **鉴权/扣点全在平台服务端、每次现查、fail-closed**——平台不可达即拒，客户端**不存"已解锁"本地标志**。
-5. **两把钥匙别混**：客户端只持**设备令牌**（调平台能力）；**绝不碰网站会话**（那是浏览器/门户的）。⚠️ 故客户端**不调 `/me/*` 系列**（那些要网站会话、CLI 调会 401）——客户端要的会员状态**全从 `/device/checkin` 拿**。
+4. **鉴权/扣点全在平台服务端、每次现查、fail-closed**——平台不可达即拒，客户端不存"已解锁"本地标志。
+5. **两把钥匙别混**：客户端只持**设备令牌**（调平台能力），**绝不碰网站会话**。故客户端**不调 `/me/*`**（要网站会话、CLI 调会 401）；会员状态全从 `/device/checkin` 拿。
 
----
+## 1. 鉴权：账号级设备令牌
+- device flow 签发、**账号级**（不绑单员工）、可吊销、平台哈希存；明文仅签发时返一次。
+- 客户端写本地**共享账号目录**（非 redbeacon 私有）→ 将来第二个员工 skill 读同一份令牌自动登录态。属用户隐私、明文存本地隐私内核、不上传。
+- 调一切能力带 `Authorization: Bearer <令牌>`。
+- **无 refresh**：过期/吊销 → 重新 `login`。**不限设备数**（计费闸=点数池，`DEVICE_LIMIT` 已退役）。
 
-## 1. 鉴权模型：账号级设备令牌
-- 令牌 = device flow 签发、**账号级**（不绑单个员工）、可吊销、平台哈希存。
-- **明文仅签发时返回一次**；客户端写本地后**存「共享账号目录」、非 redbeacon 私有目录**——将来第二个员工 skill 读同一份令牌即自动登录态（多 CLI 共享）。属用户自己的隐私数据、明文存本地隐私内核即可、不上传。
-- 调平台一切能力带 `Authorization: Bearer <设备令牌>`。
-- **令牌无 refresh 机制**（已知缺口）：过期/被吊销 → 重新 `login`。
-- **不限设备数**（计费闸 = 账号点数池、设备数非闸）：连授多台都行，用户可在门户逐台取消授权。`DEVICE_LIMIT` 错误码已退役、别处理。
+## 2. 登录 = OAuth 2.0 device flow（`redbeacon login`）
+> ⚠️ 与登录小红书的命令是两套——后者叫 `redbeacon xhs-login`。平台登录 ≠ 订阅 ≠ 小红书登录态。别让用户在 CLI 输账号密码。
 
----
+流程：`POST /device/code` → CLI 显示 user_code + 短链 → 按 `interval` 轮询 `POST /device/token` → 用户浏览器开短链授权 → CLI 拿令牌存本地。
 
-## 2. 登录 = OAuth 2.0 device flow
-命令 `redbeacon login`（⚠️ 与登录**小红书**的命令是两套东西——后者改名 `redbeacon xhs-login`，命名别冲突；平台登录 ≠ 订阅 ≠ 小红书登录态）。
-
-1. `POST /device/code`（无需登录，**带 `product_code=redbeacon`**）→ 返回 `device_code` / `user_code` / 授权短链（预填 user_code 的 `verification_uri`）/ `interval` / `expires_in`（10 分钟）。
-2. CLI 显示 user_code + 短链，提示浏览器打开授权；按 `interval` 轮询 `POST /device/token`（带 `device_code`）。
-3. 轮询返回：未授权 `authorization_pending` / 过快 `slow_down` / 成功 → 返回**设备令牌**（写本地共享账号目录）。
-4. （用户侧）浏览器开短链 → 门户已登录态 → 点「授权这台设备」→ 平台 `/device/approve`，**授权成功时按需激活 redbeacon 的 free 使用权**。
-- **别让用户在 CLI 输账号密码。**
-
----
-
-## 3. 轻打卡 = `POST /device/checkin`（客户端会员状态的唯一来源）
-- **时机**：每次 skill 启动拉一次（**不调 AI、近乎零成本**）——给平台可见性 + 客户端显示会员/点数/临期。
-- **鉴权**：设备令牌(Bearer)。**入参**：`{ product_code: "redbeacon" }`。
-- **按需激活**：账号对 redbeacon 无使用权 → 自动建一条 free（幂等、已有不动）。新 skill 首次打卡即自动进【我的员工】，连第二次 login 都不用。
-- **响应（已冻结契约）**：
+**逐字字段（在产核实；⚠️ 非 RFC 8628，别按 RFC 惯例搭）：**
 ```
-{ ok: true,
-  activated,                       // 本次是否新建 free 使用权（幂等：已有=false）
-  membership: {                    // ← 客户端显示「档/点数/临期」唯一来源
-    tier, tier_name,               // free|pro|promax · 免费版/Pro/Max
-    points: { total, used, remaining },     // 账号级共享点数池（跨所有员工）
-    valid_until,                   // 到期(UTC)；free/不过期 = null
-    status,                        // active(有付费会员) | free(隐式免费)
-    renewal_reminder },            // 临期 {expiring_soon, valid_until, days_left}；否则 null
-  entitlements: [ {product_code, product_name, status, valid_from, valid_until,
-                  features} ] }  // 已激活员工；features=该员工×当前档解析的分档开关（如 {max_xhs_accounts}）= 软控数据源
+POST /device/code   { label?, product_code:"redbeacon" }
+  200 → { device_code, user_code,
+          verification_uri:          "{BASE}/device/approve",
+          verification_uri_complete: ".../device/approve?code=<user_code>",  // 预填一键授权
+          expires_in, interval }
+  err → 400 {error:"invalid_product"}
+
+POST /device/token  { device_code }
+  200 待授权 → { status:"pending", interval }
+  200 已授权 → { status:"approved", token:"<令牌明文·仅此一次>",  // ⚠️ 字段名 token 非 access_token
+               expires_in_days, account:{ id } }
+  err → invalid_grant/expired_token→400 · access_denied→403 · slow_down→429
+```
+轮询逻辑：HTTP 200 看 `status`（pending 续轮 / approved 取 `token`）、429 放慢、400/403 终止。**别等 RFC 的 `access_token`/`authorization_pending`**。
+
+## 3. 轻打卡 = `POST /device/checkin`（客户端会员状态唯一来源）
+- **时机**：每次 skill/UI 启动拉一次（不调 AI、近乎零成本）；**入参** `{ product_code:"redbeacon" }`、设备令牌 Bearer。
+- **按需激活**：无使用权 → 自动建一条 free（幂等）。新 skill 首次打卡即进【我的员工】。
+- **响应（已冻结）**：
+```
+{ ok, activated,                       // activated=本次是否新建 free（幂等已有=false）
+  membership: {                        // ← 显示档/点数/临期 唯一来源
+    tier, tier_name,                   // free|pro|promax
+    points:{ total, used, remaining },  // 账号级共享池（跨所有员工）⚠️ 点数只在这、别去 entitlements 找
+    valid_until,                       // free/不过期=null
+    status,                            // active | free
+    renewal_reminder },                // 临期{expiring_soon,valid_until,days_left} 否则 null
+  entitlements:[ {id,account_id,product_code,product_name,status,valid_from,valid_until} ] }
+    // 只表使用权·不含点数。⏳ features 块（号数下发）平台未实现、客户端容错
 }
 ```
-- ⚠️ **点数只在 `membership.points`**——别去 entitlements 找点数（会员重构后那里没有）。
-- 点数是**账号级共享池、跨所有员工**——**一份会员玩遍全平台收费能力**（可作卖点叙事）。
-- `membership` 与门户 `GET /me/membership` 同源、含惰性过期（打卡即把到期会员翻 expired、`remaining/status` 永远现查真值）。
+- 点数 = 账号级共享池、跨所有员工（一份会员玩遍全平台，可作卖点）。
 
----
+## 4. 生图 = `POST /v1/images/generations`（平台计量能力）
+- 设备令牌 Bearer；声明 `product=redbeacon` / `capability=image_gen` / **`request_id`（幂等键）** + prompt/尺寸/张数。
+- 链路：认令牌 → 查使用权 → **原子扣共享点数池**（N=张数×单价，现 10 点/张）→ 上游出图 → 落 OSS → 回下载链接。
+- **幂等**：同 `request_id` 不重复扣、返原图。**失败不扣**（预扣后回补）。**点数不足/无会员/会员过期 → 拒、不调上游**（fail-closed）。
+- 下载走 OSS/CDN、不碰平台服务器；客户端拉图缓存本地 `~/.redbeacon/data/images/` 照旧 cloakbrowser 发布。**生图失败/平台不可达只影响图**，纯文字卡笔记照样落库可后补。
 
-## 4. 生图 = `POST /v1/images/generations`（唯一平台计量能力）
-- **鉴权**：设备令牌(Bearer)。**请求**声明 `product=redbeacon` / `capability=image_gen` / **`request_id`（幂等键）** + prompt / 尺寸 / 张数。
-- **平台链路**：认令牌 → 查 redbeacon 使用权 → **原子扣账号共享点数池**（N = 张数 × 单价，当前 10 点/张）→ 调上游出图 → 落 OSS → 回**下载链接**。响应含：图片下载链接、本次扣的点数、**临期提醒标志**。
-- **幂等**：同 `request_id` 重试 → 不重复扣点、返回原图链接。
-- **失败不扣**（预扣后失败回补）。**点数不足 / 无付费会员 / 会员过期 → 拒、不调上游**（fail-closed）。
-- **下载走 OSS/CDN、不碰平台服务器**：客户端拿链接直接从 CDN 拉图、缓存本地 `~/.redbeacon/data/images/`、照旧 cloakbrowser 发布。
-- **生图失败/平台不可达只影响图**：纯文字卡笔记照样落库、可后补图。
+**逐字字段（在产核实）：**
+```
+请求 { prompt(必), request_id(必·≤64·uuid),
+       product:"redbeacon"(⚠️ 非 product_code), capability:"image_gen",
+       size?, n?(默 1·MVP=1) }
+200 → { created, data:[{ url:"CDN链接" }](⚠️ OpenAI 风数组非单 url), request_id,
+        points:{cost,used,total,remaining,addon:0},
+        renewal_reminder:null|{...}, idempotent:true(仅幂等命中) }
+```
 
----
+### 4.1 图生图 / 参考图（契约定稿 2026-06-26；⏳ 平台未部署、当前走文生图）
+capability 仍 `image_gen`、按张同价扣点、文生图不受影响。⚠️ **图字节直传 OSS、绝不经平台**（出口仅 5Mbps）。三步：
+1. `POST /v1/images/inputs { content_type:"image/png|jpeg|webp" }` → `{ object, upload_url, method:"PUT", headers:{Content-Type}, max_bytes(默 1.2MB), expires_in(默 300s) }`。
+2. `HTTP PUT 图字节 → upload_url`（**必带 headers 的 Content-Type**否则签名不匹配）。
+3. `/v1/images/generations` 加可选 `image?:"<object>"`（图生图）/ `mask?:"<object>"`（局部重绘，给 mask 必同时给 image），响应结构与文生图一致。
+- **约束**：输入图 ≤1.2MB·仅 png/jpeg/webp·客户端先压缩；只用平台签发的 object（别自备公网 URL）；image/mask 必须本账号传的。
 
-## 5. 错误码 → 友好提示（§9）
-| code | HTTP | 客户端提示 |
+## 5. 错误码 → 友好提示（在产核实）
+⚠️ **按 HTTP body 小写 `error` 匹配**（不是大写语义码），响应体统一 `{ error, message, ...extra }`。
+
+| `error` | HTTP | 提示 |
 |---|---|---|
-| `UNAUTHENTICATED` | 401 | 登录失效，请重新 `redbeacon login` |
-| `NO_ENTITLEMENT` | 402 | 未激活该员工，去门户「加入我的团队」 |
-| `ENTITLEMENT_EXPIRED` | 402 | 会员已过期，去网站续费会员 |
-| `POINTS_EXCEEDED` | 402 | 算力点用尽 / 无付费会员，升级会员或下期再用 |
-| （能力不可用 / 账号被冻结封禁） | 403 | 该能力暂不可用 / 账号状态异常，联系客服 |
-| （重复 request_id 幂等命中 / 未计费） | 409 | （幂等命中：直接返原图链接，不报错给用户） |
-| `RATE_LIMITED` | 429 | 操作太频繁，稍后再试 |
-| （上游出图错） | 502 | 出图失败，请重试（不扣点） |
-| `SERVICE_UNAVAILABLE` | 503 | 服务繁忙，稍后重试（fail-closed） |
-- 402 是一个大类（会员/点数三种原因），按返回 code 分别给"去激活 / 去续费 / 去升级"提示。
+| `unauthorized` | 401 | 登录失效，重新 `redbeacon login` |
+| `no_entitlement` | 402 | 未激活该员工，去门户「加入我的团队」|
+| `entitlement_expired` | 402 | 会员过期，去续费（`extra.cost`）|
+| `insufficient_points` | 402 | ⚠️名字全变(≠POINTS_EXCEEDED)！点数不足/无会员，升级（`extra.cost,remaining`）|
+| `account_disabled` | 403 | 账号冻结，联系客服 |
+| `capability_denied` | 403 | 该员工无此能力 |
+| `not_priced` | 409 | 无计费配置（fail-closed）|
+| `duplicate_pending` | 409 | 同 request_id 处理中，稍候用同 id 重试取结果 |
+| `duplicate_failed` | 409 | 同 request_id 上次失败（已退点），换**新** id 重试 |
+| `rate_limited` | 429 | 太频繁，稍后再试 |
+| `upstream_error` | 502 | 出图/对话失败，可重试（已退点）|
+| `moderation_unavailable` / `service_unavailable` | 503 | 服务暂不可用（已退点 / fail-closed 兜底）|
+- 幂等命中（同 request_id 上次成功）直接返原图、带 `idempotent:true`，**不是错误**。
+
+## 6. 客户端行为规范
+- **config 重构**：移除 `ai_api_key/ai_base_url/ai_model/image_model`；`redbeacon-config` = **平台登录 + 飞书 + 代理**。
+- **临期提醒**：读 checkin/生图响应 `renewal_reminder` → 过期前 5 天起、每天≤2–3 次（客户端节流）。
+- **号数软控**：`max_xhs_accounts` = free 1 / Pro 3 / Max 5。客户端本地软控、可破（"能破就破不投入"）；✅ **值由 checkin `entitlements[].features.max_xhs_accounts` 下发**、客户端无脑读不硬编码（⏳ 平台未实现、暂容错 None/按 tier 约定值）。**不卖无限号、不打矩阵卖点。**
+- **弃解锁码**：下线 `services/license.py` 离线强制点（机器码降级为防滥用指纹）。
+- **doctor**：`redbeacon doctor` 检运行时（Python/uv、playwright）+ 令牌有效性 + 小红书 cookie + checkin 连通性，给可执行修复。
+- **结构要求**：账号对接代码与小红书业务逻辑**物理隔离、可单独拎出**——RedBeacon 当参考实现，接第二个员工时抽成共享 SDK（login/令牌存取/Bearer/checkin/错误码映射/doctor）。
+- **赠点（计费兜底）**：free 每日 50 点（自然日重置不累积）+ 新账号首次 checkin 迎新一次性 100 点，并入共享池；客户端零改动（照旧读 `points.remaining`，全空才报 `insufficient_points`）。换算：文案 1 点/次≈50 篇/天、生图 10 点/张≈5 张/天。⚠️🔴 **时序红线**：赠点要等平台上线才生效，**上线前别在 UI/官网承诺"免费试用额度"**。
+
+## 7. 大模型对话接口 = `POST /v1/chat/completions`（文案/定位/选题的 AI）
+OpenAI 兼容透传 + 平台契约：设备令牌、`request_id` 幂等、按次扣固定点（现 1 点/次、成功才计、失败/中断回补）、支持 SSE 流式。
+
+**请求** `{ messages:[{role,content}], request_id(必·≤64), stream?(默 false), temperature?, max_tokens?, product?:"redbeacon", capability?:"llm_chat" }`
+**非流式响应** `{ created, request_id, message:{role:"assistant", content}(⚠️ 文案在 message.content), model, points:{cost,used,total,addon:0,remaining}, renewal_reminder, idempotent? }`
+**流式**（`stream:true`，`text/event-stream`）：`data:{"delta":"增量"}` 拼接 → `data:{"done":true,request_id,points,renewal_reminder}` → `data:[DONE]`；上游中途失败发 `data:{"error":...}`（已回补）无 [DONE]；客户端断连服务端中止上游并回补。
+
+**落地**：`generate` 写文案 = 调本接口（system 放账号定位拼的提示词骨架、user 放选题 brief → 取 `message.content`/拼 delta → 渲染/入库/出图）。定位起草、选题补题同理。每次新 `request_id`（uuid）、重试用同 id、终态失败换新 id。限频 20/分/账号超 → `429 rate_limited`。fail-closed：平台不可达/点数全空 → 写不了文案（与生图同，"独立性依托平台"的既定代价）。
+
+## 8. 飞书读写：CLI 直连、不走平台网关
+每用户自带飞书应用、钥匙只碰自己飞书 → CLI 直连飞书 API。平台网关只管 AI/生图、不持飞书凭证、不加延迟。
+
+## 9. 待平台确认（不阻塞主链路）
+1. ⏳ checkin `features` 块（号数 `max_xhs_accounts` 下发，已选 B 平台下发）待平台实现；mimic 软解锁归 Pro/Max 平台未定，v1 可先不做。
+2. checkin 暂无公告字段，MVP 不做公告。
+3. 图生图待平台部署上线后联调真接口（§4.1）。
 
 ---
-
-## 6. 客户端行为规范（落地要点）
-- **路 B**：`generate` = 渲染 + 入库 + 出图；文案 JSON 由宿主在 skill 层写好传入，CLI **不调文案 API**。纯文字卡全程零平台零成本；含 AI 图才带令牌扣点。
-- **config 重构**：移除 `ai_api_key / ai_base_url / ai_model / image_model`（文案走宿主、生图走令牌、模型由平台服务端别名选）；`redbeacon-config` = **平台登录 + 飞书 + 代理**。
-- **临期提醒**：读 checkin / 生图响应的 `renewal_reminder` → 过期前 5 天起、每天最多 2–3 次（客户端节流）；用户关了自动续费才提醒。
-- **号数软控**：`max_xhs_accounts` = **free 1 / Pro 3 / Max 5**（已定值）。**客户端本地软控、平台不强校验**（可破，符合"能破就破不投入"）。✅ **值由 checkin 的 `entitlements[].features.max_xhs_accounts` 下发**（2026-06-25 选 B 平台下发）——客户端**无脑读、不硬编码**，平台改档位号数客户端不动。**不卖无限号、不打矩阵卖点。**
-- **弃解锁码**：下线 `services/license.py` 的离线强制点（机器码降级为防滥用指纹、不再是授权手段）。
-- **doctor**：`redbeacon doctor` 检运行时（Python/uv、playwright 内核）+ 登录态/令牌有效性 + 小红书 cookie + **checkin 连通性**，对常见故障给可执行修复动作。
-- **结构要求**：**账号对接代码与小红书业务逻辑物理隔离、可单独拎出**——RedBeacon 当参考实现，接第二个员工时把这块抽成共享 SDK（封装 login / 令牌存取 / Bearer 调用 / checkin / §5 错误码映射 / doctor）。
-
----
-
-## 7. 飞书读写：CLI 直连、不走平台网关
-- 每用户自带飞书应用、钥匙只碰自己飞书 → CLI 直连飞书 API。平台网关只管 AI/生图、**不持飞书凭证**、飞书 ops 不加网关延迟。
-
----
-
-## 8. 待平台确认 / 开放项（不阻塞主链路）
-1. ✅ **已定（2026-06-25 用户拍板选 B）：checkin 补 `features` 块**下发分档功能（`entitlements[].features`）——号数 `max_xhs_accounts` 先下发、客户端无脑读（§3/§6 已据此改）；**mimic 待归档定后加**。⏳ 待平台开发实现 checkin 返回 features 块。
-2. **仿写 mimic 软解锁**：归 Pro 还是 Max 平台**未定**；定 + 下发后客户端再接，**v1 可先不做 mimic 判断**（或粗判 tier≥pro）。
-3. **公告**：平台 checkin **暂无公告字段**；MVP 客户端**不做公告**。
-4. **接口逐字 schema**：§2/§4 的 device flow、生图字段以平台 §6 + 实际实现为准；**建议平台开发像 checkin 那样回报一次完整 JSON schema 冻结**、补进本文 §2/§4。
-
----
-
-## 9. 过渡态已废止（重要）
-平台后端**已上线在产**（生图网关真出图、真扣点验过）——客户端**直接做正式态（令牌走网关）**，**不必再实现"回退直连 aihub、不计费"那段过渡代码**，并据此**摆脱本地持中转站 key 的安全隐患**（方案 §5.1 痛斥的现状）。
-
----
-
-## 附 · 与《RedBeacon-重构开发方案.md》§5 的差异（本文校准点）
-- **算力点归属**：方案 §5.2"挂 entitlement"**已过时** → 现为**账号级 `membership` 共享点数池**（一份会员跨所有员工，§3.3a）。客户端拉点数走 `checkin.membership.points`。
-- **过渡态**：方案 §5.7 的"回退直连 aihub"**作废**（平台已上线，直接正式态，本文 §9）。
-- **令牌存储**：方案"存隐私内核目录" → 校准为**共享账号目录**（多 CLI 共享，本文 §1）。
-- **补全方案漏项**：§9 错误码映射、临期提醒、生图 `request_id` 幂等、号数已定值 1/3/5 —— 本文 §5/§6 已纳入。
-- 其余（路 B / 不持 key / 控制面数据面分离 / device flow / config 重构 / doctor）与方案 §5 一致。
+> **changelog**：① 过渡态（回退直连 aihub）已废止——平台后端已上线在产，客户端直接正式态、零上游 key。② 原"文案走宿主免费/路 B"已整条退役（2026-06-27 转向）→ 文案/定位/选题改走对话接口（§7）、铁律#2 已改写、计费改每日赠点（§6）。③ 算力点从"挂 entitlement"改为账号级 `membership` 共享池；令牌存共享账号目录（非 redbeacon 私有）。

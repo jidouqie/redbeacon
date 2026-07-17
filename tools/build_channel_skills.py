@@ -14,6 +14,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / ".claude" / "commands"
+CENTRAL_ORIGIN = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+STABLE_MANIFEST_URL = f"{CENTRAL_ORIGIN}/projects/redbeacon/stable/latest.json"
+TEST_MANIFEST_URL = f"{CENTRAL_ORIGIN}/projects/redbeacon/test/latest.json"
 
 
 def test_skill_name(stem: str) -> str:
@@ -35,14 +38,20 @@ def skill_names(channel: str) -> list[str]:
 
 
 def transform_test_text(text: str) -> str:
+    # The product slug is shared by both channels. Protect the canonical URL
+    # while command names and channel-owned local paths are rewritten below.
+    manifest_token = "__REDBEACON_TEST_CANONICAL_MANIFEST__"
+    text = text.replace(STABLE_MANIFEST_URL, manifest_token)
     text = re.sub(r"(?<![\w/-])/redbeacon(?!-test)(-[A-Za-z0-9]+)?",
                   lambda m: "/redbeacon-test" + (m.group(1) or ""), text)
     text = re.sub(r"(?<![A-Za-z0-9_.-])redbeacon(?![A-Za-z0-9_.-])",
                   "redbeacon-test", text)
     text = text.replace("~/.redbeacon", "~/.redbeacon_test")
     text = text.replace("~/.bytestaff", "~/.bytestaff_test")
+    text = text.replace("/stable/latest.json", "/test/latest.json")
     text = text.replace("/install.ps1", "/install-test.ps1")
     text = text.replace("/install.sh", "/install-test.sh")
+    text = text.replace(manifest_token, TEST_MANIFEST_URL)
     return text
 
 

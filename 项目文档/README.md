@@ -1,24 +1,22 @@
-# RedBeacon 项目文档 · 总入口（文档地图）
+# RedBeacon 项目文档归档
 
-> RedBeacon = 小红书运营**数字员工**（CLI + skill），bytestaff 数字员工平台上的第一个 metered 员工。
-> 本目录 = **文档层**（产品/架构/接入/进度），由 PM 窗口维护；代码在上层根目录（`cli/`、`.claude/commands/`）。
-> **双窗口**：代码窗口（根目录）+ PM 窗口（本目录）；单向边界见 `CLAUDE.md`。
+本目录保存历史产品方案、平台接入细节和旧测试清单。它们有参考价值，但不再是当前维护入口。
 
-## 文档地图
+当前维护优先级：
 
-| 文档 | 讲什么 |
+1. 根目录 [AGENTS.md](../AGENTS.md)：Codex 后续维护的当前事实与工程规则。
+2. 根目录 [RedBeacon-测试版验证指南.md](../RedBeacon-测试版验证指南.md)：测试版安装、下载路径、隔离矩阵和发布前验收。
+3. 根目录 [README.md](../README.md)：面向项目读者的当前简介。
+4. 代码和脚本事实源：全局 `bytestaff-digital-employee-publish` Skill、`docs/download-node-*`、`install/`、`tools/build_desktop_local.sh`、`tools/build_channel_skills.py`、`cli/src/redbeacon/services/updater.py`。
+
+本目录里提到的飞书主链路、PM 双窗口、旧官网、旧分发方式、Cloud/Claude Code 作为唯一维护方式，均按历史资料处理。后续如果要恢复某个能力，必须先回到代码和当前发布流程里重新设计，不要直接照搬旧文档。
+
+仍可查阅的深度资料：
+
+| 文档 | 用途 |
 |---|---|
-| `项目进度.md` | **实时进度**（里程碑 + 当前状态 + 待办）。冷启动先读。 |
-| `RedBeacon-重构开发方案.md` | 产品/架构重构主方案（数据归属 / 飞书四表 as-built / 选题 / 仿写 / 计费登录接入 / skill 改造 / phasing）。**产品参照物**。 |
-| `RedBeacon-平台接入开发规范.md` | **客户端接 bytestaff 平台后台**的逐条契约（device flow / checkin / 生图 / §9 错误码 / 铁律红线 / 令牌存储 / 临期 / 号数软控）。接平台照此。 |
+| `RedBeacon-平台接入开发规范.md` | bytestaff 平台 device flow、checkin、AI 接口和错误码的历史接入细节 |
+| `RedBeacon-代码架构规范.md` | 六边形架构和核心用例收口原则的背景资料 |
+| `RedBeacon-skill改版-现状与任务.md` | skill 本机化改版的历史记录 |
 
-## 冷启动顺序
-
-1. 读本 README（文档地图）。
-2. 读 `项目进度.md`（最新进度）。
-3. 具体任务用到哪份读哪份（**永远读最新、别假设已在上下文**）。
-
-## 与平台的真源边界
-
-- RedBeacon 自身（飞书数据层 / skill / CLI）= 本文档层 + 代码层。
-- **计费 / 登录 / 生图后端 = bytestaff 平台**（外部依赖、真源在平台文档）；本层接入规范只写客户端侧、引用平台契约，不重复后端设计。
+旧构建方案的冷归档刻意不列入文档索引，也不参与日常上下文；只有用户明确要求恢复时才允许查阅。

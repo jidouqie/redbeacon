@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedBeacon · 操作台 · A 干净工具风</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --garnet:#8E2434; --garnet-deep:#6E1726; --vermilion:#C0392B;
+    --ink:#1C1614; --ink-soft:#6B5D55; --ink-faint:#9C8E84;
+    --bone:#FBF7F1; --bone-2:#F4ECE1; --paper:#FFFFFF;
+    --line:#EBE0D2; --line-strong:#DCCDB9; --gold:#B7943F;
+    --ok:#3E7C5A; --warn:#C0392B;
+    --shadow:0 1px 2px rgba(40,20,15,.04), 0 12px 32px -16px rgba(110,23,38,.14);
+    --sans:'Noto Sans SC',system-ui,sans-serif; --serif:'Noto Serif SC',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bone);
+    -webkit-font-smoothing:antialiased;font-weight:400}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background-image:radial-gradient(rgba(142,36,52,.025) 1px,transparent 1px);background-size:22px 22px}
+  .app{position:relative;z-index:1;height:100vh;display:grid;grid-template-rows:60px 1fr;grid-template-columns:248px 1fr;
+    grid-template-areas:"top top" "side main"}
+
+  /* top bar */
+  .top{grid-area:top;display:flex;align-items:center;gap:20px;padding:0 26px;
+    background:rgba(251,247,241,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .acct{display:flex;align-items:center;gap:10px;padding:6px 12px 6px 8px;border:1px solid var(--line-strong);
+    border-radius:999px;background:var(--paper);cursor:pointer;transition:.2s}
+  .acct:hover{border-color:var(--garnet);box-shadow:var(--shadow)}
+  .ava{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--garnet),var(--vermilion));
+    display:grid;place-items:center;color:#fff;font-family:var(--serif);font-weight:700;font-size:14px}
+  .acct b{font-weight:500;font-size:14px}
+  .acct .caret{color:var(--ink-faint);font-size:11px}
+  .spacer{flex:1}
+  .dots{display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--ink-soft)}
+  .dot{display:inline-flex;align-items:center;gap:6px}
+  .dot i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .dot.on i{background:var(--ok);box-shadow:0 0 0 3px rgba(62,124,90,.15)}
+  .dot.off i{background:var(--ink-faint);box-shadow:0 0 0 3px rgba(156,142,132,.12)}
+  .points{display:flex;align-items:center;gap:8px;font-size:13px}
+  .points b{font-family:var(--serif);font-weight:700;color:var(--garnet);font-size:16px}
+  .btn{font-family:var(--sans);font-size:13px;font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 16px;transition:.2s}
+  .btn-primary{background:var(--garnet);color:#fff;box-shadow:0 8px 20px -10px rgba(142,36,52,.6)}
+  .btn-primary:hover{background:var(--garnet-deep);transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--garnet);border:1px solid var(--line-strong)}
+  .btn-ghost:hover{border-color:var(--garnet);background:rgba(142,36,52,.04)}
+
+  /* sidebar */
+  .side{grid-area:side;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column;gap:4px}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 22px}
+  .beacon{width:30px;height:30px;position:relative}
+  .beacon::before{content:"";position:absolute;inset:0;border-radius:50% 50% 50% 4px;transform:rotate(45deg);
+    background:linear-gradient(150deg,var(--vermilion),var(--garnet-deep))}
+  .beacon::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:#fff;left:10.5px;top:8px;opacity:.92}
+  .brand .wm{font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.5px}
+  .brand .wm span{color:var(--garnet)}
+  .navlabel{font-size:11px;letter-spacing:1.5px;color:var(--ink-faint);padding:14px 12px 6px;font-weight:500}
+  .nav{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;color:var(--ink-soft);
+    font-size:14px;cursor:pointer;transition:.16s;position:relative}
+  .nav:hover{background:var(--bone-2);color:var(--ink)}
+  .nav.active{background:var(--paper);color:var(--ink);font-weight:500;box-shadow:var(--shadow)}
+  .nav.active::before{content:"";position:absolute;left:-16px;top:50%;transform:translateY(-50%);
+    width:3px;height:18px;border-radius:0 3px 3px 0;background:var(--garnet)}
+  .nav .ic{width:18px;text-align:center;opacity:.8}
+  .nav .badge{margin-left:auto;background:var(--garnet);color:#fff;font-size:11px;min-width:18px;height:18px;
+    border-radius:9px;display:grid;place-items:center;padding:0 5px}
+  .side .foot{margin-top:auto;font-size:11px;color:var(--ink-faint);padding:10px 12px;line-height:1.7}
+
+  /* main */
+  .main{grid-area:main;overflow-y:auto;padding:34px 40px 60px}
+  .hello{font-family:var(--serif);font-weight:700;font-size:26px;letter-spacing:.5px}
+  .hello em{font-style:normal;color:var(--garnet)}
+  .sub{color:var(--ink-soft);font-size:14px;margin-top:7px}
+  .kicker{font-size:12px;letter-spacing:2px;color:var(--gold);font-weight:500;margin:34px 0 14px;text-transform:uppercase}
+
+  .next{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .ncard{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 20px 18px;
+    box-shadow:var(--shadow);cursor:pointer;transition:.2s;position:relative;overflow:hidden}
+  .ncard:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+  .ncard .num{font-family:var(--serif);font-weight:900;font-size:38px;line-height:1;color:var(--garnet)}
+  .ncard .lab{font-size:14px;font-weight:500;margin-top:10px}
+  .ncard .desc{font-size:12.5px;color:var(--ink-soft);margin-top:5px;line-height:1.6}
+  .ncard .go{margin-top:14px;font-size:13px;color:var(--garnet);font-weight:500;display:inline-flex;gap:5px;align-items:center}
+  .ncard .corner{position:absolute;right:-22px;top:-22px;width:64px;height:64px;border-radius:50%;
+    background:radial-gradient(circle,rgba(192,57,43,.10),transparent 70%)}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+  .stat{background:transparent;border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .stat .v{font-family:var(--serif);font-weight:700;font-size:22px}
+  .stat .k{font-size:12.5px;color:var(--ink-soft);margin-top:3px}
+  .stat .v small{font-size:12px;color:var(--ink-faint);font-family:var(--sans);font-weight:400}
+
+  .feed{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .row{display:flex;align-items:center;gap:14px;padding:15px 22px;border-top:1px solid var(--line);font-size:14px}
+  .row:first-child{border-top:none}
+  .tag{font-size:11px;padding:3px 9px;border-radius:6px;font-weight:500;white-space:nowrap}
+  .tag.red{background:rgba(142,36,52,.08);color:var(--garnet)}
+  .tag.green{background:rgba(62,124,90,.1);color:var(--ok)}
+  .tag.mute{background:var(--bone-2);color:var(--ink-soft)}
+  .row .t{flex:1;color:var(--ink)}
+  .row .when{color:var(--ink-faint);font-size:12.5px}
+  .note{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:28px;line-height:1.8}
+  .vbadge{position:fixed;right:18px;bottom:16px;background:var(--ink);color:#fff;font-size:11px;padding:6px 12px;border-radius:8px;opacity:.8;z-index:5}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TOP -->
+  <header class="top">
+    <div class="acct">
+      <div class="ava">职</div><b>@职场AI小测评</b><span class="caret">▾</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="dots">
+      <span class="dot on"><i></i>平台已登录</span>
+      <span class="dot on"><i></i>小红书在线</span>
+    </div>
+    <div class="points">算力点 <b>80</b></div>
+    <button class="btn btn-ghost">充值</button>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand"><div class="beacon"></div><div class="wm">红<span>信</span></div></div>
+    <div class="nav active"><span class="ic">◎</span>首页看板</div>
+    <div class="navlabel">运营</div>
+    <div class="nav"><span class="ic">✦</span>选题<span class="badge">2</span></div>
+    <div class="nav"><span class="ic">✎</span>内容</div>
+    <div class="nav"><span class="ic">⊜</span>审稿<span class="badge">3</span></div>
+    <div class="nav"><span class="ic">↗</span>发布</div>
+    <div class="nav"><span class="ic">▦</span>数据</div>
+    <div class="navlabel">设置</div>
+    <div class="nav"><span class="ic">⚇</span>账号管理</div>
+    <div class="nav"><span class="ic">⚙</span>设置 · 飞书</div>
+    <div class="foot">RedBeacon · 本机操作台<br>数据真源 = 飞书</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="hello">下午好，<em>测评君</em></div>
+    <div class="sub">今天有 3 篇文案等你审、选题快见底了。先从下面这几步走。</div>
+
+    <div class="kicker">下一步建议</div>
+    <div class="next">
+      <div class="ncard"><div class="corner"></div>
+        <div class="num">3</div><div class="lab">待审文案</div>
+        <div class="desc">飞书审核表里有 3 篇还没过目，审完才能发。</div>
+        <div class="go">去审稿 →</div>
+      </div>
+      <div class="ncard"><div class="corner"></div>
+        <div class="num">2</div><div class="lab">选题快见底</div>
+        <div class="desc">在库选题只剩 2 条（少于 5），趁早补一批别断更。</div>
+        <div class="go">去补选题 →</div>
+      </div>
+      <div class="ncard"><div class="corner"></div>
+        <div class="num">1</div><div class="lab">可发布</div>
+        <div class="desc">有 1 篇已审核通过，随时能发到小红书。</div>
+        <div class="go">去发布 →</div>
+      </div>
+    </div>
+
+    <div class="kicker">概览</div>
+    <div class="stats">
+      <div class="stat"><div class="v">28</div><div class="k">累计已发</div></div>
+      <div class="stat"><div class="v">2 <small>本月</small></div><div class="k">本月发布</div></div>
+      <div class="stat"><div class="v">职场效率</div><div class="k">账号定位</div></div>
+      <div class="stat"><div class="v">80 <small>点</small></div><div class="k">今日可用算力</div></div>
+    </div>
+
+    <div class="kicker">最近动态</div>
+    <div class="feed">
+      <div class="row"><span class="tag green">已发布</span><span class="t">《3个被低估的AI写周报技巧》</span><span class="when">今天 09:12</span></div>
+      <div class="row"><span class="tag red">待审</span><span class="t">《新手用AI做PPT，这样问最省事》</span><span class="when">昨天 21:40</span></div>
+      <div class="row"><span class="tag mute">已生成</span><span class="t">《Excel函数太多记不住？让AI替你想》</span><span class="when">昨天 18:03</span></div>
+      <div class="row"><span class="tag red">待审</span><span class="t">《开会记不全？AI整理会议纪要实测》</span><span class="when">昨天 16:55</span></div>
+    </div>
+
+    <div class="note">— 风格稿 A · 干净工具风 —<br>象牙底 · 发丝描边 · 克制绛红 · 信息密度低，新手一眼一个重点（假数据）</div>
+  </main>
+</div>
+<div class="vbadge">A · 干净工具风</div>
+</body>
+</html>

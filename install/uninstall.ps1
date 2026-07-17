@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # RedBeacon uninstaller (Windows). Run in PowerShell:
-#     irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.ps1 | iex
+#     Fetch installers/uninstall.ps1 from the current central manifest and run it.
 #
 # Removes the software bundle, update leftovers, CLI shim, shortcuts, skills,
 # and browser cache.
@@ -8,12 +8,16 @@
 #     ~/.redbeacon   (accounts / cookies / generated content / local DB)
 #     ~/.bytestaff   (platform login / device token)
 # To also wipe that data, run:
-#     $env:REDBEACON_PURGE=1; irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/uninstall.ps1 | iex
+#     Run that central uninstaller with REDBEACON_PURGE=1 to remove local data.
 # All output is ASCII-only on purpose (avoids garbled text / iex decode issues).
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Continue"
 function Say($m){ Write-Host "==> $m" -ForegroundColor Cyan }
 function Warn($m){ Write-Host "!! $m" -ForegroundColor Yellow }
+function Test-Truthy($Value){
+  if($null -eq $Value){ return $false }
+  return @("1", "true", "yes", "on") -contains ([string]$Value).Trim().ToLowerInvariant()
+}
 function Pause-OnFailure(){
   if($env:CI -eq "true" -or $env:GITHUB_ACTIONS -eq "true" -or $env:REDBEACON_NO_PAUSE -eq "1"){ return }
   try { Read-Host "Press Enter to close this window" | Out-Null } catch {}
@@ -27,8 +31,7 @@ trap {
   continue
 }
 
-$OSS = if($env:REDBEACON_OSS){ $env:REDBEACON_OSS } else { "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com" }
-$Purge = $env:REDBEACON_PURGE
+$Purge = Test-Truthy $env:REDBEACON_PURGE
 $Channel = if($env:REDBEACON_CHANNEL){ $env:REDBEACON_CHANNEL.ToLowerInvariant() } else { "stable" }
 if(@("test", "testing", "beta") -contains $Channel){ $Channel = "test" } else { $Channel = "stable" }
 if($Channel -eq "test"){
@@ -75,7 +78,10 @@ if($env:REDBEACON_UPDATE_WORKDIR){
 # Legacy uv-tool install leftovers (kept for users who installed older builds).
 $uv = Get-Command uv -ErrorAction SilentlyContinue
 if($Channel -eq "stable" -and $uv){
-  try { & $uv.Source tool uninstall redbeacon | Out-Null } catch {}
+  try { & $uv.Source tool uninstall redbeacon 2>$null | Out-Null } catch {}
+  # A missing legacy uv tool is expected and must not make an otherwise
+  # successful uninstall look failed to a caller that checks LASTEXITCODE.
+  $global:LASTEXITCODE = 0
 }
 if($Channel -eq "stable"){
   Remove-Item -Recurse -Force "$HOME\.local\share\uv\tools\redbeacon" -ErrorAction SilentlyContinue
@@ -107,7 +113,7 @@ if($Purge){
   Remove-Item -Recurse -Force $TokenHome -ErrorAction SilentlyContinue
 } else {
   Warn "Kept your data: $DataHome (accounts/content) + $TokenHome (login)."
-  Warn "To wipe it too: `$env:REDBEACON_CHANNEL='$Channel'; `$env:REDBEACON_PURGE=1; irm $OSS/uninstall.ps1 | iex"
+  Warn "To wipe it too, set REDBEACON_PURGE=1 and run the current central uninstaller again."
 }
 
 Say "$AppName uninstalled."

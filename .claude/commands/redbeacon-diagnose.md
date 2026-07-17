@@ -3,7 +3,7 @@ description: 诊断 — 两类毛病都管：①内容不行（反推定位/选�
 argument-hint: 直接说哪里不对（如「文案太硬了」「图很丑」「发不出去」「登录不上平台」「一直报错」）；也可指定某条内容
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果提示命令不存在，必须按系统调用官方 OSS 一键安装器后再继续：Windows PowerShell 用 `irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex`；macOS/Linux 用 `curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash`。不得猜测、拼接或直接下载任何 zip 包名。
+> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **数据都在本机**：诊断要读的账号定位/选题/内容都在本地，命令直接读。无需飞书。（飞书云端源现阶段搁置，不用管。）
 

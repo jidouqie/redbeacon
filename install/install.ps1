@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # RedBeacon installer (Windows). Run in PowerShell:
-#     irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex
+#     Fetch the current installer URL from the central RedBeacon manifest.
 #
 # Installs a SELF-CONTAINED bundle (Python + all deps + Playwright driver already
 # inside). No uv / no pip / no compiling -- just download + unzip + place.
@@ -25,6 +25,107 @@ trap {
   exit 1
 }
 function Die($m){ throw $m }
+function Test-LocalInstallerTestUrl([Uri]$Uri){
+  return ($env:REDBEACON_INSTALLER_TEST_MODE -eq "1" -and
+          $Uri.Scheme -eq "http" -and $Uri.Host -eq "127.0.0.1")
+}
+function Assert-ReleaseUrl([string]$Url, [string]$Label){
+  try { $uri = [Uri]$Url } catch { Die "$Label URL is invalid." }
+  $safeHttps = ($uri.Scheme -eq "https" -and -not $uri.UserInfo -and -not $uri.Query -and -not $uri.Fragment)
+  if(-not $safeHttps -and -not (Test-LocalInstallerTestUrl $uri)){ Die "$Label URL is unsafe." }
+  return $uri
+}
+function Get-ReleaseArtifact($Manifest, [string]$Path){
+  if(-not $Manifest -or -not $Manifest.artifacts){ Die "Release manifest has no artifacts." }
+  $matches = @($Manifest.artifacts | Where-Object { ([string]$_.path) -eq $Path })
+  if($matches.Count -ne 1){ Die "Release manifest does not contain exactly one $Path artifact." }
+  $artifact = $matches[0]
+  $size = [Int64]$artifact.size
+  $hash = ([string]$artifact.sha256).ToLowerInvariant()
+  $ossUrl = [string]$artifact.url
+  if($size -le 0 -or $hash -notmatch '^[0-9a-f]{64}$'){ Die "Artifact metadata is invalid: $Path" }
+  Assert-ReleaseUrl $ossUrl "Artifact $Path" | Out-Null
+  return $artifact
+}
+function Test-ArtifactFile([string]$Path, $Artifact){
+  if(-not (Test-Path -LiteralPath $Path)){ return $false }
+  if((Get-Item -LiteralPath $Path).Length -ne [Int64]$Artifact.size){ return $false }
+  return ((Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant() -eq ([string]$Artifact.sha256).ToLowerInvariant())
+}
+function Download-NodeArtifact([string]$Url, [string]$OutFile, $Artifact){
+  $request = [System.Net.HttpWebRequest]::Create([Uri]$Url)
+  $request.Method = "GET"
+  $request.AllowAutoRedirect = $false
+  $request.Timeout = 3000
+  $request.ReadWriteTimeout = 8000
+  $request.AddRange(0)
+  $response = $null
+  $input = $null
+  $output = $null
+  try {
+    $response = [System.Net.HttpWebResponse]$request.GetResponse()
+    if([int]$response.StatusCode -ne 206){ throw "node returned HTTP $([int]$response.StatusCode)" }
+    $expectedRange = "bytes 0-$([Int64]$Artifact.size - 1)/$([Int64]$Artifact.size)"
+    if(([string]$response.Headers["Content-Range"]).ToLowerInvariant() -ne $expectedRange){ throw "node returned invalid Content-Range" }
+    $input = $response.GetResponseStream()
+    if($input.CanTimeout){ $input.ReadTimeout = 8000 }
+    $output = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    $buffer = New-Object byte[] (512 * 1024)
+    $total = [Int64]0
+    $first = $true
+    while(($read = $input.Read($buffer, 0, $buffer.Length)) -gt 0){
+      if($first -and $input.CanTimeout){ $input.ReadTimeout = 15000; $first = $false }
+      $total += $read
+      if($total -gt [Int64]$Artifact.size){ throw "node returned too many bytes" }
+      $output.Write($buffer, 0, $read)
+      $pct = [Math]::Min(100, [int](100 * $total / [Int64]$Artifact.size))
+      Write-Progress -Activity "Downloading RedBeacon" -Status "$pct% from download node" -PercentComplete $pct
+    }
+  }
+  finally {
+    if($output){ $output.Dispose() }
+    if($input){ $input.Dispose() }
+    if($response){ $response.Dispose() }
+    Write-Progress -Activity "Downloading RedBeacon" -Completed
+  }
+  if(-not (Test-ArtifactFile $OutFile $Artifact)){ throw "node artifact checksum mismatch" }
+}
+function Download-ReleaseArtifact($Artifact, [string]$OutFile){
+  Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+  $ossUrl = [string]$Artifact.url
+  $candidates = @()
+  if($Artifact.download_urls){
+    foreach($candidate in @($Artifact.download_urls)){
+      $value = [string]$candidate
+      if($value -and $candidates -notcontains $value){ $candidates += $value }
+    }
+  }
+  if($candidates -notcontains $ossUrl){ $candidates += $ossUrl }
+  $nodeUrl = @($candidates | Where-Object { $_ -ne $ossUrl } | Select-Object -First 1)
+  if($nodeUrl.Count -eq 1){
+    try {
+      Assert-ReleaseUrl $nodeUrl[0] "Download node" | Out-Null
+      Download-NodeArtifact $nodeUrl[0] $OutFile $Artifact
+      return "node"
+    }
+    catch {
+      Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+      Warn "  download node unavailable; switching to central OSS"
+    }
+  }
+  foreach($attempt in 1..3){
+    try {
+      Invoke-WebRequest -Uri $ossUrl -OutFile $OutFile -UseBasicParsing -TimeoutSec 600
+      if(-not (Test-ArtifactFile $OutFile $Artifact)){ throw "central OSS artifact checksum mismatch" }
+      return "oss"
+    }
+    catch {
+      Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+      if($attempt -lt 3){ Warn "  central OSS attempt $attempt failed, retrying..."; Start-Sleep -Seconds 2 }
+    }
+  }
+  Die "Could not download $([string]$Artifact.path) from the download node or central OSS."
+}
 function Test-ManagedSkillName([string]$Stem){
   if($Channel -eq "test"){ return $Stem.StartsWith("redbeacon-test") }
   return $Stem.StartsWith("redbeacon") -and -not $Stem.StartsWith("redbeacon-test")
@@ -85,11 +186,7 @@ function Prepare-Skills($TempDir){
   foreach($t in 1..3){
     try {
       $star = Join-Path $TempDir "skill.tar.gz"
-      Invoke-WebRequest -Uri $SkillUrl -OutFile $star -UseBasicParsing -TimeoutSec 90
-      if($SkillSha){
-        $skillGot = (Get-FileHash -Algorithm SHA256 -Path $star).Hash.ToLowerInvariant()
-        if($skillGot -ne $SkillSha){ throw "skill checksum mismatch" }
-      }
+      Download-ReleaseArtifact $SkillArtifact $star | Out-Null
       Remove-Item -Recurse -Force $skillStage -ErrorAction SilentlyContinue
       New-Item -ItemType Directory -Force -Path $skillStage | Out-Null
       tar -xzf $star -C $skillStage
@@ -178,7 +275,6 @@ function Install-Skills($CliPath, $TempDir){
     $destHash = (Get-FileHash -Algorithm SHA256 -Path (Join-Path $SkillDest $_.Name)).Hash
     if($sourceHash -ne $destHash){ Die "Claude-style skill content verification failed: $($_.BaseName)" }
   }
-  try { & $CliPath config set skill_install_dir $SkillDest | Out-Null } catch {}
 }
 function Stop-RunningRedBeacon(){
   Say "Stopping running $AppName processes ..."
@@ -197,6 +293,54 @@ function Stop-RunningRedBeacon(){
   }
 }
 
+function Backup-BusinessDatabase(){
+  $db = Join-Path $RuntimeDataDir "redbeacon.db"
+  if(-not (Test-Path -LiteralPath $db)){ return }
+
+  $backupRoot = Join-Path $RuntimeRoot "backups\pre-update"
+  $stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmssfff") + "-$PID"
+  $target = Join-Path $backupRoot $stamp
+  New-Item -ItemType Directory -Force -Path $target | Out-Null
+  foreach($name in @("redbeacon.db", "redbeacon.db-wal", "redbeacon.db-shm")){
+    $source = Join-Path $RuntimeDataDir $name
+    if(Test-Path -LiteralPath $source){ Copy-Item -LiteralPath $source -Destination $target -Force }
+  }
+  [System.IO.File]::WriteAllText(
+    (Join-Path $target "snapshot.txt"),
+    "channel=$Channel`nversion=$latest`n",
+    [System.Text.UTF8Encoding]::new($false)
+  )
+  @(Get-ChildItem -LiteralPath $backupRoot -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending | Select-Object -Skip 5) |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+  Say "Saved a pre-update account database snapshot: $target"
+  return $target
+}
+
+function Verify-BusinessDatabaseUpgrade($CliPath, $SnapshotDir){
+  if(-not $SnapshotDir){ return }
+  $verifyData = Join-Path $tmp ("database-upgrade-" + [guid]::NewGuid())
+  New-Item -ItemType Directory -Force -Path $verifyData | Out-Null
+  foreach($name in @("redbeacon.db", "redbeacon.db-wal", "redbeacon.db-shm")){
+    $source = Join-Path $SnapshotDir $name
+    if(Test-Path -LiteralPath $source){ Copy-Item -LiteralPath $source -Destination $verifyData -Force }
+  }
+  $runtimeEnv = Push-RuntimeEnvironment
+  try {
+    $env:REDBEACON_DESKTOP_SMOKE = "1"
+    $env:REDBEACON_DESKTOP_SMOKE_DATA_DIR = $verifyData
+    $result = ((& $CliPath 2>&1) | Out-String)
+    if($LASTEXITCODE -ne 0 -or $result -notmatch "RedBeacon desktop smoke ok"){
+      Die "The new client cannot safely upgrade a copy of your account database: $result"
+    }
+  }
+  finally {
+    Pop-RuntimeEnvironment $runtimeEnv
+    Remove-Item -Recurse -Force $verifyData -ErrorAction SilentlyContinue
+  }
+  Say "Account database upgrade verification passed on an isolated copy."
+}
+
 function Push-RuntimeEnvironment(){
   $values = @{
     "REDBEACON_CHANNEL" = $Channel
@@ -209,7 +353,7 @@ function Push-RuntimeEnvironment(){
   }
   $keys = @($values.Keys) + @(
     "CLOAKBROWSER_BINARY_PATH", "CLOAKBROWSER_VERSION", "CLOAKBROWSER_SKIP_CHECKSUM",
-    "REDBEACON_DESKTOP_SMOKE"
+    "REDBEACON_DESKTOP_SMOKE", "REDBEACON_DESKTOP_SMOKE_DATA_DIR"
   )
   $old = @{}
   foreach($key in $keys){
@@ -218,7 +362,10 @@ function Push-RuntimeEnvironment(){
   foreach($entry in $values.GetEnumerator()){
     [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, "Process")
   }
-  foreach($key in @("CLOAKBROWSER_BINARY_PATH", "CLOAKBROWSER_VERSION", "CLOAKBROWSER_SKIP_CHECKSUM", "REDBEACON_DESKTOP_SMOKE")){
+  foreach($key in @(
+    "CLOAKBROWSER_BINARY_PATH", "CLOAKBROWSER_VERSION", "CLOAKBROWSER_SKIP_CHECKSUM",
+    "REDBEACON_DESKTOP_SMOKE", "REDBEACON_DESKTOP_SMOKE_DATA_DIR"
+  )){
     [Environment]::SetEnvironmentVariable($key, $null, "Process")
   }
   return $old
@@ -248,6 +395,7 @@ function Verify-Bundle($CliPath, $RendererPath, $ExpectedVersion){
     }
 
     $env:REDBEACON_DESKTOP_SMOKE = "1"
+    $env:REDBEACON_DESKTOP_SMOKE_DATA_DIR = Join-Path $verifyRoot "data"
     $desktopSmoke = ((& $CliPath 2>&1) | Out-String)
     $desktopExit = $LASTEXITCODE
     Remove-Item Env:\REDBEACON_DESKTOP_SMOKE -ErrorAction SilentlyContinue
@@ -274,38 +422,28 @@ function Verify-Bundle($CliPath, $RendererPath, $ExpectedVersion){
   Say "New client runtime verification passed."
 }
 
-$OSS = if($env:REDBEACON_OSS){ $env:REDBEACON_OSS } else { "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com" }
 $Channel = if($env:REDBEACON_CHANNEL){ $env:REDBEACON_CHANNEL.ToLowerInvariant() } else { "stable" }
 if(@("test", "testing", "beta") -contains $Channel){ $Channel = "test" } else { $Channel = "stable" }
 if($Channel -eq "test"){
   $AppName = "RedBeacon_test"
   $CmdName = "redbeacon-test"
   $CliName = "redbeacon-test-cli"
-  $AppPrefix = "app/test"
-  $ManifestName = "latest-test.json"
-  $SkillPrefix = "skill-test"
   $DefaultSkillDest = "$HOME\.claude\commands-redbeacon-test"
   $RuntimeRoot = "$HOME\.redbeacon_test"
 } else {
   $AppName = "RedBeacon"
   $CmdName = "redbeacon"
   $CliName = "redbeacon-cli"
-  $AppPrefix = "app"
-  $ManifestName = "latest.json"
-  $SkillPrefix = "skill"
   $DefaultSkillDest = "$HOME\.claude\commands"
   $RuntimeRoot = "$HOME\.redbeacon"
 }
+$CentralOrigin = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+$ManifestUrl = if($env:REDBEACON_UPDATE_URL){ $env:REDBEACON_UPDATE_URL } else { "$CentralOrigin/projects/redbeacon/$Channel/latest.json" }
 $SkillDest = if($env:REDBEACON_SKILL_DIR){ $env:REDBEACON_SKILL_DIR } else { $DefaultSkillDest }
 $RuntimeDataDir = Join-Path $RuntimeRoot "data"
 $RuntimePlaywrightDir = Join-Path $RuntimeRoot "browser\ms-playwright"
 $RuntimeCloakDir = Join-Path $RuntimeRoot "browser\cloakbrowser"
 $Plat = "win-x64"
-$LegacyUrl = "$OSS/$AppPrefix/$AppName-$Plat.zip"
-$Url  = $LegacyUrl # fallback for manifests published before versioned packages
-$SkillUrl = "$OSS/$SkillPrefix/redbeacon-skill.tar.gz"
-$SkillSha = ""
-$SkillVersion = ""
 $Dest = "$env:LOCALAPPDATA\Programs\$AppName"
 $BinDir = "$HOME\.local\bin"
 $cliExe = Join-Path $Dest "$CliName.exe"
@@ -314,20 +452,16 @@ $tmp = New-Item -ItemType Directory -Force -Path (Join-Path $env:TEMP ("rb_" + [
 try {
   # 1) Fast no-op for repeat installs: fetch only the tiny manifest, then skip
   # the large bundle when the installed client is already current.
-  $latest = ""
-  $sha = ""
-  try {
-    $manifest = Invoke-RestMethod -Uri "$OSS/$ManifestName" -UseBasicParsing -TimeoutSec 20
-    $latest = [string]$manifest.version
-    if($manifest.app_sha256){
-      $prop = $manifest.app_sha256.PSObject.Properties[$Plat]
-      if($prop){ $sha = ([string]$prop.Value).ToLowerInvariant() }
-    }
-    if($manifest.skill_bundle_url){ $SkillUrl = [string]$manifest.skill_bundle_url }
-    if($manifest.skill_sha256){ $SkillSha = ([string]$manifest.skill_sha256).ToLowerInvariant() }
-    if($manifest.skill_version){ $SkillVersion = [string]$manifest.skill_version }
-  } catch {}
-  if($latest -and $manifest.app){ $Url = "$OSS/$AppPrefix/releases/$latest/$AppName-$Plat.zip" }
+  Assert-ReleaseUrl $ManifestUrl "Release manifest" | Out-Null
+  $manifest = Invoke-RestMethod -Uri $ManifestUrl -UseBasicParsing -TimeoutSec 20
+  if(([string]$manifest.project) -ne "redbeacon" -or ([string]$manifest.channel) -ne $Channel){
+    Die "Release manifest does not match RedBeacon $Channel."
+  }
+  $latest = [string]$manifest.version
+  if($latest -notmatch '^\d+\.\d+\.\d+$'){ Die "Release manifest has no valid version." }
+  $AppArtifact = Get-ReleaseArtifact $manifest "packages/$AppName-$Plat.zip"
+  $SkillArtifact = Get-ReleaseArtifact $manifest "skill/redbeacon-skill.tar.gz"
+  $SkillVersion = $latest
   $current = ""
   if(Test-Path $cliExe){
     try { $current = ((& $cliExe --version 2>$null) -split "\s+")[-1] } catch {}
@@ -349,32 +483,15 @@ try {
       # the large desktop bundle again.
       Install-Skills $cliExe $tmp
       Commit-Skills
-      Say "To reinstall anyway: `$env:REDBEACON_CHANNEL='$Channel'; `$env:REDBEACON_FORCE_INSTALL=1; irm $OSS/install.ps1 | iex"
+      Say "To reinstall anyway, set REDBEACON_FORCE_INSTALL=1 and run the current central installer again."
       return
     }
   }
 
-  # 2) download the bundle (OSS is fast in China; retry a few times)
+  # 2) download the bundle through one node attempt, then immutable OSS fallback
   Say "[1/4] Downloading $AppName ($Plat) ..."
-  $zip = Join-Path $tmp "rb.zip"; $ok = $false
-  foreach($t in 1..3){
-    try { Invoke-WebRequest -Uri $Url -OutFile $zip -UseBasicParsing -TimeoutSec 600; $ok = $true; break }
-    catch { Warn "  download attempt $t failed, retrying..."; Start-Sleep -Seconds 2 }
-  }
-  if(-not $ok -and $Url -ne $LegacyUrl){
-    Warn "  versioned package unavailable; trying the compatible package URL..."
-    foreach($t in 1..3){
-      try { Invoke-WebRequest -Uri $LegacyUrl -OutFile $zip -UseBasicParsing -TimeoutSec 600; $ok = $true; $Url = $LegacyUrl; break }
-      catch { Warn "  compatible download attempt $t failed, retrying..."; Start-Sleep -Seconds 2 }
-    }
-  }
-  if(-not $ok){ Die "Could not download $Url -- check your network and re-run." }
-  if($sha){
-    $got = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
-    if($got -ne $sha){ Die "Package checksum mismatch. Please re-run later." }
-  } else {
-    Warn "  package checksum missing in $ManifestName; installing without checksum verification."
-  }
+  $zip = Join-Path $tmp "rb.zip"
+  Download-ReleaseArtifact $AppArtifact $zip | Out-Null
 
   # 3) extract + place + wire the `redbeacon` command
   Say "[2/4] Installing ..."
@@ -394,6 +511,8 @@ try {
   Verify-Bundle $stagedCli $stagedRenderer $latest
   Prepare-Skills $tmp
   Stop-RunningRedBeacon
+  $dataBackup = Backup-BusinessDatabase
+  Verify-BusinessDatabaseUpgrade $stagedCli $dataBackup
   $backup = "$Dest.redbeacon-rollback"
   Remove-Item -Recurse -Force $backup -ErrorAction SilentlyContinue
   New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null
@@ -429,6 +548,7 @@ try {
     $sh = New-Object -ComObject WScript.Shell
     foreach($d in @([Environment]::GetFolderPath("Desktop"),
                     (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"))){
+      New-Item -ItemType Directory -Force -Path $d | Out-Null
       $lnk = $sh.CreateShortcut((Join-Path $d "$AppName.lnk"))
       $lnk.TargetPath = $guiExe
       $lnk.WorkingDirectory = $Dest

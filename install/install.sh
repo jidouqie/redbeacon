@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
-# RedBeacon installer (Mac/Linux). Run:
-#     curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash
+# RedBeacon installer (macOS Apple Silicon). Run:
+#     Fetch the current installer URL from the central RedBeacon manifest.
 #
 # Installs a SELF-CONTAINED bundle (Python + all deps + Playwright driver already
 # inside). No uv / no pip / no compiling -- just download + unzip + place.
@@ -13,16 +13,12 @@
 # ------------------------------------------------------------------------------
 set -uo pipefail
 
-OSS="${REDBEACON_OSS:-https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com}"
 CHANNEL="${REDBEACON_CHANNEL:-stable}"
 case "$CHANNEL" in test|testing|beta) CHANNEL="test" ;; *) CHANNEL="stable" ;; esac
 if [ "$CHANNEL" = "test" ]; then
   APP_NAME="RedBeacon_test"
   CMD_NAME="redbeacon-test"
   CLI_NAME="redbeacon-test-cli"
-  APP_PREFIX="app/test"
-  MANIFEST_NAME="latest-test.json"
-  SKILL_PREFIX="skill-test"
   SHARE_NAME="redbeacon-test"
   DESKTOP_ID="redbeacon-test"
   SKILL_DEST="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands-redbeacon-test}"
@@ -31,14 +27,13 @@ else
   APP_NAME="RedBeacon"
   CMD_NAME="redbeacon"
   CLI_NAME="redbeacon-cli"
-  APP_PREFIX="app"
-  MANIFEST_NAME="latest.json"
-  SKILL_PREFIX="skill"
   SHARE_NAME="redbeacon"
   DESKTOP_ID="redbeacon"
   SKILL_DEST="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands}"
   RUNTIME_ROOT="$HOME/.redbeacon"
 fi
+CENTRAL_ORIGIN="https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+MANIFEST_URL="${REDBEACON_UPDATE_URL:-$CENTRAL_ORIGIN/projects/redbeacon/$CHANNEL/latest.json}"
 BINDIR="$HOME/.local/bin"
 RUNTIME_DATA_DIR="$RUNTIME_ROOT/data"
 RUNTIME_PLAYWRIGHT_DIR="$RUNTIME_ROOT/browser/ms-playwright"
@@ -47,6 +42,21 @@ RUNTIME_CLOAK_DIR="$RUNTIME_ROOT/browser/cloakbrowser"
 say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 die()  { printf '\033[31mxx %s\033[0m\n' "$*" >&2; exit 1; }
+
+is_local_installer_test_url() {
+  [ "${REDBEACON_INSTALLER_TEST_MODE:-}" = "1" ] || return 1
+  case "$1" in http://127.0.0.1:*/*) return 0 ;; *) return 1 ;; esac
+}
+
+fetch_small_file() {
+  url="$1" output="$2"
+  if is_local_installer_test_url "$url"; then
+    curl -fsSL --connect-timeout 3 --max-time 20 "$url" -o "$output"
+  else
+    curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 3 --max-time 20 \
+      "$url" -o "$output"
+  fi
+}
 
 sha256_file() {
   f="$1"
@@ -64,6 +74,107 @@ PY
     return 0
   fi
   return 1
+}
+
+manifest_value() {
+  manifest="$1" artifact_path="$2" field="$3"
+  /usr/bin/osascript -l JavaScript - "$manifest" "$artifact_path" "$field" <<'JXA'
+function run(argv) {
+  const app = Application.currentApplication();
+  app.includeStandardAdditions = true;
+  const manifest = JSON.parse(app.read(Path(argv[0])));
+  if (argv[1] === "__manifest__") return String(manifest[argv[2]] || "");
+  const matches = (manifest.artifacts || []).filter(x => x.path === argv[1]);
+  if (matches.length !== 1) throw new Error("artifact not found: " + argv[1]);
+  const artifact = matches[0];
+  if (argv[2] === "download_urls") {
+    const values = Array.isArray(artifact.download_urls) ? artifact.download_urls.slice() : [];
+    if (artifact.url && !values.includes(artifact.url)) values.push(artifact.url);
+    return values.join("\n");
+  }
+  return String(artifact[argv[2]] || "");
+}
+JXA
+}
+
+verify_artifact_file() {
+  file="$1" expected_size="$2" expected_sha="$3"
+  [ -f "$file" ] || return 1
+  actual_size="$(wc -c < "$file" | tr -d '[:space:]')"
+  [ "$actual_size" = "$expected_size" ] || return 1
+  actual_sha="$(sha256_file "$file" 2>/dev/null || true)"
+  [ "$actual_sha" = "$expected_sha" ]
+}
+
+download_release_artifact() {
+  artifact_path="$1" output="$2"
+  expected_size="$(manifest_value "$TMP/latest.json" "$artifact_path" size)" || return 1
+  expected_sha="$(manifest_value "$TMP/latest.json" "$artifact_path" sha256)" || return 1
+  oss_url="$(manifest_value "$TMP/latest.json" "$artifact_path" url)" || return 1
+  case "$expected_size:$expected_sha" in
+    [1-9]*:[0-9a-f][0-9a-f]*) ;;
+    *) die "Invalid central release metadata for $artifact_path." ;;
+  esac
+  [ "${#expected_sha}" -eq 64 ] || die "Invalid SHA-256 for $artifact_path."
+  case "$oss_url" in
+    https://*) ;;
+    *) is_local_installer_test_url "$oss_url" \
+      || die "Invalid central release URL for $artifact_path." ;;
+  esac
+
+  node_url=""
+  urls="$(manifest_value "$TMP/latest.json" "$artifact_path" download_urls)" || return 1
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    if [ "$candidate" != "$oss_url" ] && [ -z "$node_url" ]; then node_url="$candidate"; fi
+  done <<EOF
+$urls
+EOF
+
+  rm -f "$output" "$output.headers"
+  if [ -n "$node_url" ]; then
+    node_ok=""
+    if is_local_installer_test_url "$node_url"; then
+      curl -fsS --connect-timeout 3 --speed-limit 1 --speed-time 8 \
+        --range 0- --dump-header "$output.headers" --output "$output" "$node_url" \
+        && node_ok=1
+    else
+      curl -fsS --proto '=https' --connect-timeout 3 --speed-limit 1 --speed-time 8 \
+        --range 0- --dump-header "$output.headers" --output "$output" "$node_url" \
+        && node_ok=1
+    fi
+    if [ -n "$node_ok" ]; then
+      status="$(sed -n '1s/.* \([0-9][0-9][0-9]\).*/\1/p' "$output.headers" | tail -1)"
+      content_range="$(sed -n 's/^[Cc]ontent-[Rr]ange:[[:space:]]*//p' "$output.headers" | tr -d '\r' | tail -1)"
+      if [ "$status" = "206" ] \
+         && [ "$content_range" = "bytes 0-$((expected_size - 1))/$expected_size" ] \
+         && verify_artifact_file "$output" "$expected_size" "$expected_sha"; then
+        rm -f "$output.headers"
+        return 0
+      fi
+    fi
+    rm -f "$output" "$output.headers"
+    warn "  download node unavailable; switching to central OSS"
+  fi
+
+  for attempt in 1 2 3; do
+    oss_ok=""
+    if is_local_installer_test_url "$oss_url"; then
+      curl -fSL --connect-timeout 8 --speed-limit 1 --speed-time 15 --retry 0 \
+        -C - --output "$output" "$oss_url" && oss_ok=1
+    else
+      curl -fSL --proto '=https' --proto-redir '=https' --connect-timeout 8 \
+        --speed-limit 1 --speed-time 15 --retry 0 -C - --output "$output" "$oss_url" \
+        && oss_ok=1
+    fi
+    if [ -n "$oss_ok" ] \
+       && verify_artifact_file "$output" "$expected_size" "$expected_sha"; then
+      return 0
+    fi
+    rm -f "$output"
+    [ "$attempt" = "3" ] || { warn "  central OSS attempt $attempt failed, retrying..."; sleep 2; }
+  done
+  die "Could not download $artifact_path from the download node or central OSS."
 }
 
 yaml_quote() {
@@ -173,14 +284,7 @@ prepare_skills() {
   skok=""
   for t in 1 2 3; do
     rm -rf "$skill_stage"; mkdir -p "$skill_stage"
-    if curl -fsSL --connect-timeout 10 --max-time 90 "$SKILL_URL" -o "$TMP/skill.tar.gz"; then
-      if [ -n "$SKILL_SHA" ]; then
-        skill_got="$(sha256_file "$TMP/skill.tar.gz" 2>/dev/null || true)"
-        if [ "$skill_got" != "$SKILL_SHA" ]; then
-          warn "  skill checksum mismatch, retrying..."
-          continue
-        fi
-      fi
+    if download_release_artifact "skill/redbeacon-skill.tar.gz" "$TMP/skill.tar.gz"; then
       if tar -xzf "$TMP/skill.tar.gz" -C "$skill_stage" 2>/dev/null; then
         skok=1; break
       fi
@@ -225,7 +329,6 @@ install_skills() {
     [ -f "$HOME/.codex/skills/$stem/SKILL.md" ] \
       || die "Codex skill verification failed: $stem"
   done
-  "$cli" config set skill_install_dir "$SKILL_DEST" >/dev/null 2>&1 || true
 }
 
 run_browser_setup() {
@@ -269,6 +372,7 @@ verify_bundle() {
 
   desktop_smoke="$(REDBEACON_CHANNEL="$CHANNEL" \
     REDBEACON_DATA_DIR="$RUNTIME_DATA_DIR" \
+    REDBEACON_DESKTOP_SMOKE_DATA_DIR="$verify_root/data" \
     REDBEACON_PLAYWRIGHT_DIR="$RUNTIME_PLAYWRIGHT_DIR" \
     REDBEACON_CLOAKBROWSER_DIR="$RUNTIME_CLOAK_DIR" \
     REDBEACON_DESKTOP_SMOKE=1 "$cli" 2>&1)" \
@@ -313,6 +417,54 @@ stop_running_redbeacon() {
   sleep 1
 }
 
+backup_business_database() {
+  BUSINESS_DB_SNAPSHOT=""
+  db="$RUNTIME_DATA_DIR/redbeacon.db"
+  [ -f "$db" ] || return 0
+
+  backup_root="$RUNTIME_ROOT/backups/pre-update"
+  stamp="$(date -u '+%Y%m%d-%H%M%S')-$$"
+  target="$backup_root/$stamp"
+  mkdir -p "$target" || die "Could not create the pre-update data snapshot."
+  for name in redbeacon.db redbeacon.db-wal redbeacon.db-shm; do
+    [ ! -f "$RUNTIME_DATA_DIR/$name" ] \
+      || cp -p "$RUNTIME_DATA_DIR/$name" "$target/$name" \
+      || die "Could not save the pre-update account database snapshot."
+  done
+  printf 'channel=%s\nversion=%s\n' "$CHANNEL" "$LATEST" > "$target/snapshot.txt" \
+    || die "Could not write the pre-update snapshot metadata."
+  find "$backup_root" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null \
+    | LC_ALL=C sort -r \
+    | awk 'NR > 5' \
+    | while IFS= read -r old; do rm -rf "$old" 2>/dev/null || true; done
+  say "Saved a pre-update account database snapshot: $target"
+  BUSINESS_DB_SNAPSHOT="$target"
+}
+
+verify_business_database_upgrade() {
+  cli="$1"
+  snapshot="$2"
+  [ -n "$snapshot" ] || return 0
+  verify_data="$TMP/database-upgrade-$$"
+  rm -rf "$verify_data"
+  mkdir -p "$verify_data" || die "Could not prepare the database upgrade verification."
+  for name in redbeacon.db redbeacon.db-wal redbeacon.db-shm; do
+    [ ! -f "$snapshot/$name" ] \
+      || cp -p "$snapshot/$name" "$verify_data/$name" \
+      || die "Could not prepare the database upgrade verification copy."
+  done
+  result="$(REDBEACON_CHANNEL="$CHANNEL" \
+    REDBEACON_DESKTOP_SMOKE_DATA_DIR="$verify_data" \
+    REDBEACON_PLAYWRIGHT_DIR="$RUNTIME_PLAYWRIGHT_DIR" \
+    REDBEACON_CLOAKBROWSER_DIR="$RUNTIME_CLOAK_DIR" \
+    REDBEACON_DESKTOP_SMOKE=1 "$cli" 2>&1)" \
+    || die "The new client cannot safely upgrade a copy of your account database: $result"
+  printf '%s\n' "$result" | grep -F 'RedBeacon desktop smoke ok' >/dev/null \
+    || die "The database upgrade verification did not reach the desktop-ready marker."
+  rm -rf "$verify_data"
+  say "Account database upgrade verification passed on an isolated copy."
+}
+
 refresh_macos_app_registration() {
   app="$1"
   [ "$OS" = "Darwin" ] || return 0
@@ -331,12 +483,13 @@ refresh_macos_app_registration() {
 # 1) pick the bundle for this OS/arch
 OS="$(uname -s)"; ARCH="$(uname -m)"
 case "$OS" in
-  Darwin) case "$ARCH" in arm64|aarch64) PLAT=mac-arm64 ;; *) PLAT=mac-x64 ;; esac ;;
-  Linux)  PLAT=linux-x64 ;;
+  Darwin) case "$ARCH" in
+    arm64|aarch64) PLAT=mac-arm64 ;;
+    *) die "Intel macOS builds are not currently distributed. Use an Apple Silicon Mac." ;;
+  esac ;;
+  Linux) die "Linux client distribution is temporarily paused. Current downloads support Windows x64 and macOS arm64." ;;
   *) die "Unsupported OS: $OS (use the Windows installer on Windows)" ;;
 esac
-LEGACY_BUNDLE_URL="$OSS/$APP_PREFIX/$APP_NAME-$PLAT.zip"
-BUNDLE_URL="$LEGACY_BUNDLE_URL"  # fallback for manifests published before versioned packages
 
 TMP="$(mktemp -d)"
 FINAL_PATH=""
@@ -369,24 +522,16 @@ mkdir -p "$BINDIR"
 
 # 2) Fast no-op for repeat installs: fetch only the tiny manifest, then skip the
 # large bundle when the installed client is already current.
-LATEST=""
-SHA=""
-SKILL_URL="$OSS/$SKILL_PREFIX/redbeacon-skill.tar.gz"
-SKILL_SHA=""
-SKILL_VERSION=""
-HAS_VERSIONED_APP=""
-if curl -fsSL --connect-timeout 8 --max-time 20 "$OSS/$MANIFEST_NAME" -o "$TMP/latest.json" 2>/dev/null; then
-  LATEST="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -1)"
-  SHA="$(sed -n 's/.*"'"$PLAT"'"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F]\{64\}\)".*/\1/p' "$TMP/latest.json" | head -1 | tr 'A-F' 'a-f')"
-  manifest_skill_url="$(sed -n 's/.*"skill_bundle_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -1)"
-  SKILL_SHA="$(sed -n 's/.*"skill_sha256"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F]\{64\}\)".*/\1/p' "$TMP/latest.json" | head -1 | tr 'A-F' 'a-f')"
-  SKILL_VERSION="$(sed -n 's/.*"skill_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -1)"
-  [ -z "$manifest_skill_url" ] || SKILL_URL="$manifest_skill_url"
-  grep -q '"app"[[:space:]]*:' "$TMP/latest.json" && HAS_VERSIONED_APP=1 || true
-fi
-if [ -n "$LATEST" ] && [ -n "$HAS_VERSIONED_APP" ]; then
-  BUNDLE_URL="$OSS/$APP_PREFIX/releases/$LATEST/$APP_NAME-$PLAT.zip"
-fi
+fetch_small_file "$MANIFEST_URL" "$TMP/latest.json" \
+  || die "Could not fetch the central RedBeacon release manifest."
+MANIFEST_PROJECT="$(manifest_value "$TMP/latest.json" __manifest__ project)" \
+  || die "Could not parse the central release manifest."
+MANIFEST_CHANNEL="$(manifest_value "$TMP/latest.json" __manifest__ channel)"
+LATEST="$(manifest_value "$TMP/latest.json" __manifest__ version)"
+[ "$MANIFEST_PROJECT" = "redbeacon" ] && [ "$MANIFEST_CHANNEL" = "$CHANNEL" ] \
+  || die "The release manifest does not match RedBeacon $CHANNEL."
+case "$LATEST" in [0-9]*.[0-9]*.[0-9]*) ;; *) die "The release manifest has no valid version." ;; esac
+SKILL_VERSION="$LATEST"
 if [ "$OS" = "Darwin" ]; then
   LOCAL_CLI="$HOME/Applications/$APP_NAME.app/Contents/MacOS/$CLI_NAME"
   LOCAL_RENDERER="$HOME/Applications/$APP_NAME.app/Contents/MacOS/RedBeaconRenderer"
@@ -413,33 +558,15 @@ if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "
     COMMITTED=1
     SKILL_TRANSACTION_ACTIVE=""
     rm -rf "$SKILL_BACKUP_ROOT" 2>/dev/null || true
-    say "To reinstall anyway: curl -fsSL $OSS/install.sh | REDBEACON_CHANNEL=$CHANNEL REDBEACON_FORCE_INSTALL=1 bash"
+    say "To reinstall anyway, set REDBEACON_FORCE_INSTALL=1 and run the current central installer again."
     exit 0
   fi
   warn "The installed copy reports the latest version but failed health verification; downloading a clean bundle."
 fi
 
-# 3) download the bundle (OSS is fast in China; retry a few times)
+# 3) download the bundle through one node attempt, then immutable OSS fallback
 say "[1/4] Downloading $APP_NAME ($PLAT) ..."
-ok=""
-for t in 1 2 3; do
-  if curl -fSL --connect-timeout 15 --max-time 600 -o "$TMP/rb.zip" "$BUNDLE_URL"; then ok=1; break; fi
-  warn "  download attempt $t failed, retrying..."; sleep 2
-done
-if [ -z "$ok" ] && [ "$BUNDLE_URL" != "$LEGACY_BUNDLE_URL" ]; then
-  warn "  versioned package unavailable; trying the compatible package URL..."
-  for t in 1 2 3; do
-    if curl -fSL --connect-timeout 15 --max-time 600 -o "$TMP/rb.zip" "$LEGACY_BUNDLE_URL"; then ok=1; BUNDLE_URL="$LEGACY_BUNDLE_URL"; break; fi
-    warn "  compatible download attempt $t failed, retrying..."; sleep 2
-  done
-fi
-[ -n "$ok" ] || die "Could not download $BUNDLE_URL -- check your network and re-run."
-if [ -n "$SHA" ]; then
-  GOT="$(sha256_file "$TMP/rb.zip" 2>/dev/null || true)"
-  [ "$GOT" = "$SHA" ] || die "Package checksum mismatch. Please re-run later."
-else
-  warn "  package checksum missing in $MANIFEST_NAME; installing without checksum verification."
-fi
+download_release_artifact "packages/$APP_NAME-$PLAT.zip" "$TMP/rb.zip"
 
 # 4) extract + place + wire the `redbeacon` command
 say "[2/4] Installing ..."
@@ -467,6 +594,8 @@ run_browser_setup "$STAGED_CLI"
 verify_bundle "$STAGED_CLI" "$STAGED_RENDERER" "$LATEST"
 prepare_skills
 stop_running_redbeacon
+backup_business_database
+verify_business_database_upgrade "$STAGED_CLI" "$BUSINESS_DB_SNAPSHOT"
 
 if [ "$OS" = "Darwin" ]; then
   APP="$HOME/Applications/$APP_NAME.app"

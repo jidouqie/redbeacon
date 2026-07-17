@@ -32,7 +32,7 @@
 - 文件名从 `redbeacon*.md` 变成 `redbeacon-test*.md`
 - 正文里的 `redbeacon` 命令变成 `redbeacon-test`
 - 本机路径从 `~/.redbeacon` / `~/.bytestaff` 变成 `~/.redbeacon_test` / `~/.bytestaff_test`
-- 发布到 OSS `skill-test/`，manifest 是 `latest-test.json`
+- 作为测试版应用 release unit 的 `skill/redbeacon-skill.tar.gz` 交给中央发布 Skill，canonical manifest 是 `projects/redbeacon/test/latest.json`。
 
 测试版 skill 必须独立于正式版，避免测试命令误驱动正式客户端或正式数据。
 
@@ -40,4 +40,4 @@
 
 - 用户机更新：`redbeacon update` 或 `redbeacon-test update`，按当前通道全量刷新客户端、CLI 兼容通道和 skill。
 - 开发态刷新 Codex skill：改 `.claude/commands/` 后运行 `python tools/sync-codex-skills.py`；它会同时刷新用户目录 `~/.codex/skills/` 和仓库工作台 `.agents/skills/source-command-redbeacon*/`，后者只是派生副本。
-- 发布态刷新 OSS skill：运行 `tools/release.sh` 或 `tools/release.sh --channel test`。
+- 发布态刷新 skill：先用 `tools/build_desktop_local.sh` 生成干净制品树，再由全局 `bytestaff-digital-employee-publish` Skill 发布整个 release unit；项目内不存在单独 OSS skill 上传入口。

@@ -3,7 +3,7 @@ description: 生成内容 — 你（宿主 AI）帮用户挑好选题 → CLI �
 argument-hint: 无参数=给当前账号写一篇；可指定选题/内容类型/配图方式（如「用『新手避坑』这个题写一篇」「写一篇纯卡片的」）
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果提示命令不存在，必须按系统调用官方 OSS 一键安装器后再继续：Windows PowerShell 用 `irm https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.ps1 | iex`；macOS/Linux 用 `curl -fsSL https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/install.sh | bash`。不得猜测、拼接或直接下载任何 zip 包名。
+> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **数据都在本机**：生成的稿自动入**本机审核表**，在 `redbeacon ui app` 操作台或对话里审。无需飞书。（飞书云端源现阶段搁置，不用管。）
 

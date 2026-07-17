@@ -97,9 +97,9 @@ def _build_bundle(oss: Path, version: str, base_url: str, failure: str = "") -> 
         "printf 'png' > \"$out/card_1.png\"\n",
     )
 
-    release_dir = oss / "app" / "releases" / version
-    release_dir.mkdir(parents=True, exist_ok=True)
-    bundle = release_dir / f"RedBeacon-{plat}.zip"
+    package_dir = oss / "packages"
+    package_dir.mkdir(parents=True, exist_ok=True)
+    bundle = package_dir / f"RedBeacon-{plat}.zip"
     subprocess.run(
         ["zip", "-qry", str(bundle), archive_root], cwd=build, check=True
     )
@@ -118,23 +118,36 @@ def _build_bundle(oss: Path, version: str, base_url: str, failure: str = "") -> 
     )
     skill_dir = oss / "skill"
     skill_dir.mkdir(parents=True, exist_ok=True)
-    versioned_skill_dir = skill_dir / "releases" / version
-    versioned_skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_bundle = versioned_skill_dir / "redbeacon-skill.tar.gz"
+    skill_bundle = skill_dir / "redbeacon-skill.tar.gz"
     with tarfile.open(skill_bundle, "w:gz") as tar:
         tar.add(skill_root / ".claude", arcname=".claude")
         tar.add(skill_root / "redbeacon-skill-manifest.json", arcname="redbeacon-skill-manifest.json")
-    shutil.copy2(skill_bundle, skill_dir / "redbeacon-skill.tar.gz")
     skill_sha = hashlib.sha256(skill_bundle.read_bytes()).hexdigest()
 
     (oss / "latest.json").write_text(
         json.dumps({
+            "schema": 1,
+            "project": "redbeacon",
+            "channel": "stable",
             "version": version,
-            "app": {plat: {"sha256": sha}},
-            "app_sha256": {plat: sha},
-            "skill_version": version,
-            "skill_bundle_url": f"{base_url}/skill/releases/{version}/redbeacon-skill.tar.gz",
-            "skill_sha256": skill_sha,
+            "created_at": "2026-07-17T00:00:00Z",
+            "commit": "installer-smoke",
+            "artifacts": [
+                {
+                    "path": f"packages/RedBeacon-{plat}.zip",
+                    "size": bundle.stat().st_size,
+                    "sha256": sha,
+                    "url": f"{base_url}/packages/RedBeacon-{plat}.zip",
+                    "download_urls": [f"{base_url}/packages/RedBeacon-{plat}.zip"],
+                },
+                {
+                    "path": "skill/redbeacon-skill.tar.gz",
+                    "size": skill_bundle.stat().st_size,
+                    "sha256": skill_sha,
+                    "url": f"{base_url}/skill/redbeacon-skill.tar.gz",
+                    "download_urls": [f"{base_url}/skill/redbeacon-skill.tar.gz"],
+                },
+            ],
         }, separators=(",", ":")),
         encoding="utf-8",
     )
@@ -154,7 +167,8 @@ def _run_installer(home: Path, base_url: str, *, expect_ok: bool) -> subprocess.
     env = os.environ.copy()
     env.update({
         "HOME": str(home),
-        "REDBEACON_OSS": base_url,
+        "REDBEACON_UPDATE_URL": f"{base_url}/latest.json",
+        "REDBEACON_INSTALLER_TEST_MODE": "1",
         "REDBEACON_FORCE_INSTALL": "1",
         "REDBEACON_NO_PAUSE": "1",
         "REDBEACON_SKIP_OS_REFRESH": "1",
@@ -182,6 +196,61 @@ def _run_installer(home: Path, base_url: str, *, expect_ok: bool) -> subprocess.
     return result
 
 
+def _run_test_wrappers(oss: Path, base_url: str, home: Path) -> None:
+    release = oss / "projects/redbeacon/test/releases/9.9.0/installers"
+    release.mkdir(parents=True, exist_ok=True)
+    marker = home / "test-wrapper-marker"
+    for name, value in (("install.sh", "install"), ("uninstall.sh", "uninstall")):
+        _write_executable(
+            release / name,
+            "#!/bin/sh\n"
+            '[ "${REDBEACON_CHANNEL:-}" = "test" ] || exit 71\n'
+            f"printf '{value}' > \"$REDBEACON_WRAPPER_MARKER\"\n",
+        )
+    artifacts = []
+    for name in ("install.sh", "uninstall.sh"):
+        path = release / name
+        url = f"{base_url}/projects/redbeacon/test/releases/9.9.0/installers/{name}"
+        artifacts.append({
+            "path": f"installers/{name}",
+            "size": path.stat().st_size,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "url": url,
+            "download_urls": [url],
+        })
+    manifest = oss / "projects/redbeacon/test/latest.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(
+        json.dumps({
+            "schema": 1,
+            "project": "redbeacon",
+            "channel": "test",
+            "version": "9.9.0",
+            "artifacts": artifacts,
+        }, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env.update({
+        "HOME": str(home),
+        "REDBEACON_UPDATE_URL": f"{base_url}/projects/redbeacon/test/latest.json",
+        "REDBEACON_INSTALLER_TEST_MODE": "1",
+        "REDBEACON_WRAPPER_MARKER": str(marker),
+    })
+    for wrapper, expected in (("install-test.sh", "install"), ("uninstall-test.sh", "uninstall")):
+        marker.unlink(missing_ok=True)
+        result = subprocess.run(
+            ["bash", str(ROOT / "install" / wrapper)],
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        if result.returncode != 0:
+            raise AssertionError(result.stdout)
+        assert marker.read_text(encoding="utf-8") == expected
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="redbeacon-install-transaction-") as td:
         root = Path(td)
@@ -195,10 +264,14 @@ def main() -> None:
         thread.start()
         base_url = f"http://127.0.0.1:{server.server_port}"
         try:
+            _run_test_wrappers(oss, base_url, home)
             _build_bundle(oss, "9.9.1", base_url)
             _run_installer(home, base_url, expect_ok=True)
             cli = _installed_cli(home)
             assert _version(cli) == "9.9.1"
+            business_db = home / ".redbeacon/data/redbeacon.db"
+            business_db.parent.mkdir(parents=True, exist_ok=True)
+            business_db.write_text("account-data-must-survive-update", encoding="utf-8")
             codex_skill = home / ".codex/skills/redbeacon/SKILL.md"
             claude_skill = home / "skills/redbeacon.md"
             assert codex_skill.is_file()
@@ -214,22 +287,29 @@ def main() -> None:
             _build_bundle(oss, "9.9.2", base_url, failure="stage")
             _run_installer(home, base_url, expect_ok=False)
             assert _version(cli) == "9.9.1", "pre-replacement dependency failure replaced old app"
+            assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert "9.9.1" in codex_skill.read_text(encoding="utf-8")
 
             _build_bundle(oss, "9.9.3", base_url, failure="placed")
             _run_installer(home, base_url, expect_ok=False)
             assert _version(cli) == "9.9.1", "post-placement verification failure did not roll back"
+            assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert "9.9.1" in claude_skill.read_text(encoding="utf-8")
 
             _build_bundle(oss, "9.9.35", base_url, failure="post_skills")
             _run_installer(home, base_url, expect_ok=False)
             assert _version(cli) == "9.9.1", "final runtime failure did not restore old app"
+            assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert "9.9.1" in codex_skill.read_text(encoding="utf-8"), "Codex skill did not roll back"
             assert "9.9.1" in claude_skill.read_text(encoding="utf-8"), "Claude skill did not roll back"
 
             _build_bundle(oss, "9.9.4", base_url)
             _run_installer(home, base_url, expect_ok=True)
             assert _version(cli) == "9.9.4"
+            assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
+            snapshots = sorted((home / ".redbeacon/backups/pre-update").glob("*/redbeacon.db"))
+            assert snapshots, "update did not create a pre-update account database snapshot"
+            assert snapshots[-1].read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert not list(home.rglob("*.redbeacon-rollback"))
         finally:
             server.shutdown()

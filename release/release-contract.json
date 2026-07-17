@@ -1,0 +1,26 @@
+{
+  "schema": "redbeacon-release-provenance/v1",
+  "project": "redbeacon",
+  "version": "0.1.81",
+  "release_unit_id": "app",
+  "artifact_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon",
+  "artifact_source_commit_authority": "git HEAD containing this contract",
+  "cli_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon/cli",
+  "cli_commit": "af41200b67b96aa3f581e607aa882bf8f7167954",
+  "build_entry": "tools/build_desktop_local.sh",
+  "artifact_source_paths": {
+    "test": "dist/local-build/test/release-artifacts",
+    "stable": "dist/local-build/stable/release-artifacts"
+  },
+  "platforms": [
+    "mac-arm64",
+    "win-x64"
+  ],
+  "channels": [
+    "test",
+    "stable"
+  ],
+  "publisher": "global bytestaff-digital-employee-publish Skill",
+  "project_owns_publication_credentials": false,
+  "secrets_recorded": false
+}

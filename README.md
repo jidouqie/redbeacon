@@ -1,108 +1,70 @@
 # RedBeacon · 小红书运营数字员工
 
-> 给你的小红书**招一个数字员工**——你定方向，选题、文案、配图、审核、发布它全包。
+RedBeacon 是一个本机客户端 + AI 助手能力组成的小红书运营工具。用户在客户端里看账号、选题、文案、图片和审核状态；有 AI 助手时，可以让它帮忙做定位、找选题、生成内容和处理重复操作。
 
-RedBeacon 是一个**小红书运营数字员工**。你像带下属一样、用大白话告诉它账号做什么，它就替你选题、写文案、做封面卡片、排版、推飞书审核、扫码发布（还能定时）——你只当老板定方向，重复的运营活儿全交给它。**不用发工资、不用培训、随叫随到**，数据还全留在你自己电脑上、不回传。
+产品页：<https://bytestaff.jiomig.com/market/redbeacon>
 
-🔗 官网：https://redbeacon.jiomig.com
+## 当前能力
 
----
+- **账号与登录**：本机管理多个小红书账号，扫码登录，按账号保存资料和登录态。
+- **定位与选题**：围绕账号定位生成选题，也可以在操作台里手动维护。
+- **文案与配图**：通过 bytestaff 平台生成文案 / 图片，文字卡渲染在本机完成。
+- **本机审核**：生成后的内容进入本机审核表，在客户端或 AI 对话里修改、通过、驳回。
+- **发布**：发布前检查登录态，按通过的稿件逐条前台发布。
+- **全量更新**：客户端、CLI 兼容通道和 skill 使用同一套更新能力，不只更新其中一个片段。
 
-## 能做什么
-
-从一个定位，到一条能发的小红书笔记，全自动。
-
-- 🎯 **AI 自动选题**：多模态抽取你的风格，沉淀赛道、受众、痛点、内容支柱，自动养一个贴合定位的选题库，快见底时主动补题。
-- ✍️ **AI 写小红书文案**：按定位写小红书风格正文——发布用纯文字+emoji 排版，卡片用 markdown 渲染，两套文本自动分流、互不打架。
-- 🎨 **AI 出封面 / 卡片**：AI 封面、文字卡片（16 套主题）或两者都要。配色、字号、emoji 用量都能在可视化面板里调，不碰一行配置。
-- 📋 **飞书审核闭环**：生成即入飞书多维表格，一键授权给你本人。审稿、改稿、标「通过」全在飞书，发布失败还会私信提醒你怎么重试。
-- 📱 **扫码登录 · 一键 / 定时发布**：弹出小红书登录页扫码绑定。发布前自动实测登录态，掉线即提醒。支持一键发布与小红书原生定时发布。
-- 🧩 **多账号矩阵管理**：一台机器统管多个小红书账号，批量选题、批量生成、批量发布，做账号矩阵不用来回切。
-
----
-
-## 为什么放心
-
-像带一个靠谱下属，不像用一个复杂工具。RedBeacon 这个数字员工只听人话、不黑箱、不偷跑。
-
-- **人话优先**：你只说"我想做职场干货、受众是刚毕业的年轻人"。提示词工程、字段、模型代号全在底层，对你完全无感——界面上只出现人话。
-- **不常驻、不黑箱**：没有后台守护进程、没有定时爬虫偷偷跑。每一步都是你触发的一条命令，前台跑完即走。
-- **审核在飞书**：生成的内容自动推到你的飞书多维表格，改标题、改正文、标「通过」都在飞书做。标了通过的才会被发出去。
-- **本地优先**：账号 cookie、内容、配置全部保存在你自己的电脑上，不向任何服务器回传数据。
-
----
-
-## 怎么用
-
-装好后，在你的 AI 助手里输入 `/redbeacon` 进入，它会判断你到哪一步、把你带到该用的能力：
-
-| 你想干的 | 对 AI 助手说 |
-|---|---|
-| 配置（AI / 飞书 / 代理） | "配置 RedBeacon" |
-| 加账号 | "加一个账号" |
-| 给账号做定位、出选题 | "给这个号定位" |
-| 调文案风格 / 配图方式 | "改一下文案风格" |
-| 生成内容 | "生成几篇笔记" |
-| 审核改稿 | 在**飞书表格**里改、标「通过」 |
-| 发布已通过内容 | "把通过的发出去" |
-| 看整体运营情况 | "各个号现在怎么样了" |
-| 产出不对劲找原因 | "最近文案有点跑题" |
-
-完整链路：**配置 → 建账号 → 定位 → 登录 → 绑飞书 → 生成 →（飞书里审核）→ 发布**。五步跑通一条小红书内容流水线，全程手动触发、无后台常驻服务。
-
----
+业务数据默认保存在本机，不需要配置飞书。飞书云端源属于历史方案，现阶段不作为主流程。
 
 ## 安装
 
-不用碰命令行，让 AI 助手帮你装。RedBeacon 是给 AI 助手用的工具，所以也由它来装。
+正式版先读取中央版本清单，再执行清单中经过校验的当前安装器。macOS：
 
-打开你的 AI 助手聊天窗口——**Hermes、龙虾，或 Claude Code**——把下面这段话发给它，它会自己装好，你全程不用打开终端：
-
-> 帮我安装 RedBeacon（一个小红书 AI 运营工具）。请执行 `curl -fsSL https://redbeacon.jiomig.com/install.sh | bash`，装好后告诉我怎么开始用。
-
-这一条就装齐了 **4 样**：运行时（自带 Python，无需预装）、CLI 引擎、浏览器内核，以及 **开源 skill（小红书技能）**——并自动把 skill 挂进你的 AI 助手。零环境的电脑也能装。
-
-装完，skill 已经挂好——在同一个聊天窗口对它说一句 `/redbeacon`（这就是 skill 的入口）即可开始。
-
-> **升级**：以后对 AI 助手说"升级 RedBeacon"，CLI 和 skill 会一起更新到最新。
-
----
-
-## 这个仓库里有什么
-
-本仓库是 RedBeacon 的 **开源部分**——驱动整个产品的 skill 与安装脚本：
-
-```
-.claude/commands/   # skill —— 驱动整个产品的命令（纯指令 / 流程）
-install/install.sh  # 一键安装脚本
-tools/gen_latest.py # 版本清单生成器
-latest.json         # 版本清单（升级检查用）
+```bash
+m=$(mktemp); curl -fsSL https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json -o "$m"; u=$(/usr/bin/osascript -l JavaScript -e 'function run(a){const x=Application.currentApplication();x.includeStandardAdditions=true;const j=JSON.parse(x.read(Path(a[0])));return j.artifacts.filter(v=>v.path==="installers/install.sh")[0].url}' "$m"); curl -fsSL "$u" | bash; rm -f "$m"
 ```
 
-完整的 CLI 引擎以打包好的形式分发，安装脚本会自动获取，无需手动处理。
+Windows PowerShell：
 
----
+```powershell
+$m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json';$u=($m.artifacts|? path -eq 'installers/install.ps1').url;iex (iwr $u -UseBasicParsing).Content
+```
 
-## 联系 / 咨询
+装好后可以直接打开桌面应用，也可以在 AI 助手里使用已安装的 RedBeacon skill。
 
-批量代运营、定制功能、团队部署，或任何问题——扫码加企业微信，直接问。
+## 测试版
 
-<img src="assets/qr-wecom.jpg" alt="RedBeacon 企业微信" width="200" />
+每次正式发布前先走独立测试版通道。测试版和正式版名字、命令、数据、token、skill、manifest 都隔离，可以同时安装。
 
----
+测试版安装与验证方法见 [RedBeacon-测试版验证指南.md](RedBeacon-测试版验证指南.md)。
 
-## 免责声明
+## 更新与卸载
 
-RedBeacon 是效率工具，仅辅助你更高效地运营**自己的**小红书账号。
+- 客户端设置页点击更新、命令行 `redbeacon update`、AI 助手触发升级，都是全量更新。
+- 重复执行安装脚本会先检查本机版本；已是最新时跳过大包下载。
+- 卸载默认保留业务数据；加 `REDBEACON_PURGE=1` 才清账号数据和平台登录令牌。
 
-- AI 生成内容与任何自动化操作可能存在合规风险；因平台规则导致的限流、封号等情况**概率极低，但并非不存在**，需由使用者自行判断并承担。
-- 使用本工具产生的一切后果（账号安全、内容合规、第三方服务等）由**使用者自行负责**，工具提供方不承担任何直接或间接责任。
-- 请遵守小红书平台规则及所在地区相关法律法规，合理使用。
+正式版卸载：
 
-继续安装或使用，即视为已知悉并接受以上声明。
+```bash
+m=$(mktemp); curl -fsSL https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json -o "$m"; u=$(/usr/bin/osascript -l JavaScript -e 'function run(a){const x=Application.currentApplication();x.includeStandardAdditions=true;const j=JSON.parse(x.read(Path(a[0])));return j.artifacts.filter(v=>v.path==="installers/uninstall.sh")[0].url}' "$m"); curl -fsSL "$u" | bash; rm -f "$m"
+```
 
----
+Windows PowerShell：
 
-## License
+```powershell
+$m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json';$u=($m.artifacts|? path -eq 'installers/uninstall.ps1').url;iex (iwr $u -UseBasicParsing).Content
+```
 
-skill 与安装脚本以本仓库 [LICENSE](LICENSE) 开源。
+## 仓库结构
+
+```text
+.claude/commands/       stable skill 真源目录（历史命名，Codex 也从这里派生）
+install/                作为制品交给中央发布 Skill 的安装与卸载脚本
+tools/                  本机构建、测试、干净制品准备和 skill 通道生成
+docs/                   统一下载节点接入契约
+release/                构建与发布 provenance（不含凭据）
+cli/                    闭源客户端与 CLI 子仓库
+项目文档/               历史深度资料，当前口径以 AGENTS.md 为准
+```
+
+当前维护入口是 [AGENTS.md](AGENTS.md)。项目不再管理 OSS 或公开发布；公开发布只使用全局 `bytestaff-digital-employee-publish` Skill。发布前测试入口是 [RedBeacon-测试版验证指南.md](RedBeacon-测试版验证指南.md)。
