@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from cloakbrowser.download import get_download_url
+from cloakbrowser.config import DOWNLOAD_BASE_URL, PLATFORM_CHROMIUM_VERSIONS
 
 from redbeacon import __version__
 from redbeacon.services.browser_downloads import DownloadSource, download_resumable
@@ -22,6 +22,10 @@ from redbeacon.services.browser_engine import _playwright_archive_url
 
 
 ROOT = Path(__file__).resolve().parent.parent
+CLOAKBROWSER_ARCHIVE_SUFFIXES = {
+    "darwin-arm64": ".tar.gz",
+    "windows-x64": ".zip",
+}
 
 
 @contextmanager
@@ -115,6 +119,34 @@ def _cached_download(
     _copy(archive, output_root / relative)
 
 
+def _cloakbrowser_archive_url(platform_tag: str) -> str:
+    """Return the locked upstream archive for one explicit target platform.
+
+    CloakBrowser can temporarily ship different Chromium versions per platform.
+    Its public helper chooses the host platform for both version and extension,
+    so a macOS release process must not use that helper to derive Windows URLs.
+    """
+    try:
+        version = PLATFORM_CHROMIUM_VERSIONS[platform_tag]
+        suffix = CLOAKBROWSER_ARCHIVE_SUFFIXES[platform_tag]
+    except KeyError as exc:
+        raise RuntimeError(f"unsupported CloakBrowser release target: {platform_tag}") from exc
+
+    base = DOWNLOAD_BASE_URL.rstrip("/")
+    parsed = urlsplit(base)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise RuntimeError("CloakBrowser release origin must be a plain HTTPS URL")
+    filename = f"cloakbrowser-{platform_tag}{suffix}"
+    return f"{base}/chromium-v{version}/{filename}"
+
+
 def _runtime_dependencies(output: Path, cache_root: Path) -> None:
     for platform_override in (None, "win64"):
         with _environment("PLAYWRIGHT_HOST_PLATFORM_OVERRIDE", platform_override):
@@ -141,13 +173,8 @@ def _runtime_dependencies(output: Path, cache_root: Path) -> None:
             output_root=output,
         )
 
-    mac_url = get_download_url()
-    base = mac_url.rsplit("/", 1)[0]
-    urls = (
-        mac_url,
-        f"{base}/cloakbrowser-windows-x64.zip",
-    )
-    for url in urls:
+    for platform_tag in CLOAKBROWSER_ARCHIVE_SUFFIXES:
+        url = _cloakbrowser_archive_url(platform_tag)
         path = urlsplit(url).path.lstrip("/")
         relative = f"dependencies/cloakbrowser/{path}"
         _cached_download(

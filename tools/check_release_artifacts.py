@@ -9,6 +9,14 @@ import stat
 import tarfile
 from pathlib import Path
 
+from cloakbrowser.config import PLATFORM_CHROMIUM_VERSIONS
+
+
+CLOAKBROWSER_ARCHIVE_SUFFIXES = {
+    "darwin-arm64": ".tar.gz",
+    "windows-x64": ".zip",
+}
+
 
 def fail(message: str) -> None:
     raise SystemExit(f"artifact contract failed: {message}")
@@ -61,8 +69,22 @@ def main() -> None:
         fail("release must contain exactly two Playwright and two CloakBrowser platform archives")
     if not any("win64" in path for path in playwright) or not any("mac-arm64" in path for path in playwright):
         fail("Playwright dependencies do not cover Windows x64 and macOS arm64")
-    if not any("windows-x64" in path for path in cloak) or not any("darwin-arm64" in path for path in cloak):
-        fail("CloakBrowser dependencies do not cover Windows x64 and macOS arm64")
+    try:
+        expected_cloak = {
+            (
+                "dependencies/cloakbrowser/"
+                f"chromium-v{PLATFORM_CHROMIUM_VERSIONS[tag]}/"
+                f"cloakbrowser-{tag}{suffix}"
+            )
+            for tag, suffix in CLOAKBROWSER_ARCHIVE_SUFFIXES.items()
+        }
+    except KeyError as exc:
+        fail(f"locked CloakBrowser package has no version for {exc.args[0]}")
+    if set(cloak) != expected_cloak:
+        fail(
+            "CloakBrowser dependencies do not exactly match the locked per-platform versions: "
+            + ", ".join(sorted(expected_cloak))
+        )
 
     evidence = json.loads((root / "metadata" / "build-evidence.json").read_text(encoding="utf-8"))
     if evidence.get("channel") != args.channel or evidence.get("version") != args.version:

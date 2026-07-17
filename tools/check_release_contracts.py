@@ -2,7 +2,9 @@
 """Fail closed when RedBeacon drifts from the central publication contract."""
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -63,12 +65,29 @@ def main() -> None:
         if any(marker in text for marker in ("<project>", "example-project", "TODO", "TBD")):
             fail(f"canonical contract still contains a placeholder: {path}")
 
+    release_contract = json.loads((ROOT / "release" / "release-contract.json").read_text(encoding="utf-8"))
+    cli_version_text = (ROOT / "cli" / "src" / "redbeacon" / "__init__.py").read_text(encoding="utf-8")
+    version_match = re.search(r'__version__\s*=\s*"([^"]+)"', cli_version_text)
+    if version_match is None or release_contract.get("version") != version_match.group(1):
+        fail("release contract version does not match the CLI source version")
+    cli_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT / "cli",
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if release_contract.get("cli_commit") != cli_head:
+        fail("release contract CLI commit does not match the checked-out CLI HEAD")
+
     build_script = (ROOT / "tools" / "build_desktop_local.sh").read_text(encoding="utf-8")
     forbidden_build_terms = ("ossutil", "OSS_PROFILE", "OSS_BUCKET", "upload-batch")
     if any(term in build_script for term in forbidden_build_terms):
         fail("the project build script still owns publication or credentials")
     if "prepare_release_artifacts.py" not in build_script:
         fail("the build does not create the clean central publication source tree")
+    if "check_release_dependency_contract.py" not in build_script:
+        fail("the build does not validate cross-platform runtime dependency coordinates")
 
     build_meta = (ROOT / "cli" / "src" / "redbeacon" / "build_meta.py").read_text(encoding="utf-8")
     downloader = (ROOT / "cli" / "src" / "redbeacon" / "services" / "release_download.py").read_text(encoding="utf-8")
@@ -105,6 +124,8 @@ def main() -> None:
 
     if os.environ.get("OSS_ACCESS_KEY_ID") or os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID"):
         fail("project build environment must not inherit OSS credentials")
+    if os.environ.get("CLOAKBROWSER_DOWNLOAD_URL"):
+        fail("project build environment must not override the locked CloakBrowser release origin")
 
     print("release contracts: central Skill boundary verified")
 

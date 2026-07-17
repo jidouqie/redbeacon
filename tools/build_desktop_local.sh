@@ -68,6 +68,11 @@ fi
 
 cd "$ROOT"
 python3 tools/check_release_contracts.py
+if [ ! -x "$CLI_ROOT/.venv/bin/python" ]; then
+  echo "The locked CLI virtual environment is missing: $CLI_ROOT/.venv" >&2
+  exit 1
+fi
+"$CLI_ROOT/.venv/bin/python" tools/check_release_dependency_contract.py
 
 SSH_OPTIONS=(
   -o BatchMode=yes
@@ -174,7 +179,8 @@ pathlib.Path(path).write_text(
 )
 PY
 chmod 0644 "$ARTIFACT_DIR/metadata/build-evidence.json"
-python3 tools/check_release_artifacts.py "$ARTIFACT_DIR" --channel "$CHANNEL" --version "$VERSION"
+"$MAC_SOURCE/.venv/bin/python" tools/check_release_artifacts.py \
+  "$ARTIFACT_DIR" --channel "$CHANNEL" --version "$VERSION"
 
 echo "==> Dual-platform build and artifact preparation complete"
 echo "    channel=$CHANNEL version=$VERSION cli_commit=$CLI_COMMIT"
