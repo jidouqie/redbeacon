@@ -6,6 +6,16 @@ function Assert-TestWrapperUrl([string]$Url, [string]$Label){
   $safeLoopback = ($env:REDBEACON_INSTALLER_TEST_MODE -eq "1" -and $uri.Scheme -eq "http" -and $uri.Host -eq "127.0.0.1")
   if(-not $safeHttps -and -not $safeLoopback){ throw "$Label URL is unsafe." }
 }
+function Read-Utf8Script([string]$Url){
+  $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 60
+  $body = $response.Content
+  if($body -is [byte[]]){ $text = [System.Text.Encoding]::UTF8.GetString($body) }
+  else { $text = [string]$body }
+  $text = $text.TrimStart([char]0xFEFF)
+  if([string]::IsNullOrWhiteSpace($text)){ throw "Installer script is empty." }
+  if($text.Contains([char]0xFFFD)){ throw "Installer script is not valid UTF-8." }
+  return $text
+}
 try {
   $env:REDBEACON_CHANNEL = "test"
   $origin = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
@@ -16,7 +26,7 @@ try {
   if($entry.Count -ne 1){ throw "RedBeacon test installer is missing from the central manifest." }
   $installerUrl = [string]$entry[0].url
   Assert-TestWrapperUrl $installerUrl "Installer"
-  Invoke-Expression (Invoke-WebRequest -Uri $installerUrl -UseBasicParsing -TimeoutSec 60).Content
+  Invoke-Expression (Read-Utf8Script $installerUrl)
 }
 finally {
   if($null -eq $oldChannel){ Remove-Item Env:\REDBEACON_CHANNEL -ErrorAction SilentlyContinue }
