@@ -151,6 +151,17 @@ namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
   New-Item -ItemType Directory -Force -Path $commands | Out-Null
   $skillText = "---`ndescription: smoke $Channel`n---`n# smoke`n$skillCommand checkin"
   [System.IO.File]::WriteAllText((Join-Path $commands $skillFile), $skillText, [System.Text.UTF8Encoding]::new($false))
+  $skillMetadata = @{
+    schema = 1
+    channel = $Channel
+    version = "9.9.9"
+    files = @($skillFile)
+  } | ConvertTo-Json -Compress
+  [System.IO.File]::WriteAllText(
+    (Join-Path $skillRoot "redbeacon-skill-manifest.json"),
+    $skillMetadata,
+    [System.Text.UTF8Encoding]::new($false)
+  )
   $skillDir = Join-Path $releaseRoot "skill"
   New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
   $skillBundle = Join-Path $skillDir "redbeacon-skill.tar.gz"
