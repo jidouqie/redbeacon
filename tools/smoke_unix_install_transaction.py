@@ -65,6 +65,7 @@ def _build_bundle(oss: Path, version: str, base_url: str, failure: str = "") -> 
         '[ "$REDBEACON_DATA_DIR" = "$EXPECTED_DATA" ] || exit 34; '
         '[ "$PLAYWRIGHT_BROWSERS_PATH" = "$EXPECTED_PW" ] || exit 35; '
         '[ "$CLOAKBROWSER_CACHE_DIR" = "$EXPECTED_CB" ] || exit 36; '
+        '[ -f "$REDBEACON_INSTALL_MANIFEST_FILE" ] || exit 37; '
         "echo '{\"ok\":true}' ;;\n"
         "  config) : ;;\n"
         f"  *) if [ \"${{REDBEACON_DESKTOP_SMOKE:-}}\" = 1 ]; then {desktop_logic or ':'}; "

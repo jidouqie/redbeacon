@@ -97,6 +97,7 @@ namespace RedBeaconInstallerSmoke$typeSuffix {
         if (Environment.GetEnvironmentVariable("REDBEACON_DATA_DIR") != Path.Combine(root, "data")) return 34;
         if (Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH") != Path.Combine(root, "browser", "ms-playwright")) return 35;
         if (Environment.GetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR") != Path.Combine(root, "browser", "cloakbrowser")) return 36;
+        if (!File.Exists(Environment.GetEnvironmentVariable("REDBEACON_INSTALL_MANIFEST_FILE"))) return 37;
         Console.WriteLine("{\"ok\":true}"); return 0;
       }
       if (Environment.GetEnvironmentVariable("REDBEACON_DESKTOP_SMOKE") == "1") {

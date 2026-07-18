@@ -165,13 +165,16 @@ function Run-BrowserSetup($CliPath){
   }
   Say "[3/4] Preparing browser engine (this can take a while on first install) ..."
   $oldOut = $env:REDBEACON_OUT
+  $oldManifestFile = $env:REDBEACON_INSTALL_MANIFEST_FILE
   $runtimeEnv = Push-RuntimeEnvironment
   $env:REDBEACON_OUT = "compact"
+  if($script:ReleaseManifestFile){ $env:REDBEACON_INSTALL_MANIFEST_FILE = $script:ReleaseManifestFile }
   try {
     & $CliPath setup
     if($LASTEXITCODE -ne 0){ Die "Browser engine setup failed. Re-run the installer after checking network/proxy." }
   } finally {
     if($null -eq $oldOut){ Remove-Item Env:\REDBEACON_OUT -ErrorAction SilentlyContinue } else { $env:REDBEACON_OUT = $oldOut }
+    if($null -eq $oldManifestFile){ Remove-Item Env:\REDBEACON_INSTALL_MANIFEST_FILE -ErrorAction SilentlyContinue } else { $env:REDBEACON_INSTALL_MANIFEST_FILE = $oldManifestFile }
     Pop-RuntimeEnvironment $runtimeEnv
   }
   Say "Browser engine is ready."
@@ -454,6 +457,9 @@ try {
   # the large bundle when the installed client is already current.
   Assert-ReleaseUrl $ManifestUrl "Release manifest" | Out-Null
   $manifest = Invoke-RestMethod -Uri $ManifestUrl -UseBasicParsing -TimeoutSec 20
+  $script:ReleaseManifestFile = Join-Path $tmp "latest.json"
+  $manifestJson = $manifest | ConvertTo-Json -Depth 100 -Compress
+  [System.IO.File]::WriteAllText($script:ReleaseManifestFile, $manifestJson, [System.Text.UTF8Encoding]::new($false))
   if(([string]$manifest.project) -ne "redbeacon" -or ([string]$manifest.channel) -ne $Channel){
     Die "Release manifest does not match RedBeacon $Channel."
   }
