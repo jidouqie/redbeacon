@@ -47,7 +47,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 ## 更新与卸载
 
 - 所有更新入口都应是**全量更新**：客户端设置页、`redbeacon update`、任一受支持 AI 助手触发升级，都下载当前通道的整包 zip 并替换客户端，同时刷新 CLI 兼容通道和五宿主 skill。
-- 更新入口必须委托当前通道 canonical manifest 中的安装脚本执行，不能在客户端里另写一套手工替换流程。脚本先拉 manifest 判断版本：已是最新则验证依赖并刷新 skill，旧版才下载整包并覆盖。
+- 所有更新入口必须委托官网长期不变的当前通道安装脚本：正式版使用 `https://bytestaff.jiomig.com/redbeacon/install.ps1` / `install.sh`，测试版使用 `/redbeacon-test/install.ps1` / `install.sh`。不得从 manifest 的 legacy OSS `url` 直接启动安装脚本，也不能在客户端里另写一套手工替换流程。官网固定路由依据 canonical 选择当前不可变脚本；脚本再拉小型 manifest 判断版本，并严格按 `download_urls=[下载节点, OSS]` 下载客户端、浏览器内核和 skill。已是最新则验证依赖并刷新 skill，旧版才下载整包并覆盖。
 - 重复执行安装脚本时，只先拉很小的中央 manifest；本地已是最新且健康则跳过客户端大包。要强制重装并重新拉 skill，用 `REDBEACON_FORCE_INSTALL=1`。
 - 安装/更新必须按不可信旧环境做事务：新包先解压到临时目录，用新包自己的 CLI 在当前通道固定目录准备并真实验证它要求的 Playwright、CloakBrowser 和其他版本化运行时，同时预取并校验同版本 skill；全部通过后才停止旧进程。安装健康检查和 `setup` 不能初始化、迁移或写用户真实数据库；桌面 smoke 使用临时空库。停止旧进程后先保存当前 SQLite 主库及 WAL/SHM 的滚动快照，再在快照副本上运行新版本数据库迁移和桌面初始化；副本验证通过后才允许替换客户端。放置新客户端后再次运行临时库桌面初始化与真实卡片渲染，任何一步失败都同时恢复旧客户端和旧 skill，用户数据库保持原样。禁止继承用户遗留缓存变量，禁止先覆盖应用、再补依赖。
 - 冻结正式包/测试包的 channel 是包内不可变身份：runtime hook 必须先清除继承的 `REDBEACON_CHANNEL` / `REDBEACON_BUILD_CHANNEL`，再以赋值而非 `setdefault` 写入构建通道。外部 PowerShell、旧安装器或另一通道不能把正式包带到 `~/.redbeacon_test`，也不能把测试包带到正式数据目录；测试版包装脚本结束后必须恢复调用者原有环境变量。
