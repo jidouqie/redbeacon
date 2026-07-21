@@ -38,6 +38,10 @@ BINDIR="$HOME/.local/bin"
 RUNTIME_DATA_DIR="$RUNTIME_ROOT/data"
 RUNTIME_PLAYWRIGHT_DIR="$RUNTIME_ROOT/browser/ms-playwright"
 RUNTIME_CLOAK_DIR="$RUNTIME_ROOT/browser/cloakbrowser"
+CODEX_SKILL_DIR="${REDBEACON_CODEX_SKILL_DIR:-$HOME/.codex/skills}"
+OPENCLAW_SKILL_DIR="${REDBEACON_OPENCLAW_SKILL_DIR:-$HOME/.openclaw/skills}"
+HERMES_SKILL_DIR="${REDBEACON_HERMES_SKILL_DIR:-$HOME/.hermes/skills}"
+WORKBUDDY_SKILL_DIR="${REDBEACON_WORKBUDDY_SKILL_DIR:-$HOME/.workbuddy/skills}"
 
 say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
@@ -177,10 +181,6 @@ EOF
   die "Could not download $artifact_path from the download node or central OSS."
 }
 
-yaml_quote() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
 skill_matches_channel() {
   stem="$1"
   if [ "$CHANNEL" = "test" ]; then
@@ -189,40 +189,31 @@ skill_matches_channel() {
   case "$stem" in redbeacon-test*) return 1 ;; redbeacon*) return 0 ;; *) return 1 ;; esac
 }
 
-install_codex_skills() {
+portable_skill_roots() {
+  printf '%s\n' \
+    "codex|$CODEX_SKILL_DIR" \
+    "openclaw|$OPENCLAW_SKILL_DIR" \
+    "hermes|$HERMES_SKILL_DIR" \
+    "workbuddy|$WORKBUDDY_SKILL_DIR"
+}
+
+install_portable_skills() {
   src="$1"
   [ -n "$src" ] && [ -d "$src" ] || return 0
-  codex_dir="$HOME/.codex/skills"
-  mkdir -p "$codex_dir" || return 1
-  for f in "$src"/redbeacon*.md; do
-    [ -f "$f" ] || continue
-    stem="$(basename "$f" .md)"
-    skill_matches_channel "$stem" || continue
-    folder="$codex_dir/$stem"
-    mkdir -p "$folder" || return 1
-    desc="$(sed -n 's/^[[:space:]]*description:[[:space:]]*//p' "$f" | head -1)"
-    desc="${desc#\"}"; desc="${desc%\"}"; desc="${desc#\'}"; desc="${desc%\'}"
-    [ -n "$desc" ] || desc="RedBeacon ability: $stem"
-    qdesc="$(yaml_quote "$desc")"
-    skill_tmp="$folder/SKILL.md.new.$$"
-    {
-      printf '%s\n' "---"
-      printf 'name: %s\n' "$stem"
-      printf 'description: "%s"\n' "$qdesc"
-      printf '%s\n' "metadata:"
-      printf '  short-description: "%s"\n' "$qdesc"
-      printf '%s\n\n' "---"
-      awk '
-        NR==1 && $0=="---" { front=1; next }
-        front && $0=="---" { front=0; next }
-        !front { print }
-      ' "$f"
-    } > "$skill_tmp" || return 1
-    mv -f "$skill_tmp" "$folder/SKILL.md" || return 1
+  portable_skill_roots | while IFS='|' read -r adapter root; do
+    [ -n "$adapter" ] && [ -n "$root" ] || continue
+    mkdir -p "$root" || exit 1
+    for folder in "$src"/redbeacon*; do
+      [ -d "$folder" ] && [ -f "$folder/SKILL.md" ] || continue
+      stem="$(basename "$folder")"
+      skill_matches_channel "$stem" || continue
+      cp -R "$folder" "$root/" || exit 1
+    done
   done
 }
 
 PREPARED_SKILL_SRC=""
+PREPARED_PORTABLE_SKILL_SRC=""
 SKILL_TRANSACTION_ACTIVE=""
 SKILL_BACKUP_ROOT=""
 
@@ -233,12 +224,14 @@ remove_managed_skills() {
     skill_matches_channel "$stem" || continue
     rm -f "$f" || return 1
   done
-  codex_dir="$HOME/.codex/skills"
-  for d in "$codex_dir"/redbeacon*; do
-    [ -d "$d" ] || continue
-    stem="$(basename "$d")"
-    skill_matches_channel "$stem" || continue
-    rm -rf "$d" || return 1
+  portable_skill_roots | while IFS='|' read -r adapter root; do
+    [ -n "$adapter" ] && [ -n "$root" ] || continue
+    for d in "$root"/redbeacon*; do
+      [ -d "$d" ] || continue
+      stem="$(basename "$d")"
+      skill_matches_channel "$stem" || continue
+      rm -rf "$d" || exit 1
+    done
   done
 }
 
@@ -246,33 +239,41 @@ begin_skill_transaction() {
   [ -z "$SKILL_TRANSACTION_ACTIVE" ] || return 0
   SKILL_BACKUP_ROOT="$TMP/skill-backup"
   rm -rf "$SKILL_BACKUP_ROOT"
-  mkdir -p "$SKILL_BACKUP_ROOT/claude" "$SKILL_BACKUP_ROOT/codex" || return 1
+  mkdir -p "$SKILL_BACKUP_ROOT/claude" || return 1
   for f in "$SKILL_DEST"/redbeacon*.md; do
     [ -f "$f" ] || continue
     stem="$(basename "$f" .md)"
     skill_matches_channel "$stem" || continue
     cp -p "$f" "$SKILL_BACKUP_ROOT/claude/" || return 1
   done
-  for d in "$HOME/.codex/skills"/redbeacon*; do
-    [ -d "$d" ] || continue
-    stem="$(basename "$d")"
-    skill_matches_channel "$stem" || continue
-    cp -R "$d" "$SKILL_BACKUP_ROOT/codex/" || return 1
-  done
+  portable_skill_roots | while IFS='|' read -r adapter root; do
+    [ -n "$adapter" ] && [ -n "$root" ] || continue
+    mkdir -p "$SKILL_BACKUP_ROOT/$adapter" || exit 1
+    for d in "$root"/redbeacon*; do
+      [ -d "$d" ] || continue
+      stem="$(basename "$d")"
+      skill_matches_channel "$stem" || continue
+      cp -R "$d" "$SKILL_BACKUP_ROOT/$adapter/" || exit 1
+    done
+  done || return 1
   SKILL_TRANSACTION_ACTIVE=1
 }
 
 restore_skills() {
   [ -n "$SKILL_TRANSACTION_ACTIVE" ] || return 0
   remove_managed_skills >/dev/null 2>&1 || true
-  mkdir -p "$SKILL_DEST" "$HOME/.codex/skills" 2>/dev/null || true
+  mkdir -p "$SKILL_DEST" 2>/dev/null || true
   for f in "$SKILL_BACKUP_ROOT/claude"/*; do
     [ -f "$f" ] || continue
     cp -p "$f" "$SKILL_DEST/" 2>/dev/null || true
   done
-  for d in "$SKILL_BACKUP_ROOT/codex"/*; do
-    [ -d "$d" ] || continue
-    cp -R "$d" "$HOME/.codex/skills/" 2>/dev/null || true
+  portable_skill_roots | while IFS='|' read -r adapter root; do
+    [ -n "$adapter" ] && [ -n "$root" ] || continue
+    mkdir -p "$root" 2>/dev/null || true
+    for d in "$SKILL_BACKUP_ROOT/$adapter"/*; do
+      [ -d "$d" ] || continue
+      cp -R "$d" "$root/" 2>/dev/null || true
+    done
   done
   SKILL_TRANSACTION_ACTIVE=""
 }
@@ -293,9 +294,14 @@ prepare_skills() {
   done
   [ -n "$skok" ] || die "Could not prepare the matching skill bundle. The existing installation was not changed."
   PREPARED_SKILL_SRC="$(find "$skill_stage" -type d -path '*/.claude/commands' | head -1)"
+  PREPARED_PORTABLE_SKILL_SRC="$(find "$skill_stage" -type d -name 'agent-skills' | head -1)"
   [ -n "$PREPARED_SKILL_SRC" ] || die "Skill bundle is incomplete. The existing installation was not changed."
+  [ -n "$PREPARED_PORTABLE_SKILL_SRC" ] \
+    || die "Skill bundle has no portable Agent Skills. The existing installation was not changed."
   find "$PREPARED_SKILL_SRC" -type f -name 'redbeacon*.md' | grep -q . \
     || die "Skill bundle contains no RedBeacon skills. The existing installation was not changed."
+  find "$PREPARED_PORTABLE_SKILL_SRC" -type f -path '*/redbeacon*/SKILL.md' | grep -q . \
+    || die "Skill bundle contains no portable RedBeacon skills. The existing installation was not changed."
   if [ -n "$SKILL_VERSION" ]; then
     skill_meta="$(find "$skill_stage" -type f -name 'redbeacon-skill-manifest.json' | head -1)"
     [ -n "$skill_meta" ] || die "Skill bundle has no release metadata. The existing installation was not changed."
@@ -316,8 +322,8 @@ install_skills() {
   mkdir -p "$SKILL_DEST" || die "Could not create the skill directory."
   cp -f "$PREPARED_SKILL_SRC"/redbeacon*.md "$SKILL_DEST"/ \
     || die "Could not install the matching skills."
-  install_codex_skills "$PREPARED_SKILL_SRC" \
-    || die "Could not install the matching Codex skills."
+  install_portable_skills "$PREPARED_PORTABLE_SKILL_SRC" \
+    || die "Could not install the matching AI assistant skills."
   for f in "$PREPARED_SKILL_SRC"/redbeacon*.md; do
     [ -f "$f" ] || continue
     stem="$(basename "$f" .md)"
@@ -326,8 +332,12 @@ install_skills() {
       || die "Claude-style skill verification failed: $stem"
     cmp -s "$f" "$SKILL_DEST/$(basename "$f")" \
       || die "Claude-style skill content verification failed: $stem"
-    [ -f "$HOME/.codex/skills/$stem/SKILL.md" ] \
-      || die "Codex skill verification failed: $stem"
+    source_portable="$PREPARED_PORTABLE_SKILL_SRC/$stem/SKILL.md"
+    [ -f "$source_portable" ] || die "Portable skill source is missing: $stem"
+    portable_skill_roots | while IFS='|' read -r adapter root; do
+      [ -f "$root/$stem/SKILL.md" ] || exit 1
+      cmp -s "$source_portable" "$root/$stem/SKILL.md" || exit 1
+    done || die "AI assistant skill verification failed: $stem"
   done
 }
 

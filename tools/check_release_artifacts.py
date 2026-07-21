@@ -16,6 +16,13 @@ CLOAKBROWSER_ARCHIVE_SUFFIXES = {
     "darwin-arm64": ".tar.gz",
     "windows-x64": ".zip",
 }
+SUPPORTED_ASSISTANTS = {
+    "claude-code",
+    "codex",
+    "openclaw",
+    "hermes",
+    "workbuddy",
+}
 
 
 def fail(message: str) -> None:
@@ -90,9 +97,54 @@ def main() -> None:
     if evidence.get("channel") != args.channel or evidence.get("version") != args.version:
         fail("build evidence channel/version mismatch")
     with tarfile.open(root / "skill" / "redbeacon-skill.tar.gz", "r:gz") as archive:
-        names = archive.getnames()
+        members = archive.getmembers()
+        names = [member.name for member in members]
+        if len(names) != len(set(names)):
+            fail("skill bundle contains duplicate paths")
+        non_files = [member.name for member in members if not member.isfile()]
+        if non_files:
+            fail("skill bundle contains non-file members: " + ", ".join(non_files))
         if "redbeacon-skill-manifest.json" not in names or not any(name.endswith("redbeacon.md") or name.endswith("redbeacon-test.md") for name in names):
             fail("skill bundle is incomplete")
+        unsafe = [name for name in names if name.startswith("/") or ".." in Path(name).parts]
+        if unsafe:
+            fail("skill bundle contains unsafe paths: " + ", ".join(unsafe))
+        metadata_file = archive.extractfile("redbeacon-skill-manifest.json")
+        if metadata_file is None:
+            fail("skill bundle manifest cannot be read")
+        try:
+            metadata = json.loads(metadata_file.read().decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            fail(f"skill bundle manifest is invalid: {exc}")
+        if metadata.get("schema") != 2 or set(metadata.get("assistants", [])) != SUPPORTED_ASSISTANTS:
+            fail("skill bundle does not declare the complete assistant support matrix")
+        commands = sorted(
+            name for name in names
+            if name.startswith(".claude/commands/") and name.endswith(".md")
+        )
+        portable = sorted(
+            name for name in names
+            if name.startswith("agent-skills/") and name.endswith("/SKILL.md")
+        )
+        command_stems = {Path(name).stem for name in commands}
+        portable_stems = {Path(name).parent.name for name in portable}
+        if not commands or command_stems != portable_stems:
+            fail("Claude commands and portable Agent Skills do not match")
+        if sorted(metadata.get("portable_skills", [])) != portable:
+            fail("skill manifest portable skill inventory does not match the archive")
+        for name in portable:
+            skill_file = archive.extractfile(name)
+            if skill_file is None:
+                fail(f"portable skill cannot be read: {name}")
+            try:
+                text = skill_file.read().decode("utf-8")
+            except UnicodeDecodeError as exc:
+                fail(f"portable skill is not UTF-8: {name}: {exc}")
+            stem = Path(name).parent.name
+            if not text.startswith("---\n") or f"\nname: {stem}\n" not in text or "\ndescription:" not in text:
+                fail(f"portable skill frontmatter is invalid: {name}")
+            if "�" in text:
+                fail(f"portable skill contains replacement characters: {name}")
 
     print(f"release artifacts: {len(files)} files verified")
 

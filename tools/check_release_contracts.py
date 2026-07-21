@@ -6,9 +6,16 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
-from build_channel_skills import STABLE_MANIFEST_URL, TEST_MANIFEST_URL, transform_test_text
+from build_channel_skills import (
+    STABLE_MANIFEST_URL,
+    SUPPORTED_ASSISTANTS,
+    TEST_MANIFEST_URL,
+    build as build_channel_skills,
+    transform_test_text,
+)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -109,6 +116,29 @@ def main() -> None:
         text = (ROOT / "install" / name).read_text(encoding="utf-8")
         if CENTRAL_ORIGIN not in text or "download node" not in text.lower():
             fail(f"{name} does not implement central node-first installation")
+        for assistant in ("codex", "openclaw", "hermes", "workbuddy"):
+            if assistant not in text.lower():
+                fail(f"{name} does not install the {assistant} skill adapter")
+
+    with tempfile.TemporaryDirectory(prefix="redbeacon-skill-contract-") as temp:
+        for channel in ("stable", "test"):
+            root = Path(temp) / channel
+            commands = build_channel_skills(channel, root)
+            stems = {path.stem for path in commands}
+            portable = {
+                path.parent.name
+                for path in (root / "agent-skills").glob("*/SKILL.md")
+            }
+            if not stems or stems != portable:
+                fail(f"{channel} Claude commands and portable Agent Skills drifted")
+            for path in (root / "agent-skills").glob("*/SKILL.md"):
+                text = path.read_text(encoding="utf-8")
+                if f"name: {path.parent.name}" not in text or "�" in text:
+                    fail(f"invalid portable skill: {path}")
+                if channel == "test" and "redbeacon-test" not in text:
+                    fail(f"test portable skill still targets stable: {path}")
+    if set(SUPPORTED_ASSISTANTS) != {"claude-code", "codex", "openclaw", "hermes", "workbuddy"}:
+        fail("assistant support matrix changed without updating the release contract")
 
     for source in sorted((ROOT / ".claude" / "commands").glob("redbeacon*.md")):
         stable_text = source.read_text(encoding="utf-8")

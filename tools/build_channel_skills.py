@@ -17,6 +17,13 @@ SRC_DIR = ROOT / ".claude" / "commands"
 CENTRAL_ORIGIN = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
 STABLE_MANIFEST_URL = f"{CENTRAL_ORIGIN}/projects/redbeacon/stable/latest.json"
 TEST_MANIFEST_URL = f"{CENTRAL_ORIGIN}/projects/redbeacon/test/latest.json"
+SUPPORTED_ASSISTANTS = (
+    "claude-code",
+    "codex",
+    "openclaw",
+    "hermes",
+    "workbuddy",
+)
 
 
 def test_skill_name(stem: str) -> str:
@@ -55,11 +62,49 @@ def transform_test_text(text: str) -> str:
     return text
 
 
+def portable_skill_text(stem: str, text: str) -> str:
+    """Convert one command source into the shared Agent Skills format.
+
+    Codex, OpenClaw, Hermes and WorkBuddy all consume a directory containing
+    SKILL.md. Keep their bytes identical so one host cannot silently drift from
+    another during an install or update.
+    """
+    description = ""
+    body = text
+    if text.startswith("---\n"):
+        match = re.match(r"\A---\n(?P<head>.*?)\n---\n?", text, flags=re.DOTALL)
+        if match:
+            body = text[match.end():]
+            for line in match.group("head").splitlines():
+                if line.strip().startswith("description:"):
+                    description = line.split("description:", 1)[1].strip().strip('"').strip("'")
+                    break
+    description = description or f"RedBeacon ability: {stem}"
+    short = description.split(" — ", 1)[0].split("—", 1)[0].strip()[:60] or stem
+
+    def yaml_quote(value: str) -> str:
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    return (
+        "---\n"
+        f"name: {stem}\n"
+        f"description: {yaml_quote(description)}\n"
+        "metadata:\n"
+        f"  short-description: {yaml_quote(short)}\n"
+        "  redbeacon-channel: " + ("test" if stem.startswith("redbeacon-test") else "stable") + "\n"
+        "---\n\n"
+        + body.lstrip("\n")
+    )
+
+
 def build(channel: str, out_dir: Path) -> list[Path]:
     commands_dir = out_dir / ".claude" / "commands"
-    if commands_dir.exists():
-        shutil.rmtree(commands_dir)
+    portable_dir = out_dir / "agent-skills"
+    for directory in (commands_dir, portable_dir):
+        if directory.exists():
+            shutil.rmtree(directory)
     commands_dir.mkdir(parents=True, exist_ok=True)
+    portable_dir.mkdir(parents=True, exist_ok=True)
 
     written: list[Path] = []
     files = sorted(p for p in SRC_DIR.glob("redbeacon*.md"))
@@ -71,6 +116,13 @@ def build(channel: str, out_dir: Path) -> list[Path]:
             text = transform_test_text(text)
         dest = commands_dir / name
         dest.write_text(text, encoding="utf-8")
+        skill_name = Path(name).stem
+        skill_folder = portable_dir / skill_name
+        skill_folder.mkdir(parents=True, exist_ok=True)
+        (skill_folder / "SKILL.md").write_text(
+            portable_skill_text(skill_name, text),
+            encoding="utf-8",
+        )
         written.append(dest)
     return written
 

@@ -1,10 +1,22 @@
 # RedBeacon Skill 通道表
 
-`.claude/commands/redbeacon*.md` 是 stable skill 的真源目录。这个目录名是历史遗留，不代表后续维护必须使用 Claude Code；Codex 端、测试版 skill、用户机安装包都从这里派生。
+`.claude/commands/redbeacon*.md` 是 stable skill 的真源目录。这个目录名是历史遗留，不代表后续维护必须使用 Claude Code；Codex、OpenClaw、Hermes、腾讯 WorkBuddy、测试版 skill 和用户机安装包都从这里派生。
+
+## 支持宿主
+
+| 宿主 | 用户级落点 | 发布格式 |
+|---|---|---|
+| Claude Code | `~/.claude/commands`（测试版为独立 commands 目录） | `redbeacon*.md` |
+| Codex | `~/.codex/skills/redbeacon*/SKILL.md` | 通用 Agent Skills |
+| OpenClaw | `~/.openclaw/skills/redbeacon*/SKILL.md` | 通用 Agent Skills |
+| Hermes | `~/.hermes/skills/redbeacon*/SKILL.md` | 通用 Agent Skills |
+| WorkBuddy | `~/.workbuddy/skills/redbeacon*/SKILL.md` | 兼容 OpenClaw 的通用 Agent Skills |
+
+四个 `SKILL.md` 宿主安装的文件必须字节一致。安装、更新、回滚和卸载把五个宿主视为一个事务；测试版使用 `redbeacon-test*` 名称，因此能和正式版共存。
 
 ## 正式版 skill
 
-正式版文件名保持 `redbeacon*.md`，正文调用 `redbeacon`，安装到用户的 AI 命令目录后再由 updater 派生 Codex skill。
+正式版文件名保持 `redbeacon*.md`，正文调用 `redbeacon`。发布构建器同时生成 Claude Code 命令文件和四宿主共用的通用 `SKILL.md`，安装器直接放置经过制品校验的字节，不在用户机临时转换正文。
 
 | 文件 | 说明 |
 |---|---|
@@ -39,5 +51,5 @@
 ## 刷新方式
 
 - 用户机更新：`redbeacon update` 或 `redbeacon-test update`，按当前通道全量刷新客户端、CLI 兼容通道和 skill。
-- 开发态刷新 Codex skill：改 `.claude/commands/` 后运行 `python tools/sync-codex-skills.py`；它会同时刷新用户目录 `~/.codex/skills/` 和仓库工作台 `.agents/skills/source-command-redbeacon*/`，后者只是派生副本。
+- 开发态仓库工作台刷新：改 `.claude/commands/` 后运行 `python tools/sync-codex-skills.py`；它刷新仓库 `.agents/skills/source-command-redbeacon*/` 和本机 Codex 开发副本。面向用户的五宿主文件只以 `tools/build_channel_skills.py` 生成的发布 bundle 为准。
 - 发布态刷新 skill：先用 `tools/build_desktop_local.sh` 生成干净制品树，再由全局 `bytestaff-digital-employee-publish` Skill 发布整个 release unit；项目内不存在单独 OSS skill 上传入口。

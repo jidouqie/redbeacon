@@ -152,11 +152,17 @@ namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
   New-Item -ItemType Directory -Force -Path $commands | Out-Null
   $skillText = "---`ndescription: smoke $Channel`n---`n# smoke`n$skillCommand checkin"
   [System.IO.File]::WriteAllText((Join-Path $commands $skillFile), $skillText, [System.Text.UTF8Encoding]::new($false))
+  $portableRoot = Join-Path $skillRoot "agent-skills\$([System.IO.Path]::GetFileNameWithoutExtension($skillFile))"
+  New-Item -ItemType Directory -Force -Path $portableRoot | Out-Null
+  $portableText = "---`nname: $([System.IO.Path]::GetFileNameWithoutExtension($skillFile))`ndescription: `"smoke $Channel`"`n---`n`n# smoke`n$skillCommand checkin"
+  [System.IO.File]::WriteAllText((Join-Path $portableRoot "SKILL.md"), $portableText, [System.Text.UTF8Encoding]::new($false))
   $skillMetadata = @{
-    schema = 1
+    schema = 2
     channel = $Channel
     version = "9.9.9"
     files = @($skillFile)
+    assistants = @("claude-code", "codex", "openclaw", "hermes", "workbuddy")
+    portable_skills = @("agent-skills/$([System.IO.Path]::GetFileNameWithoutExtension($skillFile))/SKILL.md")
   } | ConvertTo-Json -Compress
   [System.IO.File]::WriteAllText(
     (Join-Path $skillRoot "redbeacon-skill-manifest.json"),
@@ -251,13 +257,20 @@ function Assert-Installed([string]$Channel) {
   $dest = Join-Path $env:LOCALAPPDATA "Programs\$($spec.AppName)"
   $shim = Join-Path $HOME ".local\bin\$($spec.CmdName).cmd"
   $claudeSkill = Join-Path $spec.SkillDir $spec.SkillFile
-  $codexSkill = Join-Path $HOME ".codex\skills\$($spec.SkillBase)\SKILL.md"
-  foreach($path in @($dest, $shim, $claudeSkill, $codexSkill)){
+  $assistantSkills = @(
+    (Join-Path $HOME ".codex\skills\$($spec.SkillBase)\SKILL.md"),
+    (Join-Path $HOME ".openclaw\skills\$($spec.SkillBase)\SKILL.md"),
+    (Join-Path $HOME ".hermes\skills\$($spec.SkillBase)\SKILL.md"),
+    (Join-Path $HOME ".workbuddy\skills\$($spec.SkillBase)\SKILL.md")
+  )
+  foreach($path in @($dest, $shim, $claudeSkill) + $assistantSkills){
     if(-not (Test-Path $path)){ throw "$Channel install did not create $path" }
   }
-  $codexText = Get-Content -Raw -Encoding UTF8 -Path $codexSkill
-  if($codexText -notmatch "(?m)^name:\s*$([regex]::Escape($spec.SkillBase))\s*$"){
-    throw "$Channel Codex skill frontmatter has the wrong name"
+  foreach($skill in $assistantSkills){
+    $text = Get-Content -Raw -Encoding UTF8 -Path $skill
+    if($text -notmatch "(?m)^name:\s*$([regex]::Escape($spec.SkillBase))\s*$"){
+      throw "$Channel assistant skill frontmatter has the wrong name: $skill"
+    }
   }
 }
 
@@ -267,7 +280,10 @@ function Assert-Uninstalled([string]$Channel) {
     (Join-Path $env:LOCALAPPDATA "Programs\$($spec.AppName)"),
     (Join-Path $HOME ".local\bin\$($spec.CmdName).cmd"),
     (Join-Path $spec.SkillDir $spec.SkillFile),
-    (Join-Path $HOME ".codex\skills\$($spec.SkillBase)\SKILL.md")
+    (Join-Path $HOME ".codex\skills\$($spec.SkillBase)\SKILL.md"),
+    (Join-Path $HOME ".openclaw\skills\$($spec.SkillBase)\SKILL.md"),
+    (Join-Path $HOME ".hermes\skills\$($spec.SkillBase)\SKILL.md"),
+    (Join-Path $HOME ".workbuddy\skills\$($spec.SkillBase)\SKILL.md")
   )
   foreach($path in $paths){ if(Test-Path $path){ throw "$Channel uninstall did not remove $path" } }
 }

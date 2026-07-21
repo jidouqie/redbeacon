@@ -51,7 +51,6 @@ if($Channel -eq "test"){
   $DefaultSkillDest = "$HOME\.claude\commands"
   $CodexSkillGlob = "redbeacon*"
 }
-$CodexSkillDir = "$HOME\.codex\skills"
 $Dest = "$env:LOCALAPPDATA\Programs\$AppName"
 $BinDir = "$HOME\.local\bin"
 $SkillDest = if($env:REDBEACON_SKILL_DIR){ $env:REDBEACON_SKILL_DIR } else { $DefaultSkillDest }
@@ -98,10 +97,18 @@ foreach($d in $shortcutDirs){
 
 Say "Removing skills..."
 Remove-Item -Force (Join-Path $SkillDest "redbeacon*.md") -ErrorAction SilentlyContinue
-if(Test-Path $CodexSkillDir){
-  Get-ChildItem -Path $CodexSkillDir -Directory -Filter $CodexSkillGlob -ErrorAction SilentlyContinue |
-    Where-Object { $Channel -eq "test" -or $_.Name -notlike "redbeacon-test*" } |
-    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+$assistantSkillDirs = @(
+  $(if($env:REDBEACON_CODEX_SKILL_DIR){ $env:REDBEACON_CODEX_SKILL_DIR } else { "$HOME\.codex\skills" }),
+  $(if($env:REDBEACON_OPENCLAW_SKILL_DIR){ $env:REDBEACON_OPENCLAW_SKILL_DIR } else { "$HOME\.openclaw\skills" }),
+  $(if($env:REDBEACON_HERMES_SKILL_DIR){ $env:REDBEACON_HERMES_SKILL_DIR } else { "$HOME\.hermes\skills" }),
+  $(if($env:REDBEACON_WORKBUDDY_SKILL_DIR){ $env:REDBEACON_WORKBUDDY_SKILL_DIR } else { "$HOME\.workbuddy\skills" })
+)
+foreach($skillDir in $assistantSkillDirs){
+  if(Test-Path $skillDir){
+    Get-ChildItem -Path $skillDir -Directory -Filter $CodexSkillGlob -ErrorAction SilentlyContinue |
+      Where-Object { $Channel -eq "test" -or $_.Name -notlike "redbeacon-test*" } |
+      Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
 
 Say "Removing browser engine cache..."

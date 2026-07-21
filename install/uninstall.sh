@@ -43,7 +43,12 @@ else
   SKILL_DIR="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands}"
   CODEX_SKILL_GLOB="redbeacon*"
 fi
-CODEX_SKILL_DIR="$HOME/.codex/skills"
+PORTABLE_SKILL_DIRS="
+${REDBEACON_CODEX_SKILL_DIR:-$HOME/.codex/skills}
+${REDBEACON_OPENCLAW_SKILL_DIR:-$HOME/.openclaw/skills}
+${REDBEACON_HERMES_SKILL_DIR:-$HOME/.hermes/skills}
+${REDBEACON_WORKBUDDY_SKILL_DIR:-$HOME/.workbuddy/skills}
+"
 
 refresh_macos_app_registration() {
   app="$1"
@@ -56,8 +61,10 @@ refresh_macos_app_registration() {
 
 # 1) stop running app processes if possible
 say "Stopping $APP_NAME..."
-pkill -f "$APP_NAME" >/dev/null 2>&1 || true
-pkill -f "$CLI_NAME" >/dev/null 2>&1 || true
+if [ "${REDBEACON_SKIP_PROCESS_STOP:-}" != "1" ]; then
+  pkill -f "$APP_NAME" >/dev/null 2>&1 || true
+  pkill -f "$CLI_NAME" >/dev/null 2>&1 || true
+fi
 
 # 2) bundled app, update leftovers + CLI shim
 say "Removing $APP_NAME app and CLI..."
@@ -82,16 +89,17 @@ if [ "$CHANNEL" = "stable" ] && [ -x "$UV" ]; then
 fi
 [ "$CHANNEL" = "stable" ] && rm -rf "$HOME/.local/share/uv/tools/redbeacon" 2>/dev/null || true
 
-# 3) skills (Claude command dir + Codex derived skills)
+# 3) skills (Claude command dir + portable Agent Skills hosts)
 say "Removing skills..."
 rm -f  "$SKILL_DIR"/redbeacon*.md 2>/dev/null || true
-if [ -d "$CODEX_SKILL_DIR" ]; then
+printf '%s\n' "$PORTABLE_SKILL_DIRS" | while IFS= read -r skill_root; do
+  [ -n "$skill_root" ] && [ -d "$skill_root" ] || continue
   if [ "$CHANNEL" = "test" ]; then
-    find "$CODEX_SKILL_DIR" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" -exec rm -rf {} + 2>/dev/null || true
+    find "$skill_root" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" -exec rm -rf {} + 2>/dev/null || true
   else
-    find "$CODEX_SKILL_DIR" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" ! -name 'redbeacon-test*' -exec rm -rf {} + 2>/dev/null || true
+    find "$skill_root" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" ! -name 'redbeacon-test*' -exec rm -rf {} + 2>/dev/null || true
   fi
-fi
+done
 
 # 4) desktop entry
 say "Removing desktop entry..."

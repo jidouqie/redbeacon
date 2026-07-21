@@ -68,10 +68,15 @@ def _skill_bundle(channel: str, version: str, output: Path) -> None:
     staging.mkdir(parents=True)
     files = builder.build(channel, staging)
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "channel": channel,
         "version": version,
         "files": [path.name for path in files],
+        "assistants": list(builder.SUPPORTED_ASSISTANTS),
+        "portable_skills": [
+            path.relative_to(staging).as_posix()
+            for path in sorted((staging / "agent-skills").glob("*/SKILL.md"))
+        ],
     }
     metadata = staging / "redbeacon-skill-manifest.json"
     metadata.write_text(
@@ -83,7 +88,10 @@ def _skill_bundle(channel: str, version: str, output: Path) -> None:
     with output.open("wb") as raw:
         with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as compressed:
             with tarfile.open(fileobj=compressed, mode="w") as archive:
-                members = [metadata, *files]
+                members = [metadata, *sorted(
+                    (path for path in staging.rglob("*") if path.is_file() and path != metadata),
+                    key=lambda item: item.relative_to(staging).as_posix(),
+                )]
                 for source in sorted(members, key=lambda item: item.relative_to(staging).as_posix()):
                     relative = source.relative_to(staging).as_posix()
                     info = tarfile.TarInfo(relative)

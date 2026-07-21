@@ -130,31 +130,23 @@ function Test-ManagedSkillName([string]$Stem){
   if($Channel -eq "test"){ return $Stem.StartsWith("redbeacon-test") }
   return $Stem.StartsWith("redbeacon") -and -not $Stem.StartsWith("redbeacon-test")
 }
-function Write-CodexSkills($SrcDir){
+function Get-AssistantSkillRoots(){
+  return @(
+    [pscustomobject]@{ Name = "codex"; Path = if($env:REDBEACON_CODEX_SKILL_DIR){ $env:REDBEACON_CODEX_SKILL_DIR } else { Join-Path $HOME ".codex\skills" } },
+    [pscustomobject]@{ Name = "openclaw"; Path = if($env:REDBEACON_OPENCLAW_SKILL_DIR){ $env:REDBEACON_OPENCLAW_SKILL_DIR } else { Join-Path $HOME ".openclaw\skills" } },
+    [pscustomobject]@{ Name = "hermes"; Path = if($env:REDBEACON_HERMES_SKILL_DIR){ $env:REDBEACON_HERMES_SKILL_DIR } else { Join-Path $HOME ".hermes\skills" } },
+    [pscustomobject]@{ Name = "workbuddy"; Path = if($env:REDBEACON_WORKBUDDY_SKILL_DIR){ $env:REDBEACON_WORKBUDDY_SKILL_DIR } else { Join-Path $HOME ".workbuddy\skills" } }
+  )
+}
+function Install-PortableSkills($SrcDir){
   if(-not $SrcDir){ return }
-  $codexDir = Join-Path $HOME ".codex\skills"
-  New-Item -ItemType Directory -Force -Path $codexDir | Out-Null
-  Get-ChildItem -Path $SrcDir -Filter "redbeacon*.md" -ErrorAction SilentlyContinue | ForEach-Object {
-    $stem = $_.BaseName
-    if(-not (Test-ManagedSkillName $stem)){ return }
-    $text = Get-Content -Raw -Encoding UTF8 -Path $_.FullName
-    $desc = "RedBeacon ability: $stem"
-    if($text -match "(?m)^description:\s*(.+)$"){
-      $desc = $Matches[1].Trim().Trim('"').Trim("'")
+  $sourceFolders = @(Get-ChildItem -Path $SrcDir -Filter "redbeacon*" -Directory -ErrorAction SilentlyContinue |
+    Where-Object { (Test-ManagedSkillName $_.Name) -and (Test-Path (Join-Path $_.FullName "SKILL.md")) })
+  foreach($assistant in Get-AssistantSkillRoots){
+    New-Item -ItemType Directory -Force -Path $assistant.Path | Out-Null
+    foreach($folder in $sourceFolders){
+      Copy-Item -Path $folder.FullName -Destination $assistant.Path -Recurse -Force
     }
-    $body = $text
-    if($body.StartsWith("---")){
-      $m = [regex]::Match($body, "(?s)^---\r?\n.*?\r?\n---\r?\n?")
-      if($m.Success){ $body = $body.Substring($m.Length) }
-    }
-    $esc = $desc.Replace('\', '\\').Replace('"', '\"')
-    $folder = Join-Path $codexDir $stem
-    New-Item -ItemType Directory -Force -Path $folder | Out-Null
-    $skill = "---`nname: $stem`ndescription: `"$esc`"`nmetadata:`n  short-description: `"$esc`"`n---`n`n$body"
-    $target = Join-Path $folder "SKILL.md"
-    $staged = "$target.new.$PID"
-    [System.IO.File]::WriteAllText($staged, $skill, [System.Text.UTF8Encoding]::new($false))
-    Move-Item -Force $staged $target
   }
 }
 function Run-BrowserSetup($CliPath){
@@ -180,6 +172,7 @@ function Run-BrowserSetup($CliPath){
   Say "Browser engine is ready."
 }
 $script:PreparedSkillSrc = $null
+$script:PreparedPortableSkillSrc = $null
 function Prepare-Skills($TempDir){
   Say "Preparing the matching skill bundle ..."
   $skok = $false
@@ -199,9 +192,15 @@ function Prepare-Skills($TempDir){
   }
   if(-not $skok){ Die "Could not prepare the matching skill bundle. The existing installation was not changed." }
   $src = Get-ChildItem -Path $skillStage -Recurse -Directory | Where-Object { $_.FullName -match "\.claude[\\/]commands$" } | Select-Object -First 1
+  $portable = Get-ChildItem -Path $skillStage -Recurse -Directory | Where-Object { $_.Name -eq "agent-skills" } | Select-Object -First 1
   if(-not $src){ Die "Skill bundle is incomplete. The existing installation was not changed." }
+  if(-not $portable){ Die "Skill bundle has no portable Agent Skills. The existing installation was not changed." }
   if(-not (Get-ChildItem -Path $src.FullName -Filter "redbeacon*.md" -ErrorAction SilentlyContinue)){
     Die "Skill bundle contains no RedBeacon skills. The existing installation was not changed."
+  }
+  if(-not (Get-ChildItem -Path $portable.FullName -Filter "redbeacon*" -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $_.FullName "SKILL.md") })){
+    Die "Skill bundle contains no portable RedBeacon skills. The existing installation was not changed."
   }
   if($SkillVersion){
     $metaPath = Get-ChildItem -Path $skillStage -Recurse -Filter "redbeacon-skill-manifest.json" -File | Select-Object -First 1
@@ -213,6 +212,7 @@ function Prepare-Skills($TempDir){
     }
   }
   $script:PreparedSkillSrc = $src.FullName
+  $script:PreparedPortableSkillSrc = $portable.FullName
 }
 $script:SkillTransactionActive = $false
 $script:SkillBackupRoot = $null
@@ -221,36 +221,43 @@ function Get-ManagedClaudeSkills(){
   return @(Get-ChildItem -Path $SkillDest -Filter "redbeacon*.md" -File -ErrorAction SilentlyContinue |
     Where-Object { Test-ManagedSkillName $_.BaseName })
 }
-function Get-ManagedCodexSkills(){
-  $codexDir = Join-Path $HOME ".codex\skills"
-  if(-not (Test-Path $codexDir)){ return @() }
-  return @(Get-ChildItem -Path $codexDir -Filter "redbeacon*" -Directory -ErrorAction SilentlyContinue |
+function Get-ManagedPortableSkills($Root){
+  if(-not (Test-Path $Root)){ return @() }
+  return @(Get-ChildItem -Path $Root -Filter "redbeacon*" -Directory -ErrorAction SilentlyContinue |
     Where-Object { Test-ManagedSkillName $_.Name })
 }
 function Remove-ManagedSkills(){
   Get-ManagedClaudeSkills | Remove-Item -Force
-  Get-ManagedCodexSkills | Remove-Item -Recurse -Force
+  foreach($assistant in Get-AssistantSkillRoots){
+    Get-ManagedPortableSkills $assistant.Path | Remove-Item -Recurse -Force
+  }
 }
 function Begin-SkillTransaction($TempDir){
   if($script:SkillTransactionActive){ return }
   $script:SkillBackupRoot = Join-Path $TempDir "skill-backup"
   Remove-Item -Recurse -Force $script:SkillBackupRoot -ErrorAction SilentlyContinue
   $claudeBackup = Join-Path $script:SkillBackupRoot "claude"
-  $codexBackup = Join-Path $script:SkillBackupRoot "codex"
-  New-Item -ItemType Directory -Force -Path $claudeBackup, $codexBackup | Out-Null
+  New-Item -ItemType Directory -Force -Path $claudeBackup | Out-Null
   Get-ManagedClaudeSkills | Copy-Item -Destination $claudeBackup -Force
-  Get-ManagedCodexSkills | Copy-Item -Destination $codexBackup -Recurse -Force
+  foreach($assistant in Get-AssistantSkillRoots){
+    $backup = Join-Path $script:SkillBackupRoot $assistant.Name
+    New-Item -ItemType Directory -Force -Path $backup | Out-Null
+    Get-ManagedPortableSkills $assistant.Path | Copy-Item -Destination $backup -Recurse -Force
+  }
   $script:SkillTransactionActive = $true
 }
 function Restore-Skills(){
   if(-not $script:SkillTransactionActive){ return }
   try {
     Remove-ManagedSkills
-    New-Item -ItemType Directory -Force -Path $SkillDest, (Join-Path $HOME ".codex\skills") | Out-Null
+    New-Item -ItemType Directory -Force -Path $SkillDest | Out-Null
     Get-ChildItem -Path (Join-Path $script:SkillBackupRoot "claude") -File -ErrorAction SilentlyContinue |
       Copy-Item -Destination $SkillDest -Force
-    Get-ChildItem -Path (Join-Path $script:SkillBackupRoot "codex") -Directory -ErrorAction SilentlyContinue |
-      Copy-Item -Destination (Join-Path $HOME ".codex\skills") -Recurse -Force
+    foreach($assistant in Get-AssistantSkillRoots){
+      New-Item -ItemType Directory -Force -Path $assistant.Path | Out-Null
+      Get-ChildItem -Path (Join-Path $script:SkillBackupRoot $assistant.Name) -Directory -ErrorAction SilentlyContinue |
+        Copy-Item -Destination $assistant.Path -Recurse -Force
+    }
   } catch {}
   $script:SkillTransactionActive = $false
 }
@@ -259,7 +266,8 @@ function Commit-Skills(){
   if($script:SkillBackupRoot){ Remove-Item -Recurse -Force $script:SkillBackupRoot -ErrorAction SilentlyContinue }
 }
 function Install-Skills($CliPath, $TempDir){
-  if(-not $script:PreparedSkillSrc -or -not (Test-Path $script:PreparedSkillSrc)){
+  if(-not $script:PreparedSkillSrc -or -not (Test-Path $script:PreparedSkillSrc) -or
+     -not $script:PreparedPortableSkillSrc -or -not (Test-Path $script:PreparedPortableSkillSrc)){
     Die "Prepared skill bundle is unavailable."
   }
   Say "Installing the matching skills ..."
@@ -270,13 +278,22 @@ function Install-Skills($CliPath, $TempDir){
     Where-Object { Test-ManagedSkillName $_.BaseName })
   if($sourceSkills.Count -eq 0){ Die "Prepared skill bundle has no files for channel $Channel." }
   $sourceSkills | Copy-Item -Force -Destination $SkillDest
-  Write-CodexSkills $script:PreparedSkillSrc
+  Install-PortableSkills $script:PreparedPortableSkillSrc
   $sourceSkills | ForEach-Object {
     if(-not (Test-Path (Join-Path $SkillDest $_.Name))){ Die "Claude-style skill verification failed: $($_.BaseName)" }
-    if(-not (Test-Path (Join-Path $HOME ".codex\skills\$($_.BaseName)\SKILL.md"))){ Die "Codex skill verification failed: $($_.BaseName)" }
     $sourceHash = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash
     $destHash = (Get-FileHash -Algorithm SHA256 -Path (Join-Path $SkillDest $_.Name)).Hash
     if($sourceHash -ne $destHash){ Die "Claude-style skill content verification failed: $($_.BaseName)" }
+    $portableSource = Join-Path $script:PreparedPortableSkillSrc "$($_.BaseName)\SKILL.md"
+    if(-not (Test-Path $portableSource)){ Die "Portable skill source is missing: $($_.BaseName)" }
+    $portableHash = (Get-FileHash -Algorithm SHA256 -Path $portableSource).Hash
+    foreach($assistant in Get-AssistantSkillRoots){
+      $target = Join-Path $assistant.Path "$($_.BaseName)\SKILL.md"
+      if(-not (Test-Path $target)){ Die "$($assistant.Name) skill verification failed: $($_.BaseName)" }
+      if((Get-FileHash -Algorithm SHA256 -Path $target).Hash -ne $portableHash){
+        Die "$($assistant.Name) skill content verification failed: $($_.BaseName)"
+      }
+    }
   }
 }
 function Stop-RunningRedBeacon(){

@@ -41,7 +41,7 @@ $m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/project
 
 1. Mac 和 Windows 安装后都能从图标打开，重复点图标只唤醒已有窗口。
 2. `redbeacon-test --version` 与 test manifest 的 `version` 一致。
-3. Codex 可以识别 `redbeacon-test` 及其子 skill，正式版 skill 没有被覆盖。
+3. Claude Code、Codex、OpenClaw、Hermes、WorkBuddy 都能识别 `redbeacon-test` 及其子 skill，正式版 skill 没有被覆盖；WorkBuddy 新建任务或重启后刷新技能列表。
 4. 新建一个测试账号，完成平台登录、小红书扫码、文案和图片生成、审稿、立即/定时发布。
 5. 从旧版更新后，账号、定位、方案、选题、审稿和登录态保留；更新前快照存在。
 6. 断开下载节点后重新安装，应自动回落中央 OSS；节点返回错误内容时也必须校验失败并回落。

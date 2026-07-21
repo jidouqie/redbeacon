@@ -37,7 +37,8 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 ## Skill 与通道
 
 - `.claude/commands/redbeacon*.md` 只是历史命名下的 **stable skill 真源目录**，不代表项目必须继续用 Claude Code 维护。
-- Codex skill 由真源派生；测试版 skill 由 `tools/build_channel_skills.py --channel test` 生成，文件名是 `redbeacon-test*.md`，正文调用 `redbeacon-test`。
+- 当前正式支持 **Claude Code、Codex、OpenClaw、Hermes、腾讯 WorkBuddy**。Claude Code 使用命令文件；其余四个宿主消费同一份发布字节的标准 `SKILL.md`，分别安装到 `~/.codex/skills`、`~/.openclaw/skills`、`~/.hermes/skills`、`~/.workbuddy/skills`。不得为某个宿主复制并手改第二份正文。
+- 测试版 skill 由 `tools/build_channel_skills.py --channel test` 统一生成，名称和正文都调用 `redbeacon-test`；正式版与测试版在五个宿主中都必须并存。skill bundle manifest 必须声明完整宿主矩阵，缺一个即为坏包。
 - skill 可能被平台单独分发到一台尚未安装客户端的新机器，因此每个 skill 都必须先验证对应 CLI 是否存在；不存在时必须从当前通道 canonical manifest 精确读取 `installers/install.*` 后调用。禁止让 AI 猜测 zip 文件名、大小写、版本目录或下载节点地址，也禁止绕过安装脚本直接解压客户端。
 - 正式版和测试版必须隔离：
   - 正式版：`RedBeacon`、`redbeacon`、`~/.redbeacon`、`~/.bytestaff`、`projects/redbeacon/stable/latest.json`
@@ -45,7 +46,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 
 ## 更新与卸载
 
-- 所有更新入口都应是**全量更新**：客户端设置页、`redbeacon update`、AI 助手触发升级，都下载当前通道的整包 zip 并替换客户端，同时刷新 CLI 兼容通道和 skill。
+- 所有更新入口都应是**全量更新**：客户端设置页、`redbeacon update`、任一受支持 AI 助手触发升级，都下载当前通道的整包 zip 并替换客户端，同时刷新 CLI 兼容通道和五宿主 skill。
 - 更新入口必须委托当前通道 canonical manifest 中的安装脚本执行，不能在客户端里另写一套手工替换流程。脚本先拉 manifest 判断版本：已是最新则验证依赖并刷新 skill，旧版才下载整包并覆盖。
 - 重复执行安装脚本时，只先拉很小的中央 manifest；本地已是最新且健康则跳过客户端大包。要强制重装并重新拉 skill，用 `REDBEACON_FORCE_INSTALL=1`。
 - 安装/更新必须按不可信旧环境做事务：新包先解压到临时目录，用新包自己的 CLI 在当前通道固定目录准备并真实验证它要求的 Playwright、CloakBrowser 和其他版本化运行时，同时预取并校验同版本 skill；全部通过后才停止旧进程。安装健康检查和 `setup` 不能初始化、迁移或写用户真实数据库；桌面 smoke 使用临时空库。停止旧进程后先保存当前 SQLite 主库及 WAL/SHM 的滚动快照，再在快照副本上运行新版本数据库迁移和桌面初始化；副本验证通过后才允许替换客户端。放置新客户端后再次运行临时库桌面初始化与真实卡片渲染，任何一步失败都同时恢复旧客户端和旧 skill，用户数据库保持原样。禁止继承用户遗留缓存变量，禁止先覆盖应用、再补依赖。
@@ -61,7 +62,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - 小红书扫码入口每次开始前都必须先停止旧会话，不能复用用户可能已经手动关闭的浏览器窗口；“重新扫码/重新登录”还必须删除当前通道下的浏览器 profile 与 cookie 文件，再出新二维码。运行中遇到 `Target page, context or browser has been closed` 这类死 context，必须停止旧会话并重启后重试一次，旧 worker 退出时必须释放排队任务，避免下一次扫码卡到超时。
 - 用户关闭扫码弹窗时必须同步取消后台等待并关闭对应浏览器会话；不能只隐藏 UI、让旧任务继续占用 profile。下载节点不要做 HEAD 预检；直接发一次带 `Range: bytes=0-` 的 GET，节点失败或校验不符后立即清理半包并回落中央 OSS。
 - Windows ARM64 客户机不能直接判死。当前 Windows 桌面包是 x64 包，ARM64 Windows 通过系统 x64 仿真运行；CloakBrowser 要映射到 `windows-x64` 内核包，不能因为第三方库没有列 `Windows ARM64` 就让扫码登录失败。
-- Windows `.ps1/.cmd` 安装链路必须 ASCII-only；skill 和 Codex `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
+- Windows `.ps1/.cmd` 安装链路必须 ASCII-only；命令文件和通用 `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
 - Windows bundle smoke 必须捕获桌面初始化里的 `Traceback` / `ModuleNotFoundError` / `ImportError`；如果日志里有隐藏崩溃，即使打包命令返回 0 也不准上传。PyInstaller spec 必须显式包含 `_sqlite3`，并把文字卡片所需的 `RedBeaconRenderer(.exe)` 作为独立可执行文件打进同一个包；Windows/macOS smoke 都要用冻结 CLI 准备当前 Playwright revision，再让冻结渲染器真实产出封面和正文 PNG，不能只验证主客户端或 `--list-styles`。
 - PowerShell 5.1 在 `$ErrorActionPreference = "Stop"` 时会把原生程序写入 stderr 的普通 INFO 日志转换成 `NativeCommandError`。Windows smoke 捕获原生输出时必须临时使用非终止模式，最终只按真实退出码和 `Traceback` / ImportError 等错误特征判定，不能把“写过 stderr”直接当崩溃。
 - macOS `.app` 同时包含桌面主程序、CLI 和渲染器时，`CFBundleExecutable` 必须显式等于当前通道的应用名，不能让 PyInstaller 自动选中辅助程序。本机 Mac 构建必须读取 `Info.plist` 核对该字段并直接运行字段指向的 GUI 可执行文件完成桌面 smoke；安装器在替换前后也必须复验，字段错误时即使版本号和 CLI 正常也视为坏包并回滚。
@@ -85,7 +86,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 
 - 项目唯一构建入口是 `tools/build_desktop_local.sh`。它只完成 Mac/Windows 双平台构建、安装事务 smoke、浏览器依赖收集和 `release-artifacts/` 验证，禁止联网发布。
 - 测试版和正式版必须使用同一个构建入口、PyInstaller spec、已提交源码、`cli/uv.lock` 和锁定工具链；只有通道身份允许不同。
-- Windows 虚拟机构建是阻断项：必须完成 x64 Python/PE 校验、冻结桌面启动、Traceback 扫描、浏览器预热、真实卡片渲染及 PowerShell 安装事务 smoke。Windows 未通过，不得交给发布 Skill。
+- Windows 虚拟机构建是阻断项：必须完成 x64 Python/PE 校验、冻结桌面启动、Traceback 扫描、浏览器预热、真实卡片渲染及 PowerShell 安装事务 smoke；安装事务必须验证五宿主 skill 的正式/测试共存、更新和卸载。Windows 未通过，不得交给发布 Skill。
 - 项目仓库必须提交 `docs/download-node-integration.md`、`docs/download-node-project-intake.yaml`、`docs/download-node-project-receipt.json` 与 `release/release-contract.json`，且字节内容必须匹配受保护的中央项目 profile。
 - 公开发布的唯一入口是全局 `bytestaff-digital-employee-publish` Skill 的 `publish_release.py`。项目不得复制、包装或局部重写该发布编排器。
 - 全局 Skill 先上传不可变 OSS/节点制品并停在 `PREPARED_AWAITING_SWITCH_GATE`；只有完成真实客户端 node 正常、node 失败回落 OSS、坏节点内容回落 OSS、旧 `url` 单源兼容四项验收后，才可用同一 run 的 prepare receipt 与验收凭证切换 test canonical。

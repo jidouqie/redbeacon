@@ -11,7 +11,7 @@ RedBeacon 是一个本机客户端 + AI 助手能力组成的小红书运营工�
 - **文案与配图**：通过 bytestaff 平台生成文案 / 图片，文字卡渲染在本机完成。
 - **本机审核**：生成后的内容进入本机审核表，在客户端或 AI 对话里修改、通过、驳回。
 - **发布**：发布前检查登录态，按通过的稿件逐条前台发布。
-- **全量更新**：客户端、CLI 兼容通道和 skill 使用同一套更新能力，不只更新其中一个片段。
+- **全量更新**：客户端、CLI 兼容通道和五种 AI 助手 skill 使用同一套更新能力，不只更新其中一个片段。
 
 业务数据默认保存在本机，不需要配置飞书。飞书云端源属于历史方案，现阶段不作为主流程。
 
@@ -29,7 +29,7 @@ Windows PowerShell：
 $m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json';$u=($m.artifacts|? path -eq 'installers/install.ps1').url;iex (iwr $u -UseBasicParsing).Content
 ```
 
-装好后可以直接打开桌面应用，也可以在 AI 助手里使用已安装的 RedBeacon skill。
+装好后可以直接打开桌面应用，也可以在 Claude Code、Codex、OpenClaw、Hermes 或腾讯 WorkBuddy 中使用已安装的 RedBeacon skill。四种采用 Agent Skills 标准的宿主会收到字节一致的 `SKILL.md`；WorkBuddy 需要新建任务或重启后刷新技能列表。
 
 ## 测试版
 
@@ -58,13 +58,12 @@ $m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/project
 ## 仓库结构
 
 ```text
-.claude/commands/       stable skill 真源目录（历史命名，Codex 也从这里派生）
+.claude/commands/       stable skill 真源目录（发布时派生五宿主格式）
 install/                作为制品交给中央发布 Skill 的安装与卸载脚本
 tools/                  本机构建、测试、干净制品准备和 skill 通道生成
-docs/                   统一下载节点接入契约
+docs/                   下载节点接入契约与本地双平台构建说明
 release/                构建与发布 provenance（不含凭据）
 cli/                    闭源客户端与 CLI 子仓库
-项目文档/               历史深度资料，当前口径以 AGENTS.md 为准
 ```
 
-当前维护入口是 [AGENTS.md](AGENTS.md)。项目不再管理 OSS 或公开发布；公开发布只使用全局 `bytestaff-digital-employee-publish` Skill。发布前测试入口是 [RedBeacon-测试版验证指南.md](RedBeacon-测试版验证指南.md)。
+当前维护入口是 [AGENTS.md](AGENTS.md)。项目不再管理 OSS 或公开发布；公开发布只使用全局 `bytestaff-digital-employee-publish` Skill。发布前测试入口是 [RedBeacon-测试版验证指南.md](RedBeacon-测试版验证指南.md)，本地双平台构建与 Windows 虚拟机部署见 [docs/local-desktop-build.md](docs/local-desktop-build.md)。

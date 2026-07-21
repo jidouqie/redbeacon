@@ -113,8 +113,21 @@ def _build_bundle(oss: Path, version: str, base_url: str, failure: str = "") -> 
         f"---\ndescription: transaction smoke {version}\n---\n# RedBeacon {version}\n",
         encoding="utf-8",
     )
+    portable = skill_root / "agent-skills" / "redbeacon" / "SKILL.md"
+    portable.parent.mkdir(parents=True)
+    portable.write_text(
+        f"---\nname: redbeacon\ndescription: \"transaction smoke {version}\"\n---\n\n# RedBeacon {version}\n",
+        encoding="utf-8",
+    )
     (skill_root / "redbeacon-skill-manifest.json").write_text(
-        json.dumps({"channel": "stable", "version": version, "commit": "smoke"}),
+        json.dumps({
+            "schema": 2,
+            "channel": "stable",
+            "version": version,
+            "commit": "smoke",
+            "assistants": ["claude-code", "codex", "openclaw", "hermes", "workbuddy"],
+            "portable_skills": ["agent-skills/redbeacon/SKILL.md"],
+        }),
         encoding="utf-8",
     )
     skill_dir = oss / "skill"
@@ -122,6 +135,7 @@ def _build_bundle(oss: Path, version: str, base_url: str, failure: str = "") -> 
     skill_bundle = skill_dir / "redbeacon-skill.tar.gz"
     with tarfile.open(skill_bundle, "w:gz") as tar:
         tar.add(skill_root / ".claude", arcname=".claude")
+        tar.add(skill_root / "agent-skills", arcname="agent-skills")
         tar.add(skill_root / "redbeacon-skill-manifest.json", arcname="redbeacon-skill-manifest.json")
     skill_sha = hashlib.sha256(skill_bundle.read_bytes()).hexdigest()
 
@@ -195,6 +209,25 @@ def _run_installer(home: Path, base_url: str, *, expect_ok: bool) -> subprocess.
     if not expect_ok and result.returncode == 0:
         raise AssertionError(f"installer unexpectedly succeeded:\n{result.stdout}")
     return result
+
+
+def _run_uninstaller(home: Path) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env.update({
+        "HOME": str(home),
+        "REDBEACON_CHANNEL": "stable",
+        "REDBEACON_PURGE": "0",
+        "REDBEACON_SKIP_PROCESS_STOP": "1",
+        "REDBEACON_SKILL_DIR": str(home / "skills"),
+    })
+    return subprocess.run(
+        ["bash", str(ROOT / "install/uninstall.sh")],
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=True,
+    )
 
 
 def _run_test_wrappers(oss: Path, base_url: str, home: Path) -> None:
@@ -275,8 +308,15 @@ def main() -> None:
             business_db.write_text("account-data-must-survive-update", encoding="utf-8")
             codex_skill = home / ".codex/skills/redbeacon/SKILL.md"
             claude_skill = home / "skills/redbeacon.md"
-            assert codex_skill.is_file()
-            assert "9.9.1" in codex_skill.read_text(encoding="utf-8")
+            portable_skills = [
+                codex_skill,
+                home / ".openclaw/skills/redbeacon/SKILL.md",
+                home / ".hermes/skills/redbeacon/SKILL.md",
+                home / ".workbuddy/skills/redbeacon/SKILL.md",
+            ]
+            for skill in portable_skills:
+                assert skill.is_file(), f"assistant skill was not installed: {skill}"
+                assert "9.9.1" in skill.read_text(encoding="utf-8")
             assert "9.9.1" in claude_skill.read_text(encoding="utf-8")
 
             if platform.system() == "Darwin":
@@ -301,7 +341,8 @@ def main() -> None:
             _run_installer(home, base_url, expect_ok=False)
             assert _version(cli) == "9.9.1", "final runtime failure did not restore old app"
             assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
-            assert "9.9.1" in codex_skill.read_text(encoding="utf-8"), "Codex skill did not roll back"
+            for skill in portable_skills:
+                assert "9.9.1" in skill.read_text(encoding="utf-8"), f"assistant skill did not roll back: {skill}"
             assert "9.9.1" in claude_skill.read_text(encoding="utf-8"), "Claude skill did not roll back"
 
             _build_bundle(oss, "9.9.4", base_url)
@@ -312,10 +353,16 @@ def main() -> None:
             assert snapshots, "update did not create a pre-update account database snapshot"
             assert snapshots[-1].read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert not list(home.rglob("*.redbeacon-rollback"))
+
+            _run_uninstaller(home)
+            assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
+            assert not claude_skill.exists()
+            for skill in portable_skills:
+                assert not skill.exists(), f"assistant skill survived uninstall: {skill}"
         finally:
             server.shutdown()
             server.server_close()
-    print("Unix installer transaction smoke passed: hostile env + staged/final app and skill rollback + commit")
+    print("Unix installer transaction smoke passed: hostile env + five-host skill rollback, commit and uninstall")
 
 
 if __name__ == "__main__":
