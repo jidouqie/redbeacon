@@ -79,7 +79,7 @@ redbeacon generate --account-id {ID} \
 > - **纯 AI**（`ai`）：只一张 AI 封面。
 > 不传就用账号默认「默认配图方式」（在 `/source-command-redbeacon-locate` 定、`/source-command-redbeacon-strategy` 改，存在账号定位档案里）。`--image-mode` 只覆盖**这一篇**。
 
-> **带货方案（`--plan-id` 指向「带货」类型方案）会自动换一条产品图流程**：不出大字报封面，而是**基于用户传的产品原图做一组图生图**——第 1 张带货封面（带标题）、其余是电商展示样式的产品图。产品图（1~5 张）/生成张数/风格倾向/展示图带不带字，**都存在那套带货方案里**（在网页「方案」页设，你不用传这些参数，`generate` 认出是带货方案就自动读）。**要点**：① 前提是该带货方案**已在网页方案页传过产品图**，没传会报「还没上传产品图」——引导用户去 `redbeacon ui app --page 方案 --account-id {ID}` 传；② **每张图都扣算力点（比普通封面贵，一次 N 张）**，量大，替用户把张数念清楚、别闷头批量跑；③ 风格默认全托管给平台按产品品类自定，用户想定调就在方案里填「风格倾向」。`--image-mode` 对带货方案无效（带货固定图生图）。
+> **带货方案（`--plan-id` 指向「带货」类型方案）会自动换一条产品图流程**：不出大字报封面，而是**基于用户传的产品原图做一组图生图**——第 1 张带货封面（带标题）、其余是电商展示样式的产品图。产品图（1~5 张）/生成张数/风格倾向/展示图带不带字，**都存在那套带货方案里**（在网页「方案」页设，你不用传这些参数，`generate` 认出是带货方案就自动读）。**要点**：① 前提是该带货方案**已在网页方案页传过产品图**，没传会报「还没上传产品图」——引导用户去 `redbeacon ui app --detach --page 方案 --account-id {ID}` 传；② **每张图都扣算力点（比普通封面贵，一次 N 张）**，量大，替用户把张数念清楚、别闷头批量跑；③ 风格默认全托管给平台按产品品类自定，用户想定调就在方案里填「风格倾向」。`--image-mode` 对带货方案无效（带货固定图生图）。
 
 ### ③ 想先看再花钱？两步生成（`--preview` → `--commit`，省点·透明）
 
@@ -116,8 +116,8 @@ redbeacon generate --account-id {ID} --commit --draft-file draft.json
 
 结果在 stdout：
 
-- `{"ok":true,"record_id":"...","title":"...",...}` → 成功，已写进审核表：
-  > ✓ 已写好一篇并送进本机审核表。想审就跟我说——我能直接帮你**列出来标通过**（`redbeacon review list` / `review submit --decision approve`），要**逐条改标题正文**就给你**打开审稿页**（`redbeacon ui app --page 审稿 --account-id {ID}`）；审完标了「通过」再用 **`/source-command-redbeacon-publish`** 发布。
+- `{"ok":true,"record_id":"...","title":"...",...}` → 成功，已写进审核表。立即执行 `redbeacon ui app --detach --page 审稿 --account-id {ID}`，把客户端置前到审稿页，让用户看到刚完成的成稿：
+  > ✓ RedBeacon 已经把这篇写好并放进审稿台，我把审稿页打开了。你可以直接在里面看和改，也可以切回来告诉我“通过”或怎么改，我继续替你操作。
 - **配图降级是正常的**：`image_warning` 非空（若没登录平台 / 算力点不足 / 平台不可达 / 生图失败）→ **只影响图**，文案照样入库，可稍后补图再发。要带 AI 配图就先 `redbeacon login` 登录平台、确认有算力点。
 - `{"error":...,"next":"..."}` → **fail-closed**：平台不可达/点数不够/未登录这类会直接报错中止（不会悄悄拿一段占位文案糊弄），把 `error` 给用户看，按 `next` 引导自愈（多半是重登平台或去充值/等下个周期）。
 
@@ -143,7 +143,7 @@ redbeacon topics stats --account-id {ID}
 redbeacon content list --account-id {ID} --limit 20
 ```
 
-`content list` 读的是本地一份旧队列表，**新生成的内容不进这张表、直写审核表**——想看最新写的东西，去本机操作台的审稿页（`redbeacon ui app --page 审稿 --account-id {ID}`）或让我 `review list` 念给你，最准。`content list` 只留给旧数据兜底用。
+`content list` 读的是本地一份旧队列表，**新生成的内容不进这张表、直写审核表**——想看最新写的东西，去本机操作台的审稿页（`redbeacon ui app --detach --page 审稿 --account-id {ID}`）或让我 `review list` 念给你，最准。`content list` 只留给旧数据兜底用。
 
 ---
 

@@ -19,7 +19,7 @@ metadata:
 >
 > 🧠 **你在这个 skill 里的核心价值 = 提示词顾问**：多数用户只能说出「一种感觉」，尤其**封面**几乎没人说得清。你要懂这套提示词怎么编码（见下「📐 提示词是怎么编码的」），把用户的模糊感觉/一张喜欢的封面截图**反推**成真实提示词、落进方案（见下「🎨 顾问式落方案」）。这是本 skill 最该发力的地方，不是只当填表操作员。
 >
-> 🔴 **长模板的"反复比对微调看实时效果"是网页的主场**：模板往往很长、要在占位符和话术间来回磨——**这种精修网页「方案」页最顺手**（能力 CLI 全都有、下面都能调）。分工是：**"把感觉聊清、反推成提示词、写进方案"是你（对话）的强项；"对着成品一格格微调"交棒网页** `redbeacon ui app --page 方案 --account-id {ID}`。对话里的短动作：看有哪些方案、设默认、新建骨架、传/删产品图、删方案。
+> 🔴 **长模板的"反复比对微调看实时效果"是网页的主场**：模板往往很长、要在占位符和话术间来回磨——**这种精修网页「方案」页最顺手**（能力 CLI 全都有、下面都能调）。分工是：**"把感觉聊清、反推成提示词、写进方案"是你（对话）的强项；"对着成品一格格微调"交棒网页** `redbeacon ui app --detach --page 方案 --account-id {ID}`。对话里的短动作：看有哪些方案、设默认、新建骨架、传/删产品图、删方案。
 
 ---
 
@@ -178,7 +178,7 @@ redbeacon plans material --account-id {ID} --plan-id {PID} --clear              
 
 - 图片 png/jpg/webp、≤12MB；挂进去后 `generate` 认出带货方案会自动读，不用在生成时再传。
 - **🗑️ `--clear` / `--remove` 会连磁盘文件一起删、不可恢复**：删前跟用户确认一句。
-- 用户手上有一批产品图要传/挑/换 → **可视化更顺手，交棒网页**：`redbeacon ui app --page 方案 --account-id {ID}`。
+- 用户手上有一批产品图要传/挑/换 → **可视化更顺手，交棒网页**：`redbeacon ui app --detach --page 方案 --account-id {ID}`。
 
 ---
 
@@ -198,7 +198,7 @@ redbeacon plans delete --account-id {ID} --plan-id {PID}
 | 用户想干的 | 去哪 |
 |---|---|
 | 看/建/删方案、设默认、传产品图 | **本 skill** |
-| 长文案/视觉模板反复比对微调 | 交棒 `redbeacon ui app --page 方案 --account-id {ID}` |
+| 长文案/视觉模板反复比对微调 | 交棒 `redbeacon ui app --detach --page 方案 --account-id {ID}` |
 | 改账号定位/文案预设/图片预设（不是成套模板） | `/source-command-redbeacon-strategy` |
 | 用某方案写一篇 | `/source-command-redbeacon-generate`（`--plan-id`） |
 

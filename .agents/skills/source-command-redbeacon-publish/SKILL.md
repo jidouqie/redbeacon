@@ -58,7 +58,7 @@ redbeacon xhs-login verify --account-id {ID}
 
 登录态 OK 后，**先用 dry-run 拉一份"即将发布什么 + 用什么设置发"给用户过目**，不要直接 `publish`：
 
-> 💡 用户想**可视化地一条条看待发的、勾选着发**，可深链发布页交棒：`redbeacon ui app --page 发布 --account-id {ID}`（网页支持勾选批量发、看图预览）。**要"就发吧"走命令更快，要挑挑拣拣走网页更直观**——按用户语气选。
+> 💡 用户想**可视化地一条条看待发的、勾选着发**，可深链发布页交棒：`redbeacon ui app --detach --page 发布 --account-id {ID}`（网页支持勾选批量发、看图预览）。**要"就发吧"走命令更快，要挑挑拣拣走网页更直观**——按用户语气选。
 
 ```bash
 redbeacon publish --account-id {ID} --dry-run
@@ -115,7 +115,7 @@ redbeacon publish --account-id {ID}
 按返回讲给用户：
 
 - `{"ok":true,"published":N}`：
-  - **N > 0** → ✓ 成功发布/提交了 N 篇。可去小红书核对，归档里也能查到（`redbeacon content archive`）。
+  - **N > 0** → ✓ 成功发布/提交了 N 篇。立即执行 `redbeacon ui app --detach --page 归档 --account-id {ID}`，把客户端置前到归档页，让用户看到结果；也可去小红书核对。
   - **N == 0** → 没东西可发。最可能两种原因，帮用户判断：
     1. **还没有标「通过」**的记录 → 先去 `/source-command-redbeacon-review` 审核标通过。
     2. 账号**掉线被跳过** → 回 `/source-command-redbeacon-xhslogin` 重登。

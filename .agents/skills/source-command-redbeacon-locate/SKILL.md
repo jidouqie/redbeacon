@@ -29,7 +29,7 @@ metadata:
 >
 > ⚠️ **账号资料真源 = 本机账号档案**。你写定位 = 写这份档案；用户日后要改账号资料，随口跟你说、你帮他改（`strategy patch`），或自己去操作台定位页改。
 >
-> 🔴 **想让用户可视化地过一眼/逐项核对这 26 项定位** → 深链把他送进操作台定位页：`redbeacon ui app --page 定位 --account-id {ID}`。**梳理/起草留对话（你的强项，联网+引导替他想），逐项核对/微调交给网页（它一屏铺开更直观）**——这正是两个入口的分工。
+> 🔴 **想让用户可视化地过一眼/逐项核对这 26 项定位** → 深链把他送进操作台定位页：`redbeacon ui app --detach --page 定位 --account-id {ID}`。**梳理/起草留对话（你的强项，联网+引导替他想），逐项核对/微调交给网页（它一屏铺开更直观）**——这正是两个入口的分工。
 >
 > **遵循主入口「自动推进原则」**：定位本身就是和用户的对话（需要他给赛道/受众/想法），聊定+铺完种子选题后，**直接引导用户过目确认**，别问"要不要确认"。这是 onboarding 的最后一关。
 >
@@ -271,19 +271,21 @@ redbeacon strategy image-ref-add --account-id {ID} --file "<用户那张照片�
 把确认后的数组保存成 UTF-8 文件（如 `topics.json`），再执行：
 
 ```bash
-redbeacon topics batch --account-id {ID} --json-file topics.json
+redbeacon topics batch --account-id {ID} --json-file topics.json --require-complete
 ```
 
 ```json
 [
   {"content":"选题1","content_type":"干货科普","application_domain":"...","problem_type":"识别",
-   "angle":"从一个反常识的判断切入","outline":"要点1;要点2;要点3"},
+   "angle":"从一个反常识的判断切入","outline":"要点1;要点2;要点3","value_point":"读者得到的具体收获","hook":"一句互动问题","audience":"本题聚焦人群","image_dir":"本题配图构想","note":"无额外备注"},
   {"content":"选题2","content_type":"痛点解析","application_domain":"...","problem_type":"反例",
-   "angle":"先戳这类人最痛的一刀","outline":"要点1;要点2;要点3"}
+   "angle":"先戳这类人最痛的一刀","outline":"要点1;要点2;要点3","value_point":"读者得到的具体收获","hook":"一句互动问题","audience":"本题聚焦人群","image_dir":"本题配图构想","note":"无额外备注"}
 ]
 ```
 
 > 阶段默认落「选题」（可被 generate 取用的库存）。返回 `{"inserted":N,"total":M,"record_ids":[...]}`，库里重复文本自动跳过。
+
+写入成功后立即执行 `redbeacon ui app --detach --page 选题 --account-id {ID}`，让用户在客户端里核查刚铺好的选题；不要只在对话里报一个数量。
 
 写完核对数量：
 
@@ -383,7 +385,7 @@ redbeacon accounts patch --account-id {ID} --data-file account.json
 用户要可视化核对就深链送过去：
 
 ```bash
-redbeacon ui app --page 定位 --account-id {ID}
+redbeacon ui app --detach --page 定位 --account-id {ID}
 ```
 
 **② 用户要改 → 你在对话里改**（增量、改哪项传哪项，写本机账号档案）：

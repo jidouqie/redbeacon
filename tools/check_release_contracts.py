@@ -128,6 +128,15 @@ def main() -> None:
         if marker not in locate_source:
             fail(f"locate skill lost the whole-picture-first onboarding rule: {marker}")
 
+    main_skill = (ROOT / ".claude" / "commands" / "redbeacon.md").read_text(encoding="utf-8")
+    topics_skill = (ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8")
+    if "ui app --detach --page" not in main_skill:
+        fail("main skill no longer makes UI milestones visible with a non-blocking deep link")
+    for marker in ("--require-complete", "内容类型、应用域、问题类型", "无额外备注",
+                   "ui app --detach --page 选题"):
+        if marker not in topics_skill:
+            fail(f"topics skill lost the complete-brief/UI handoff contract: {marker}")
+
     with tempfile.TemporaryDirectory(prefix="redbeacon-skill-contract-") as temp:
         for channel in ("stable", "test"):
             root = Path(temp) / channel

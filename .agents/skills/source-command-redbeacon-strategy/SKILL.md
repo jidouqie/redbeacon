@@ -27,7 +27,7 @@ metadata:
 >
 > 🔴 **分工原则（重要，你是这里的导航员）**：
 > - **短字段、一句话能说清的 → 你在对话里直接改**（改语气、换赛道、加个禁词、换卡片配色、换配图方式…）——这是你的强项，`strategy patch`/`image-set` 一条命令落库，别支使用户去网页点。
-> - **整套「生成方案 / 文案提示词模板 / 视觉提示词模板」这种长模板 → 别在对话里硬拼，深链把用户送进网页方案页**（`redbeacon ui app --page 方案 --account-id {ID}`）。理由：长模板要一屏铺开、边改边看占位符高亮和实时预览，网页信息密度甩对话几条街；你在聊天里一段段念模板，用户根本对不齐。**这正是"该交棒就交棒"**——见下「D 段」。
+> - **整套「生成方案 / 文案提示词模板 / 视觉提示词模板」这种长模板 → 别在对话里硬拼，深链把用户送进网页方案页**（`redbeacon ui app --detach --page 方案 --account-id {ID}`）。理由：长模板要一屏铺开、边改边看占位符高亮和实时预览，网页信息密度甩对话几条街；你在聊天里一段段念模板，用户根本对不齐。**这正是"该交棒就交棒"**——见下「D 段」。
 >
 > 不知道"文案不对劲"该改哪个旋钮 → 先走 `/source-command-redbeacon-diagnose`，它会反推问题节点再把你带回这里。
 
@@ -91,7 +91,7 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 
 > 改完告知：✓ 已更新 [字段]。这会影响下次 `/source-command-redbeacon-generate` 的产出。
 >
-> **改完顺手提一句**：「想看效果就让我生成一篇试试。」想直接看产出就 `/source-command-redbeacon-generate` 生成一篇对比；想在操作台核一眼可 `redbeacon ui app --page 定位 --account-id {ID}`。
+> **改完顺手提一句**：「想看效果就让我生成一篇试试。」想直接看产出就 `/source-command-redbeacon-generate` 生成一篇对比；想在操作台核一眼可 `redbeacon ui app --detach --page 定位 --account-id {ID}`。
 
 ---
 
@@ -183,7 +183,7 @@ redbeacon strategy image-ref-clear  --account-id {ID}                          #
 用户想调的是**「每篇文案具体怎么写、封面具体怎么出」那套带 `{占位符}` 的长模板**（不是 A/B/C 那些短字段）时——**这不是策略微调的活，是「方案」的活，交给专门的 `/source-command-redbeacon-plans`**。
 
 - 那边能**看/建/改/删方案、设默认、传删产品图**（`plans save` 支持长模板走 stdin，能力都在 CLI）。
-- 但**长模板反复比对微调，网页方案页最顺手**——`/source-command-redbeacon-plans` 会在合适时一句话把用户深链送进 `redbeacon ui app --page 方案 --account-id {ID}`：左边改模板、右边看这次真会发给 AI 的成品，改完保存回来接着生成。
+- 但**长模板反复比对微调，网页方案页最顺手**——`/source-command-redbeacon-plans` 会在合适时一句话把用户深链送进 `redbeacon ui app --detach --page 方案 --account-id {ID}`：左边改模板、右边看这次真会发给 AI 的成品，改完保存回来接着生成。
 
 > 简单收口：用户在策略里提到「想改整套文案/封面模板、想换默认方案、带货要传产品图」→ **一句「这些成套方案的事我用方案能力帮你弄」然后走 `/source-command-redbeacon-plans`**，别在策略这儿硬接长模板。
 

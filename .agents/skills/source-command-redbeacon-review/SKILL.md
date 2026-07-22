@@ -7,7 +7,7 @@ metadata:
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
-> 📦 **数据都在本机**：待审/通过/驳回的稿都在本机审核表，`review` 命令读写这一份。审核改稿也能在 `redbeacon ui app --page 审稿` 操作台可视化地做。（飞书云端源现阶段搁置，不用管。）
+> 📦 **数据都在本机**：待审/通过/驳回的稿都在本机审核表，`review` 命令读写这一份。审核改稿也能在 `redbeacon ui app --detach --page 审稿` 操作台可视化地做。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵。
 > - **全程人话**：不出现 /source-command-redbeacon-* 或 redbeacon xxx 命令名/斜杠（那是你后台执行的），用「我把这篇标通过了」这种说法。
@@ -45,7 +45,7 @@ redbeacon review list --account-id {ID}       # 列待审：每条带 record_id 
 
 - **给判断、给推荐**：扫完内容后主动说「哪篇最稳、哪篇有点小问题」，把「1. 全通过」标推荐（除非你真看出问题）——让用户在你的判断上点头，而不是从零决定。
 - **没有待审**（`review list` 空）→ 一句「现在没有待审的稿，我先帮你写一篇？」引到 `/source-command-redbeacon-generate`，别空转。
-- 用户想**逐条改标题/正文/标签、边改边看**（信息量大）→ 一句「逐篇细改的话网页上更顺手，我给你打开」+ 交棒 `redbeacon ui app --page 审稿 --account-id {ID}`（网页上通过/改写/退回选题/驳回按钮都有）。改完回来接着走发布。
+- 用户想**逐条改标题/正文/标签、边改边看**（信息量大）→ 一句「逐篇细改的话网页上更顺手，我给你打开」+ 交棒 `redbeacon ui app --detach --page 审稿 --account-id {ID}`（网页上通过/改写/退回选题/驳回按钮都有）。改完回来接着走发布。
 
 ---
 
@@ -105,7 +105,9 @@ redbeacon review send-back --account-id {ID} --record-id {rid}
 
 审完标了「通过」的稿就能发：
 
-> ✓ 处理完了：{X} 篇通过、{Y} 篇让 AI 在改、{Z} 篇退回/删掉。通过的这几篇随时能发——要发就跟我说，我帮你走发布。
+> ✓ 处理完了：{X} 篇通过、{Y} 篇让 AI 在改、{Z} 篇退回/删掉。通过的这几篇随时能发——我把发布页打开给你核对；你也可以切回来直接跟我说“发布”。
+
+只要本轮出现已通过稿，就执行 `redbeacon ui app --detach --page 发布 --account-id {ID}`，让下一步在客户端里可见。
 
 用户要发 → `/source-command-redbeacon-publish`。
 
@@ -116,7 +118,7 @@ redbeacon review send-back --account-id {ID} --record-id {rid}
 | 用户想干的 | 去哪 |
 |---|---|
 | 审稿 / 标通过 / 改稿 / 退回 / 删稿 | **本 skill** |
-| 逐条改标题正文、边改边看实时效果 | 交棒 `redbeacon ui app --page 审稿 --account-id {ID}` |
+| 逐条改标题正文、边改边看实时效果 | 交棒 `redbeacon ui app --detach --page 审稿 --account-id {ID}` |
 | 写一篇新的 | `/source-command-redbeacon-generate` |
 | 发布已通过内容 | `/source-command-redbeacon-publish` |
 | 「文案总是不对劲」找根因 | `/source-command-redbeacon-diagnose` |
