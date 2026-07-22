@@ -47,6 +47,21 @@ say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
 die()  { printf '\033[31mxx %s\033[0m\n' "$*" >&2; exit 1; }
 
+launch_installed_app() {
+  app="$1"
+  [ "${REDBEACON_INSTALLER_TEST_MODE:-}" != "1" ] || return 0
+  [ "${REDBEACON_SKIP_APP_LAUNCH:-}" != "1" ] || return 0
+  if [ "$OS" != "Darwin" ] || [ ! -d "$app" ]; then
+    warn "$APP_NAME installed successfully, but the desktop app was not found for automatic launch."
+    return 0
+  fi
+  if /usr/bin/open "$app" >/dev/null 2>&1; then
+    say "$APP_NAME is starting."
+  else
+    warn "$APP_NAME installed successfully, but automatic launch failed. Open it from Launchpad or Spotlight."
+  fi
+}
+
 is_local_installer_test_url() {
   [ "${REDBEACON_INSTALLER_TEST_MODE:-}" = "1" ] || return 1
   case "$1" in http://127.0.0.1:*/*) return 0 ;; *) return 1 ;; esac
@@ -570,6 +585,7 @@ if [ -z "${REDBEACON_FORCE_INSTALL:-}" ] && [ -n "$LATEST" ] && [ "$CURRENT" = "
     SKILL_TRANSACTION_ACTIVE=""
     rm -rf "$SKILL_BACKUP_ROOT" 2>/dev/null || true
     say "To reinstall anyway, set REDBEACON_FORCE_INSTALL=1 and run the current central installer again."
+    launch_installed_app "$HOME/Applications/$APP_NAME.app"
     exit 0
   fi
   warn "The installed copy reports the latest version but failed health verification; downloading a clean bundle."
@@ -684,3 +700,4 @@ case ":$PATH:" in
      warn "  e.g.  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
 esac
 echo "  (The browser engine was prepared during install.)"
+launch_installed_app "$FINAL_PATH"

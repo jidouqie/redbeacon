@@ -25,6 +25,20 @@ trap {
   exit 1
 }
 function Die($m){ throw $m }
+function Start-InstalledApp([string]$GuiPath, [string]$WorkingDirectory){
+  if($env:REDBEACON_INSTALLER_TEST_MODE -eq "1" -or $env:REDBEACON_SKIP_APP_LAUNCH -eq "1"){ return }
+  if(-not (Test-Path -LiteralPath $GuiPath)){
+    Warn "$AppName installed successfully, but the desktop executable was not found for automatic launch."
+    return
+  }
+  try {
+    Start-Process -FilePath $GuiPath -WorkingDirectory $WorkingDirectory | Out-Null
+    Say "$AppName is starting."
+  }
+  catch {
+    Warn "$AppName installed successfully, but automatic launch failed. Open it from the Desktop or Start Menu."
+  }
+}
 function Test-LocalInstallerTestUrl([Uri]$Uri){
   return ($env:REDBEACON_INSTALLER_TEST_MODE -eq "1" -and
           $Uri.Scheme -eq "http" -and $Uri.Host -eq "127.0.0.1")
@@ -507,6 +521,7 @@ try {
       Install-Skills $cliExe $tmp
       Commit-Skills
       Say "To reinstall anyway, set REDBEACON_FORCE_INSTALL=1 and run the current central installer again."
+      Start-InstalledApp (Join-Path $Dest "$AppName.exe") $Dest
       return
     }
   }
@@ -602,5 +617,6 @@ try {
   Write-Host "  - Double-click:  Desktop / Start Menu -> $AppName"
   Write-Host "  - Or via CLI:    $CmdName   (open a NEW terminal first so PATH refreshes)"
   Write-Host "  (The browser engine was prepared during install.)"
+  Start-InstalledApp (Join-Path $Dest "$AppName.exe") $Dest
 }
 finally { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }

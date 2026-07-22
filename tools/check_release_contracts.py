@@ -116,9 +116,17 @@ def main() -> None:
         text = (ROOT / "install" / name).read_text(encoding="utf-8")
         if CENTRAL_ORIGIN not in text or "download node" not in text.lower():
             fail(f"{name} does not implement central node-first installation")
+        launch_marker = "launch_installed_app" if name.endswith(".sh") else "Start-InstalledApp"
+        if text.count(launch_marker) < 3:
+            fail(f"{name} does not auto-launch after fresh and healthy repeat installs")
         for assistant in ("codex", "openclaw", "hermes", "workbuddy"):
             if assistant not in text.lower():
                 fail(f"{name} does not install the {assistant} skill adapter")
+
+    locate_source = (ROOT / ".claude" / "commands" / "redbeacon-locate.md").read_text(encoding="utf-8")
+    for marker in ("我先简述整体想法", "你逐题带我梳理", "不得把他已经说过的内容换个说法再问一次"):
+        if marker not in locate_source:
+            fail(f"locate skill lost the whole-picture-first onboarding rule: {marker}")
 
     with tempfile.TemporaryDirectory(prefix="redbeacon-skill-contract-") as temp:
         for channel in ("stable", "test"):
