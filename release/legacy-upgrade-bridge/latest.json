@@ -1,0 +1,39 @@
+{
+  "channel": "stable",
+  "version": "0.1.95",
+  "notes": "旧版升级入口已迁移。点击更新后将通过 RedBeacon 官网固定安装入口升级到当前正式版，并保留本机账号和业务数据。",
+  "skill_version": "0.1.95",
+  "skill_bundle_url": "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/releases/0.1.95/skill/redbeacon-skill.tar.gz",
+  "skill_sha256": "3655f6e3be801e3cbb4dabf12eae923c770f5feb9020924f7af493cdad437777",
+  "skill_raw_base": "https://bytestaff-redbeacon.oss-cn-shanghai.aliyuncs.com/skill/releases/0.1.73/commands",
+  "skill_files": [
+    "redbeacon.md",
+    "redbeacon-accounts.md",
+    "redbeacon-config.md",
+    "redbeacon-diagnose.md",
+    "redbeacon-generate.md",
+    "redbeacon-locate.md",
+    "redbeacon-login.md",
+    "redbeacon-panel.md",
+    "redbeacon-plans.md",
+    "redbeacon-publish.md",
+    "redbeacon-review.md",
+    "redbeacon-strategy.md",
+    "redbeacon-topics.md",
+    "redbeacon-xhslogin.md"
+  ],
+  "app_sha256": {
+    "win-x64": "1b2ddf73bb408a735ccd621b4234fabda941adb7b50ef58607c154b6cbc5e6b4",
+    "mac-arm64": "9dd3f85156ccc6211ed36f75bd5376a152031ec1cf9a5191195b5acee4d49f38"
+  },
+  "app": {
+    "win-x64": {
+      "url": "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/releases/0.1.95/packages/RedBeacon-win-x64.zip",
+      "sha256": "1b2ddf73bb408a735ccd621b4234fabda941adb7b50ef58607c154b6cbc5e6b4"
+    },
+    "mac-arm64": {
+      "url": "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/releases/0.1.95/packages/RedBeacon-mac-arm64.zip",
+      "sha256": "9dd3f85156ccc6211ed36f75bd5376a152031ec1cf9a5191195b5acee4d49f38"
+    }
+  }
+}
