@@ -38,6 +38,18 @@ redbeacon accounts list
 - 账号：0 个 → `/source-command-redbeacon-accounts`；1 个 → 自动用，记 `{ID}`；多个 → 让用户指明。
 - 选题库空了写不了：`redbeacon topics stats --account-id {ID}` 看 `unused`，空就去 `/source-command-redbeacon-topics` 补。
 
+### 创作前检查实际方案（发现假占位符只提醒，不打断）
+
+```bash
+redbeacon plans list  --account-id {ID}                     # 找默认方案；用户点名方案则记下 PID
+redbeacon plans check --account-id {ID}                     # 检查默认方案
+redbeacon plans check --account-id {ID} --plan-id {PID}     # 用户点名时检查这一套
+```
+
+- `needs_attention=false` → 正常继续。
+- `needs_attention=true` → 用一句人话提醒用户：检测到的 `{截止日期}`、`{适配人群}`、`[项目全称]` 这类写法不会自动填充，会按普通文字继续使用。**不要弹确认题，也不要因此中止用户已经要求的创作。**
+- 用户如果顺手要求修方案，再交给 `/source-command-redbeacon-plans`；没有要求就照常生成。占位符可以一个都不用，只有需要自动取值时才使用 `plans meta` 的官方清单。
+
 ---
 
 ## 写一篇：你挑题，算力平台写
@@ -71,7 +83,7 @@ redbeacon generate --account-id {ID} \
 - **直接创作 / 仿写直出**（没有对应的选题行，用户临时起意）→ 不传 `--topic-record-id`，只给 `--topic "<手填的题目方向>"` 即可，其余选题字段留空。
 - **`--topic-record-id`（关键）**：传了 → 文案+图片写进审核表后，CLI **自动从选题库删掉这条选题行**（选题→文案，写成文案=删行，不用再手动标记）。
 - **单篇命令**：要写多篇就逐篇重复①②（每篇各挑一条题、各调一次），CLI 不做批量。
-- **方案（提示词模板）用哪套**：不用你操心——默认用这个账号在网页「方案」页设的默认方案（没设过就用系统内置默认拼法，全字段照样喂给 AI）。用户如果明确要求「用XX方案写」，才需要去网页「方案」页确认后加 `--plan-id <ID>`；平时不用问用户这个。
+- **方案（提示词模板）用哪套**：平时不用问用户，默认用这个账号的默认方案；上面的 `plans check` 用来做非阻塞提醒。用户如果明确要求「用XX方案写」，检查并传 `--plan-id <ID>`；没设过方案则走系统内置默认拼法。
 
 > **配图方式（`--image-mode`，人话别甩字段词）**：
 > - **纯文字卡片**（`cards`）：正文+封面都渲染成卡片图。图这一步零平台、零算力点；文案仍走算力平台。
