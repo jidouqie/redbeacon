@@ -207,14 +207,14 @@ redbeacon plans delete --account-id {ID} --plan-id {PID}
 |---|---|
 | 看/建/删方案、设默认、传产品图 | **本 skill** |
 | 长文案/视觉模板反复比对微调 | 交棒 `redbeacon ui app --detach --page 方案 --account-id {ID}` |
-| 改账号定位/文案预设/图片预设（不是成套模板） | `/source-command-redbeacon-strategy` |
+| 改账号定位/全局文案预设 | `/source-command-redbeacon-strategy` |
 | 用某方案写一篇 | `/source-command-redbeacon-generate`（`--plan-id`） |
 
 ---
 
 ## 注意
 
-- 方案是**生成模板**，不是账号定位；定位（赛道/受众/语气/视觉风格）在 `/source-command-redbeacon-strategy`、`/source-command-redbeacon-locate`。方案是「怎么把这类笔记拼出来」的骨架。
+- 方案是**生成模板**，不是账号定位；定位（赛道/受众/语气）在 `/source-command-redbeacon-strategy`、`/source-command-redbeacon-locate`。视觉模板、配图方式与方案参考图统一由本方案管理；账号档案里残留的旧视觉字段只作历史兼容兜底。
 - 生成用哪套方案：默认走账号默认方案，`generate --plan-id` 临时指定。**别在生成时问用户方案**——平时用默认就好。
 - **长模板编辑优先交棒网页**：能力在 CLI，但信息密度高的活让网页做，别硬在对话里拼长字符串。
 - **🗑️ 删方案 / 清产品图不可恢复**：删前确认。
