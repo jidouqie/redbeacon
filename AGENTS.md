@@ -92,7 +92,7 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - Windows 虚拟机构建是阻断项：必须完成 x64 Python/PE 校验、冻结桌面启动、Traceback 扫描、浏览器预热、真实卡片渲染及 PowerShell 安装事务 smoke；安装事务必须验证五宿主 skill 的正式/测试共存、更新和卸载。Windows 未通过，不得交给发布 Skill。
 - 项目仓库必须提交 `docs/download-node-integration.md`、`docs/download-node-project-intake.yaml`、`docs/download-node-project-receipt.json` 与 `release/release-contract.json`，且字节内容必须匹配受保护的中央项目 profile。
 - 公开发布的唯一入口是全局 `bytestaff-digital-employee-publish` Skill 的 `publish_release.py`。项目不得复制、包装或局部重写该发布编排器。
-- 中央 OSS 按项目、通道和可选 component **最多保留最近 3 个完整版本**，且必须始终包含 canonical `latest.json` 当前指向的版本；下载节点仍只保留 current。版本保留检查是每次发布同一 run 的强制收尾阶段，不是另起的维护任务。发布第 4 个版本后，主发布器必须列出将删版本、对象数、字节数和计划 SHA-256，停在确认门；取得当次明确确认后从同一 run 继续删除最旧版本，并在删除后重新验证 canonical、剩余版本数和当前节点/OSS 下载。项目代码不得自行获得或调用 OSS 删除权限。
+- 中央 OSS 按项目、通道和可选 component **最多保留最近 3 个完整版本**，且必须始终包含 canonical `latest.json` 当前指向的版本；下载节点仍只保留 current，本机 `~/.local/state/bytestaff-download/<project>` 也只保留与 OSS 相同的三个版本运行目录。版本保留检查是每次发布同一 run 的强制收尾阶段，不是另起的维护任务。发布第 4 个版本后，主发布器必须列出将删版本、对象数、字节数和计划 SHA-256，停在确认门；取得当次明确确认后从同一 run 继续删除最旧 OSS 版本并复验，再自动删除对应通道/component 中不在远端保留集内、且已明确终态的本地旧 run；未完成、绑定异常或无法验证的本地 run 绝不删除。项目代码不得自行获得或调用 OSS 删除权限。
 - 全局 Skill 先上传不可变 OSS/节点制品并停在 `PREPARED_AWAITING_SWITCH_GATE`；只有完成真实客户端 node 正常、node 失败回落 OSS、坏节点内容回落 OSS、旧 `url` 单源兼容四项验收后，才可用同一 run 的 prepare receipt 与验收凭证切换 test canonical。
 - 若本次发布同时迁移更新入口，除常规四项下载验收外，还必须从迁移前最老受支持客户端的真实旧 URL 检查到更高版本，并验证其转发器最终取得当前通道官网安装脚本；这属于迁移阻断项。普通发版不触碰已经建立的旧版升级桥。
 - 测试版发布后只要客户端、CLI、skill、安装/更新/卸载、制品结构或项目契约有任何修改，测试结论立即作废，必须重发测试版。
