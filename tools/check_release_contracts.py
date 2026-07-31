@@ -129,9 +129,22 @@ def main() -> None:
             fail(f"locate skill lost the whole-picture-first onboarding rule: {marker}")
 
     main_skill = (ROOT / ".claude" / "commands" / "redbeacon.md").read_text(encoding="utf-8")
+    benchmark_skill = (ROOT / ".claude" / "commands" / "redbeacon-benchmark.md").read_text(encoding="utf-8")
     topics_skill = (ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8")
     if "ui app --detach --page" not in main_skill:
         fail("main skill no longer makes UI milestones visible with a non-blocking deep link")
+    for marker in (
+        "redbeacon benchmark analyze",
+        "redbeacon benchmark apply",
+        "默认优先使用 RedBeacon 完整能力",
+        "用户明确要求宿主 AI 接管",
+        "strategy patch",
+        "plans save",
+        "不静默切换",
+        "不得把这类结果冒充成平台对标分析结果",
+    ):
+        if marker not in benchmark_skill:
+            fail(f"benchmark skill lost the product-first/host-takeover contract: {marker}")
     for marker in ("--require-complete", "内容类型、应用域、问题类型", "无额外备注",
                    "ui app --detach --page 选题"):
         if marker not in topics_skill:
