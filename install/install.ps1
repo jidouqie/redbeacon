@@ -87,13 +87,19 @@ function Download-NodeArtifact([string]$Url, [string]$OutFile, $Artifact){
     $buffer = New-Object byte[] (512 * 1024)
     $total = [Int64]0
     $first = $true
+    $startedAt = [DateTime]::UtcNow
     while(($read = $input.Read($buffer, 0, $buffer.Length)) -gt 0){
       if($first -and $input.CanTimeout){ $input.ReadTimeout = 15000; $first = $false }
       $total += $read
       if($total -gt [Int64]$Artifact.size){ throw "node returned too many bytes" }
       $output.Write($buffer, 0, $read)
       $pct = [Math]::Min(100, [int](100 * $total / [Int64]$Artifact.size))
-      Write-Progress -Activity "Downloading RedBeacon" -Status "$pct% from download node" -PercentComplete $pct
+      $elapsedSeconds = [Math]::Max(0.1, ([DateTime]::UtcNow - $startedAt).TotalSeconds)
+      $downloadedMiB = $total / 1MB
+      $totalMiB = [Int64]$Artifact.size / 1MB
+      $speedMiB = $downloadedMiB / $elapsedSeconds
+      $status = ("{0}% - {1:N1}/{2:N1} MiB - {3:N1} MiB/s from download node" -f $pct, $downloadedMiB, $totalMiB, $speedMiB)
+      Write-Progress -Activity "Downloading RedBeacon" -Status $status -PercentComplete $pct
     }
   }
   finally {

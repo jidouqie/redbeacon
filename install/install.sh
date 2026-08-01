@@ -153,12 +153,14 @@ EOF
   rm -f "$output" "$output.headers"
   if [ -n "$node_url" ]; then
     node_ok=""
+    artifact_mib=$(( (expected_size + 1048575) / 1048576 ))
+    say "  Downloading from download node (${artifact_mib} MiB total; progress and speed shown below) ..."
     if is_local_installer_test_url "$node_url"; then
-      curl -fsS --connect-timeout 3 --speed-limit 1 --speed-time 8 \
+      curl -f --connect-timeout 3 --speed-limit 1 --speed-time 8 \
         --range 0- --dump-header "$output.headers" --output "$output" "$node_url" \
         && node_ok=1
     else
-      curl -fsS --proto '=https' --connect-timeout 3 --speed-limit 1 --speed-time 8 \
+      curl -f --proto '=https' --connect-timeout 3 --speed-limit 1 --speed-time 8 \
         --range 0- --dump-header "$output.headers" --output "$output" "$node_url" \
         && node_ok=1
     fi
