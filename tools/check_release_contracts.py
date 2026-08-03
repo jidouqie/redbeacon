@@ -135,10 +135,19 @@ def main() -> None:
             fail(f"locate skill lost the whole-picture-first onboarding rule: {marker}")
 
     main_skill = (ROOT / ".claude" / "commands" / "redbeacon.md").read_text(encoding="utf-8")
+    accounts_skill = (ROOT / ".claude" / "commands" / "redbeacon-accounts.md").read_text(encoding="utf-8")
     benchmark_skill = (ROOT / ".claude" / "commands" / "redbeacon-benchmark.md").read_text(encoding="utf-8")
     topics_skill = (ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8")
     if "ui app --detach --page" not in main_skill:
         fail("main skill no longer makes UI milestones visible with a non-blocking deep link")
+    for marker in (
+        "accounts create` 返回成功只算中间状态",
+        "同一轮",
+        "redbeacon xhs-login start --account-id {新id}",
+        "禁止只回复“账号已创建，请自行去登录”就结束",
+    ):
+        if marker not in accounts_skill:
+            fail(f"accounts skill lost the create-then-scan-login contract: {marker}")
     for marker in (
         "redbeacon benchmark analyze",
         "redbeacon benchmark apply",
