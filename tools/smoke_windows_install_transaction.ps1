@@ -31,6 +31,45 @@ foreach($relative in $scripts){
   Write-Host "PowerShell syntax ok: $relative"
 }
 
+# Windows Defender, the renderer, or the newly launched desktop process can
+# retain a TEMP handle briefly after installation. Reproduce that exact case:
+# cleanup may leave the temporary directory behind, but it must not throw and
+# turn an already committed installation into a reported failure.
+$installerPath = Join-Path $ProjectRoot "install\install.ps1"
+$cleanupTokens = $null
+$cleanupErrors = $null
+$installerAst = [System.Management.Automation.Language.Parser]::ParseFile(
+  $installerPath, [ref]$cleanupTokens, [ref]$cleanupErrors
+)
+$cleanupAst = $installerAst.Find({
+  param($node)
+  return ($node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+          $node.Name -eq "Remove-InstallerTemp")
+}, $true)
+if(-not $cleanupAst){ throw "install.ps1 has no Remove-InstallerTemp function" }
+Invoke-Expression $cleanupAst.Extent.Text
+function Warn($m){ Write-Host "!! $m" -ForegroundColor Yellow }
+$cleanupProbe = Join-Path $env:TEMP ("redbeacon_cleanup_lock_" + [guid]::NewGuid())
+New-Item -ItemType Directory -Force -Path $cleanupProbe | Out-Null
+$lockedFile = Join-Path $cleanupProbe "locked.tmp"
+$lockHandle = [System.IO.File]::Open(
+  $lockedFile,
+  [System.IO.FileMode]::Create,
+  [System.IO.FileAccess]::ReadWrite,
+  [System.IO.FileShare]::None
+)
+try {
+  Remove-InstallerTemp $cleanupProbe
+  if(-not [System.IO.Directory]::Exists($cleanupProbe)){
+    throw "cleanup lock probe unexpectedly removed an open Windows file"
+  }
+}
+finally {
+  $lockHandle.Dispose()
+  Remove-Item -LiteralPath $cleanupProbe -Recurse -Force -ErrorAction SilentlyContinue
+}
+Write-Host "Windows locked TEMP cleanup is non-fatal"
+
 $work = Join-Path $env:TEMP ("redbeacon_installer_smoke_" + [guid]::NewGuid())
 $fake = Join-Path $work "fake-oss"
 $build = Join-Path $work "fake-build"

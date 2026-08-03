@@ -125,6 +125,9 @@ def main() -> None:
         progress_marker = "progress and speed shown below" if name.endswith(".sh") else "MiB/s from download node"
         if progress_marker not in text:
             fail(f"{name} does not show live size/speed feedback during the primary package download")
+        if name.endswith(".ps1"):
+            if "function Remove-InstallerTemp" not in text or "finally { Remove-InstallerTemp $tmp }" not in text:
+                fail("install.ps1 can misreport a successful install when Windows temporarily locks cleanup files")
 
     locate_source = (ROOT / ".claude" / "commands" / "redbeacon-locate.md").read_text(encoding="utf-8")
     for marker in ("我先简述整体想法", "你逐题带我梳理", "不得把他已经说过的内容换个说法再问一次"):

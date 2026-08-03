@@ -39,6 +39,28 @@ function Start-InstalledApp([string]$GuiPath, [string]$WorkingDirectory){
     Warn "$AppName installed successfully, but automatic launch failed. Open it from the Desktop or Start Menu."
   }
 }
+function Remove-InstallerTemp([string]$Path){
+  if([string]::IsNullOrWhiteSpace($Path) -or -not [System.IO.Directory]::Exists($Path)){ return }
+  $delays = @(200, 400, 800, 1200)
+  foreach($delay in $delays){
+    try {
+      Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+      return
+    }
+    catch {
+      Start-Sleep -Milliseconds $delay
+    }
+  }
+  try {
+    Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+  }
+  catch {
+    # Antivirus and a just-exited renderer can briefly retain handles on files
+    # under TEMP. Installation is already committed at this point, so a stale
+    # temporary directory must never turn a successful install into a failure.
+    Warn "Temporary installer files are still in use and were left for Windows cleanup."
+  }
+}
 function Test-LocalInstallerTestUrl([Uri]$Uri){
   return ($env:REDBEACON_INSTALLER_TEST_MODE -eq "1" -and
           $Uri.Scheme -eq "http" -and $Uri.Host -eq "127.0.0.1")
@@ -625,4 +647,4 @@ try {
   Write-Host "  (The browser engine was prepared during install.)"
   Start-InstalledApp (Join-Path $Dest "$AppName.exe") $Dest
 }
-finally { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }
+finally { Remove-InstallerTemp $tmp }
