@@ -79,7 +79,7 @@ redbeacon checkin
 | 配代理，或「配置 / 检查配置」 | `/redbeacon-config` |
 | 建号 / 改名 / 删号 / 多账号管理 | `/redbeacon-accounts` |
 | 给账号定位（首次定性赛道/受众/差异化） | `/redbeacon-locate` |
-| 给一个小红书主页，提取定位/运营/文案/视觉空壳并生成至少 12 条完整选题 | `/redbeacon-benchmark` |
+| 给一个小红书主页，提取定位/运营/文案/视觉空壳并生成 10 条完整选题 | `/redbeacon-benchmark` |
 | 补选题 / 重铺选题 / 选题规划 / **「不知道写什么·帮我想选题」（托管给 AI 联网找当下热点痛点·针对性推荐）** | `/redbeacon-topics` |
 | 改定位 / 文案预设 / 图片预设（单点微调） | `/redbeacon-strategy` |
 | 改整套生成方案 / 文案·配图模板 / 带货传产品图 / 设默认方案 | `/redbeacon-plans` |
