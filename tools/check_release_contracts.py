@@ -137,6 +137,7 @@ def main() -> None:
     main_skill = (ROOT / ".claude" / "commands" / "redbeacon.md").read_text(encoding="utf-8")
     accounts_skill = (ROOT / ".claude" / "commands" / "redbeacon-accounts.md").read_text(encoding="utf-8")
     benchmark_skill = (ROOT / ".claude" / "commands" / "redbeacon-benchmark.md").read_text(encoding="utf-8")
+    note_style_skill = (ROOT / ".claude" / "commands" / "redbeacon-note-style.md").read_text(encoding="utf-8")
     topics_skill = (ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8")
     if "ui app --detach --page" not in main_skill:
         fail("main skill no longer makes UI milestones visible with a non-blocking deep link")
@@ -160,6 +161,19 @@ def main() -> None:
     ):
         if marker not in benchmark_skill:
             fail(f"benchmark skill lost the product-first/host-takeover contract: {marker}")
+    for marker in (
+        "照这篇做",
+        "redbeacon note-style analyze",
+        "redbeacon note-style apply",
+        "用户没有明确选择 1 或 2 时，到此停止",
+        "--make-default",
+        "ui app --detach --page 方案",
+    ):
+        if marker not in note_style_skill:
+            fail(f"note-style skill lost the single-note learning contract: {marker}")
+    for marker in ("/redbeacon-benchmark", "/redbeacon-note-style", "小红书链接的路由铁律"):
+        if marker not in main_skill:
+            fail(f"main skill lost Xiaohongshu link intent routing: {marker}")
     for marker in ("--require-complete", "内容类型、应用域、问题类型", "无额外备注",
                    "ui app --detach --page 选题"):
         if marker not in topics_skill:

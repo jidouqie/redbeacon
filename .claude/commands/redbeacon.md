@@ -1,6 +1,6 @@
 ---
-description: RedBeacon 主入口 — 自动判断你在哪一步，路由到对应能力；也可直说要干什么
-argument-hint: 无参数=检测当前进度并给下一步；或直说意图（如「配置」「加账号」「定位」「文案不对劲」「发布」）
+description: RedBeacon 主入口 — 自动判断下一步；用户贴小红书主页说“对标这个账号”或贴单篇笔记说“照这篇做”时，准确路由到对应学习能力
+argument-hint: 无参数=检测当前进度；也可直接贴小红书主页/笔记链接并说明“对标账号”或“照这篇做”
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
@@ -79,7 +79,8 @@ redbeacon checkin
 | 配代理，或「配置 / 检查配置」 | `/redbeacon-config` |
 | 建号 / 改名 / 删号 / 多账号管理 | `/redbeacon-accounts` |
 | 给账号定位（首次定性赛道/受众/差异化） | `/redbeacon-locate` |
-| 给一个小红书主页，提取定位/运营/文案/视觉空壳并生成 10 条完整选题 | `/redbeacon-benchmark` |
+| 贴小红书账号主页，说“对标/复刻/模仿这个账号”，提取定位、运营、文案、视觉空壳并生成 10 条完整选题 | `/redbeacon-benchmark` |
+| 贴一篇小红书笔记，说“照这篇做/仿写这篇/想做成这样的笔记”，学习文案节奏和封面结构并沉淀为方案 | `/redbeacon-note-style` |
 | 补选题 / 重铺选题 / 选题规划 / **「不知道写什么·帮我想选题」（托管给 AI 联网找当下热点痛点·针对性推荐）** | `/redbeacon-topics` |
 | 改定位 / 文案预设 / 图片预设（单点微调） | `/redbeacon-strategy` |
 | 改整套生成方案 / 文案·配图模板 / 带货传产品图 / 设默认方案 | `/redbeacon-plans` |
@@ -94,6 +95,13 @@ redbeacon checkin
 | 发布已通过内容 / 已发布归档 | `/redbeacon-publish` |
 
 意图明确就别跑检测，直接进对应 skill。
+
+### 小红书链接的路由铁律
+
+- 明确账号主页 `/user/profile/...` 或“查看 Ta 的主页”，并且用户说对标整个账号 → `/redbeacon-benchmark`。
+- 明确单篇 `/explore/...`、`/discovery/item/...` 或笔记分享文字，并且用户说照这篇做 → `/redbeacon-note-style`。
+- `xhslink.cn` / `xhslink.com` 短链不能凭外观判断；优先按用户明确说的“账号”或“这篇笔记”路由，再由对应软件入口打开并核验最终落点。
+- 用户只贴链接、没有表达学习整个账号还是单篇笔记，只问这一个问题，不得自行猜测。
 
 ---
 
