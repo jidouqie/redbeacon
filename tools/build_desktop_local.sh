@@ -86,9 +86,13 @@ SCP_OPTIONS=(
   -o ServerAliveInterval=30
   -o ServerAliveCountMax=6
 )
+WINDOWS_CMD='C:\Windows\System32\cmd.exe'
+WINDOWS_POWERSHELL='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+WINDOWS_BUILD_PATH='C:\RedBeaconBuildTools;C:\Windows\System32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0'
 
 echo "==> Checking Windows build VM: $WINDOWS_HOST"
-ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" 'cmd.exe /d /c "where uv.exe && uv --version"'
+ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" \
+  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&where uv.exe&&uv --version\""
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -120,7 +124,7 @@ bash "$MAC_SOURCE/packaging/build_macos_local.sh" --channel "$CHANNEL" --output-
 
 echo "==> Sending the identical CLI source snapshot to Windows"
 ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" \
-  'cmd.exe /d /c "if not exist RedBeaconBuild\incoming mkdir RedBeaconBuild\incoming"'
+  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&if not exist RedBeaconBuild\incoming mkdir RedBeaconBuild\incoming\""
 scp "${SCP_OPTIONS[@]}" "$CLI_ARCHIVE" \
   "${WINDOWS_HOST}:RedBeaconBuild/incoming/redbeacon-cli.tar"
 scp "${SCP_OPTIONS[@]}" "$RELEASE_ARCHIVE" \
@@ -130,7 +134,7 @@ scp "${SCP_OPTIONS[@]}" "$MAC_SOURCE/packaging/build_windows_local.ps1" \
 
 echo "==> Building Windows x64 inside the Windows 11 ARM64 VM"
 ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" \
-  "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File RedBeaconBuild\\incoming\\build_windows_local.ps1 -SourceArchive RedBeaconBuild\\incoming\\redbeacon-cli.tar -ReleaseSourceArchive RedBeaconBuild\\incoming\\redbeacon-release-source.tar -Channel $CHANNEL -OutputDir RedBeaconBuild\\out -WorkingRoot RedBeaconBuild"
+  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&$WINDOWS_POWERSHELL -NoProfile -NonInteractive -ExecutionPolicy Bypass -File RedBeaconBuild\\incoming\\build_windows_local.ps1 -SourceArchive RedBeaconBuild\\incoming\\redbeacon-cli.tar -ReleaseSourceArchive RedBeaconBuild\\incoming\\redbeacon-release-source.tar -Channel $CHANNEL -OutputDir RedBeaconBuild\\out -WorkingRoot RedBeaconBuild\""
 scp "${SCP_OPTIONS[@]}" \
   "${WINDOWS_HOST}:RedBeaconBuild/out/${APP_NAME}-win-x64.zip" \
   "$LOCAL_OUT/${APP_NAME}-win-x64.zip"
