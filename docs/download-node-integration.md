@@ -1,6 +1,6 @@
 # RedBeacon central download integration
 
-- SOP: `/Users/diaojiawang/code/bytestaff-download/docs/multi-project-download-node-sop.md`, version 1.4.
+- SOP: `/Users/diaojiawang/code/bytestaff-download/docs/multi-project-download-node-sop.md`, version 1.5.
 - Project slug: `redbeacon`.
 - Publication custody: `central-download-node-window` through the global `bytestaff-digital-employee-publish` Skill.
 - Release unit: `app`, kind `application`; it contains the Windows x64 and macOS arm64 clients, all channel installers, one channel skill bundle for Claude Code, Codex, OpenClaw, Hermes and WorkBuddy, Playwright Chromium for both platforms, CloakBrowser Chromium for both platforms, and non-secret build/provenance metadata.
