@@ -88,6 +88,7 @@ $originalNoPause = $env:REDBEACON_NO_PAUSE
 $originalPurge = $env:REDBEACON_PURGE
 $originalUpdateUrl = $env:REDBEACON_UPDATE_URL
 $originalInstallerTestMode = $env:REDBEACON_INSTALLER_TEST_MODE
+$originalPersistentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
 $shortcutBackup = Join-Path $work "shortcut-backup"
 New-Item -ItemType Directory -Force -Path $shortcutBackup | Out-Null
 $shortcutDirs = @(
@@ -422,6 +423,9 @@ try {
   Assert-Installed "stable"
   Uninstall-Channel "stable"
   Assert-BusinessDatabase "stable"
+  if([Environment]::GetEnvironmentVariable("Path", "User") -ne $originalPersistentUserPath){
+    throw "Windows installer transaction smoke mutated the real persistent user PATH"
+  }
   Write-Host "Windows installer transaction smoke passed"
 }
 finally {
@@ -438,6 +442,7 @@ finally {
   $env:LOCALAPPDATA = $originalLocalAppData
   $env:APPDATA = $originalAppData
   $env:TEMP = $originalTemp
+  [Environment]::SetEnvironmentVariable("Path", $originalPersistentUserPath, "User")
   if($null -eq $originalCi){ Remove-Item Env:\CI -ErrorAction SilentlyContinue } else { $env:CI = $originalCi }
   if($null -eq $originalNoPause){ Remove-Item Env:\REDBEACON_NO_PAUSE -ErrorAction SilentlyContinue } else { $env:REDBEACON_NO_PAUSE = $originalNoPause }
   if($null -eq $originalPurge){ Remove-Item Env:\REDBEACON_PURGE -ErrorAction SilentlyContinue } else { $env:REDBEACON_PURGE = $originalPurge }

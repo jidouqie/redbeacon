@@ -602,10 +602,14 @@ try {
     # User-visible launchers are the final commit point.
     New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
     Set-Content -Path (Join-Path $BinDir "$CmdName.cmd") -Encoding ASCII -Value @("@echo off", "`"$cliExe`" %*")
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    if($userPath -notlike "*$BinDir*"){
-      [Environment]::SetEnvironmentVariable("Path", "$BinDir;$userPath", "User")
-      $env:Path = "$BinDir;$env:Path"
+    if($env:REDBEACON_INSTALLER_TEST_MODE -eq "1"){
+      if($env:Path -notlike "*$BinDir*"){ $env:Path = "$BinDir;$env:Path" }
+    } else {
+      $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+      if($userPath -notlike "*$BinDir*"){
+        [Environment]::SetEnvironmentVariable("Path", "$BinDir;$userPath", "User")
+        $env:Path = "$BinDir;$env:Path"
+      }
     }
 
     $guiExe = Join-Path $Dest "$AppName.exe"
