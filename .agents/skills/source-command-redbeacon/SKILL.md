@@ -1,6 +1,6 @@
 ---
 name: source-command-redbeacon
-description: "RedBeacon 主入口 — 自动判断你在哪一步，路由到对应能力；也可直说要干什么"
+description: "RedBeacon 主入口 — 自动判断下一步；用户贴小红书主页说“对标这个账号”或贴单篇笔记说“照这篇做”时，准确路由到对应学习能力"
 metadata:
   short-description: "RedBeacon 主入口"
 ---
@@ -62,11 +62,11 @@ metadata:
 redbeacon checkin
 ```
 
-- **成功**（已登录平台）→ 读 `membership.points.remaining`（剩余算力点，**点数只看 `membership.points`**）。**账号不再分等级/档位**——别念 `tier_name`/免费版/Pro/Max，也别提会员到期；开场一句人话即可（如「平台已登录，剩余算力点 XXX；生成内容会消耗算力点」），别长篇。**消耗按实际用量实时结算，别报"一篇几点""一张几点"这种固定数字。**
+- **成功**（已登录平台）→ 读 `membership.points.remaining`（剩余算力点，**点数只看 `membership.points`**）。**账号不再分等级/档位**——别念 `tier_name`/免费版/Pro/Max，也别提会员到期。开场一句人话即可；若当前在 Codex，只说明“需要平台回退时才会消耗”，不能暗示每次创作都会扣点。**消耗按实际用量实时结算，别报固定点数。**
 - **返回 `{"error":...,"next":"redbeacon login"}`（未登录）** → 用户还没过 onboarding 第一关。**别在这儿现登**，照下面 readiness 走（会判 `stage1` → 平台登录 `/source-command-redbeacon-login`）。
 - 平台连不上 → 静默跳过打卡（不阻塞），照常往下走；生图时再按需提示。
 
-> 🔴 **人人必登（执行动作硬闸）**：平台登录是**用全部功能的前提**——纯文字卡免费用户也要先登录平台（首启让平台看得见、发 free 使用权）。**用户一旦要做执行类动作（生成 / 发布 / 生图），若 checkin 显示未登录平台（且不是平台连不上），必须先把他带到 `/source-command-redbeacon-login` 登录，登录成功再继续，别让没登录就跑执行。** 浏览/查看类（看看选题、看看面板）不拦。
+> 🔴 **平台路径硬闸，宿主零点创作例外**：客户端平台生成，以及任一 AI 客户端已经取得用户授权的平台文案/图片回退，都必须先登录平台。当前宿主能用自身文案/生图或本机文字卡完成对应阶段时，不要求平台登录，也不能因为 `checkin` 未登录阻断 `creation` 协议。Codex 默认使用自身文案能力；其它受支持 AI 客户端按当前会话真实能力逐项路由。发布仍按发布能力自己的登录要求执行。浏览/查看类不拦。
 >
 > 打卡本身只为「可见性 + 念算力点余额」，**不是 onboarding 总闸**；就绪判定仍走 `readiness`，但执行动作的登录硬闸如上。
 
@@ -81,7 +81,8 @@ redbeacon checkin
 | 配代理，或「配置 / 检查配置」 | `/source-command-redbeacon-config` |
 | 建号 / 改名 / 删号 / 多账号管理 | `/source-command-redbeacon-accounts` |
 | 给账号定位（首次定性赛道/受众/差异化） | `/source-command-redbeacon-locate` |
-| 给一个小红书主页，提取定位/运营/文案/视觉空壳并生成 10 条完整选题 | `/source-command-redbeacon-benchmark` |
+| 贴小红书账号主页，说“对标/复刻/模仿这个账号”，提取定位、运营、文案、视觉空壳并生成 10 条完整选题 | `/source-command-redbeacon-benchmark` |
+| 贴一篇小红书笔记，说“照这篇做/仿写这篇/想做成这样的笔记”，学习文案节奏和封面结构并沉淀为方案 | `/source-command-redbeacon-note-style` |
 | 补选题 / 重铺选题 / 选题规划 / **「不知道写什么·帮我想选题」（托管给 AI 联网找当下热点痛点·针对性推荐）** | `/source-command-redbeacon-topics` |
 | 改定位 / 文案预设 / 图片预设（单点微调） | `/source-command-redbeacon-strategy` |
 | 改整套生成方案 / 文案·配图模板 / 带货传产品图 / 设默认方案 | `/source-command-redbeacon-plans` |
@@ -90,12 +91,37 @@ redbeacon checkin
 | 「看下整体情况 / 各账号怎么样了 / 全局概览」 | 弹**运营看板**（见下） |
 | 「文案不行 / 图不对 / 跑题」找原因 | `/source-command-redbeacon-diagnose` |
 | 「跑不动 / 报错 / 发不出去 / 登录不上平台 / 生图失败 / 浏览器起不来」 | `/source-command-redbeacon-diagnose`（技术排障段：doctor / logs / setup）|
+| 「把正式版数据同步到测试版 / 测试版复用正式账号和登录态」 | 走下方“正式数据同步到测试版”流程 |
 | 扫码登录小红书 | `/source-command-redbeacon-xhslogin` |
-| 生成内容 | `/source-command-redbeacon-generate` |
+| 生成内容 | `/source-command-redbeacon-generate`（Codex 默认用自身能力；其它 AI 客户端按实际能力逐项使用，缺失项由平台或文字卡兜底） |
 | 审稿 / 审核 / 改稿 / 标通过 / 打回 / 删稿 | `/source-command-redbeacon-review` |
 | 发布已通过内容 / 已发布归档 | `/source-command-redbeacon-publish` |
 
 意图明确就别跑检测，直接进对应 skill。
+
+### 正式数据同步到测试版（仅开发者主动要求时）
+
+这是一个**单向、覆盖测试版**的本机维护动作，只在用户明确说“同步正式数据到测试版”时执行。正式版数据始终只读；测试版原数据在覆盖前自动备份。同步业务数据库、账号、图片、小红书 Cookie 和浏览器登录 Profile，不复制平台设备令牌或 AI 调度数据库。
+
+1. 先执行只读预检：
+   ```bash
+   redbeacon-test sync-from-stable
+   ```
+2. 如果返回正式版或测试版客户端仍在运行，让用户先关闭对应客户端；不能绕过锁检查。
+3. 用户当前这句话已经明确要求同步时，可继续执行：
+   ```bash
+   redbeacon-test sync-from-stable --confirm
+   ```
+4. 成功后，用人话交代同步了几个账号、几份小红书登录态和测试版旧数据备份位置。需要看结果时再打开测试版看板，不得启动正式版命令代替测试版。
+
+如果测试版命令不存在，说明测试版尚未安装；只说明需要先安装测试版，不得用正式版命令执行同步，也不得手工复制目录或建立软链接。
+
+### 小红书链接的路由铁律
+
+- 明确账号主页 `/user/profile/...` 或“查看 Ta 的主页”，并且用户说对标整个账号 → `/source-command-redbeacon-benchmark`。
+- 明确单篇 `/explore/...`、`/discovery/item/...` 或笔记分享文字，并且用户说照这篇做 → `/source-command-redbeacon-note-style`。
+- `xhslink.cn` / `xhslink.com` 短链不能凭外观判断；优先按用户明确说的“账号”或“这篇笔记”路由，再由对应软件入口打开并核验最终落点。
+- 用户只贴链接、没有表达学习整个账号还是单篇笔记，只问这一个问题，不得自行猜测。
 
 ---
 
@@ -163,7 +189,7 @@ redbeacon status
 
 | 用户选 / 说 | 交棒给 | 那位专员会做什么（主入口不用管细节、别在这儿内联） |
 |---|---|---|
-| 写一篇 / 来一篇 | `/source-command-redbeacon-generate` | 先列库存选题让用户挑 → 收集这篇想法 → 平台写文案+出图入库（贵图可先预览看实发再出） |
+| 写一篇 / 来一篇 | `/source-command-redbeacon-generate` | 自动选题和默认方案；Codex 默认用自身文案/生图，其它 AI 客户端按实际能力逐项使用；缺失能力按账号授权回退平台或文字卡 |
 | 审那几篇 / 标通过 / 改稿 / 删稿 | `/source-command-redbeacon-review` | 列待审 → 标通过 / 让 AI 重写 / 退回选题 / 驳回 / 删稿 / 打回重审 |
 | 补一批选题 / 不知道写啥 | `/source-command-redbeacon-topics` | 联网找当下痛点热点 → 应用域网格 → 用户拍板入库 |
 

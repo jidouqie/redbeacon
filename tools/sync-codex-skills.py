@@ -8,6 +8,7 @@
   避免覆盖用户已经安装的正式版/测试版 skill。
 用法：  python tools/sync-codex-skills.py
 """
+import argparse
 import re
 import shutil
 import sys
@@ -54,7 +55,13 @@ def _sync_workspace_skills(files: list[Path]) -> tuple[list[tuple[str, str]], li
     return written, removed
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--workspace-only", action="store_true",
+        help="只刷新仓库 .agents/skills 副本，不修改用户 ~/.codex/skills",
+    )
+    args = parser.parse_args(argv)
     files = sorted(SRC_DIR.glob("redbeacon*.md"))
     if not files:
         print(f"✗ 真源目录无 skill：{SRC_DIR}")
@@ -64,6 +71,8 @@ def main() -> int:
     print(f"✓ 已派生 {len(workspace_written)} 个仓库 Codex skill → {ROOT / '.agents' / 'skills'}")
     if workspace_removed:
         print(f"🗑 清理了 {len(workspace_removed)} 个仓库旧 skill：{', '.join(workspace_removed)}")
+    if args.workspace_only:
+        return 0
 
     codex_dir = updater.find_codex_skill_dir()
     if codex_dir is None:

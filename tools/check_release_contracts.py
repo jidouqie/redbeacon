@@ -139,6 +139,7 @@ def main() -> None:
     benchmark_skill = (ROOT / ".claude" / "commands" / "redbeacon-benchmark.md").read_text(encoding="utf-8")
     note_style_skill = (ROOT / ".claude" / "commands" / "redbeacon-note-style.md").read_text(encoding="utf-8")
     topics_skill = (ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8")
+    generate_skill = (ROOT / ".claude" / "commands" / "redbeacon-generate.md").read_text(encoding="utf-8")
     if "ui app --detach --page" not in main_skill:
         fail("main skill no longer makes UI milestones visible with a non-blocking deep link")
     for marker in (
@@ -178,6 +179,27 @@ def main() -> None:
                    "ui app --detach --page 选题"):
         if marker not in topics_skill:
             fail(f"topics skill lost the complete-brief/UI handoff contract: {marker}")
+    for marker in (
+        "当前宿主明确是 Codex",
+        "其它受支持 AI 客户端",
+        "不能因此把已经能由宿主完成的文案也改走平台",
+        "redbeacon creation batch-prepare --json-file",
+        "redbeacon creation batch-recover",
+        "redbeacon creation copy-validate",
+        "redbeacon creation copy-fallback",
+        "redbeacon creation image-fallback",
+        "redbeacon creation fail",
+        "redbeacon creation batch-cancel",
+        "内置生图工具",
+        "未经允许不得调用收费平台能力",
+        "严格串行",
+        "不自动通过、不自动发布",
+        "ui app --detach --page 审稿",
+    ):
+        if marker not in generate_skill:
+            fail(f"generate skill lost the host-capability creation contract: {marker}")
+    if "宿主零点创作例外" not in main_skill:
+        fail("main skill still blocks a zero-platform host creation path")
 
     with tempfile.TemporaryDirectory(prefix="redbeacon-skill-contract-") as temp:
         for channel in ("stable", "test"):
@@ -196,6 +218,15 @@ def main() -> None:
                     fail(f"invalid portable skill: {path}")
                 if channel == "test" and "redbeacon-test" not in text:
                     fail(f"test portable skill still targets stable: {path}")
+            generated = root / "agent-skills" / (
+                "redbeacon-test-generate" if channel == "test" else "redbeacon-generate"
+            ) / "SKILL.md"
+            generated_text = generated.read_text(encoding="utf-8")
+            expected_cli = "redbeacon-test creation" if channel == "test" else "redbeacon creation"
+            if expected_cli not in generated_text:
+                fail(f"{channel} generate skill lost its channel-owned creation CLI")
+            if channel == "test" and "redbeacon creation batch-prepare" in generated_text:
+                fail("test generate skill can still start a stable creation batch")
     if set(SUPPORTED_ASSISTANTS) != {"claude-code", "codex", "openclaw", "hermes", "workbuddy"}:
         fail("assistant support matrix changed without updating the release contract")
 
