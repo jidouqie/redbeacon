@@ -187,6 +187,7 @@ def main() -> None:
         "redbeacon creation batch-recover",
         "redbeacon creation copy-validate",
         "redbeacon creation copy-fallback",
+        "redbeacon creation image-import",
         "redbeacon creation image-fallback",
         "redbeacon creation fail",
         "redbeacon creation batch-cancel",

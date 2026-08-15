@@ -1,8 +1,8 @@
 ---
 name: source-command-redbeacon-review
-description: "审稿改稿 — 列待审 / 标通过 / 让 AI 按意见重写 / 退回选题 / 打回重审 / 彻底删稿；审完标「通过」才能发布"
+description: "审稿与自主成稿入审 — 把用户自备标题、正文和图片直接放进审稿台；也可列待审 / 标通过 / 改写 / 退回 / 删除"
 metadata:
-  short-description: "审稿改稿"
+  short-description: "审稿与自主成稿入审"
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
@@ -16,9 +16,46 @@ metadata:
 > - **把输入成本压到最小**：能给选项就别让用户打字；该替他想的下一步先想好、给推荐（标「推荐」）。
 > - 用户熟了会直接自然语言提要求（「都通过」「第2篇让AI改」「这篇删了」）→ 照做，别硬塞编号流程。
 
-> **【审稿 skill】** 生成好的稿先进审核表等人拍板，**审完标「通过」才会被 `/source-command-redbeacon-publish` 取用发布**。这一步是「人提供判断」的关口——你（AI）帮用户把稿摆出来、执行他的判断（通过/改/退/删），但**要不要发、发成什么样，是用户拍板**。
+> **【审稿 skill】** 既能处理 RedBeacon 生成的待审稿，也能把用户已经做好的标题、正文、标签和图片直接放进审核表。**审完标「通过」才会被 `/source-command-redbeacon-publish` 取用发布**。这一步是「人提供判断」的关口——你（AI）帮用户入审、把稿摆出来并执行他的判断（通过/改/退/删），但**要不要发、发成什么样，是用户拍板**。
 >
 > 上一步是生成（`/source-command-redbeacon-generate`），下一步是发布（`/source-command-redbeacon-publish`）。审核表只三态：**未审核 / 通过 / 驳回**（发布失败会单独标）。
+
+---
+
+## 用户自备成稿：直接放进审稿台
+
+用户说“把这篇放进审稿台 / 我已经做好图和文案了 / 只用发布功能”，且标题、正文和至少一张本机图片已经齐全时，直接走本入口，不调平台 AI、不消耗算力点，也不要求先建选题或生成方案。
+
+先执行 `redbeacon accounts list` 确认账号。只有一个账号就直接用；多个账号而用户没有说清时，只问操作哪个账号。
+
+用当前 AI 客户端原生的 JSON 序列化和文件写入能力创建 UTF-8 文件，不要把中文、多行正文或嵌套 JSON 写成命令行内联参数。结构固定为：
+
+```json
+{
+  "title": "1～20 字标题",
+  "body": "1～888 字正文",
+  "tags": ["标签一", "标签二"],
+  "image_paths": ["本机图片绝对路径"]
+}
+```
+
+- `image_paths` 必须是当前机器可读的绝对路径；用户附件或用户自己做好的图可直接使用其本机路径。
+- 这是“用户自备成稿”入口。若文案或图片是当前 AI 客户端新生成的，改走 `/source-command-redbeacon-generate` 的宿主创作协议，保留 Codex/其它宿主来源与 AI 声明，不能冒充用户手工稿。
+- 缺标题、正文或图片时，只问当前缺的那一项；不要替用户静默生成缺失内容。
+
+文件准备好后执行：
+
+```text
+redbeacon review create --account-id <ID> --data-file <UTF-8 JSON 文件路径>
+```
+
+RedBeacon 会导入图片、清除图片容器元数据并转存到当前通道数据目录，再执行同一套预审：标题不超过 20 字、正文不超过 888 字、至少一张图片。成功后立即执行：
+
+```text
+redbeacon ui app --detach --page 审稿 --account-id <ID>
+```
+
+告诉用户“已经放进审稿台”，不要自动标通过或发布。命令失败就按错误修正输入；不能绕过预审、直接写数据库或把外部临时图片路径塞进审核表。
 
 ---
 
@@ -117,6 +154,7 @@ redbeacon review send-back --account-id {ID} --record-id {rid}
 
 | 用户想干的 | 去哪 |
 |---|---|
+| 用户已有标题、正文和图片，要直接放进审稿台 | **本 skill** 的“用户自备成稿”入口 |
 | 审稿 / 标通过 / 改稿 / 退回 / 删稿 | **本 skill** |
 | 逐条改标题正文、边改边看实时效果 | 交棒 `redbeacon ui app --detach --page 审稿 --account-id {ID}` |
 | 写一篇新的 | `/source-command-redbeacon-generate` |
@@ -128,6 +166,7 @@ redbeacon review send-back --account-id {ID} --record-id {rid}
 ## 注意
 
 - 审核表数据在本机，`review` 命令读写这一份；能力也在网页审稿页有，交棒是为了逐条可视化改稿、不是因为对话里够不到。
+- `review create` 只接用户自备成稿；AI 客户端新生成的内容必须走生成 skill 的宿主创作协议，正确记录来源和 AI 声明。
 - **⚡ `review rewrite` 扣点**：执行前先跟用户确认，别默默烧点。
 - **🗑️ `review delete` 不可恢复**：删前必须二次确认。`reject-to-topic` 会保留选题、相对安全但也别乱退。
 - 只有标了「通过」的稿会被发布取用；`save`/`reject`/`send-back` 都不会被发。

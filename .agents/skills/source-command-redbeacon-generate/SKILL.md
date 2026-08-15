@@ -123,8 +123,27 @@ redbeacon creation image-prepare --generation-id <generation_id>
   - 普通任务使用 `task.prompt` 生成。
   - `task.reference_images` 非空时，把这些本机绝对路径作为编辑参考图，不得忽略参考图另做一张。
   - 必须取得工具返回的明确本机图片绝对路径；临时 URL、聊天预览或 base64 不能写进结果协议。
-  - 使用当前操作系统安全的文件复制能力，把结果复制进 `work.paths.asset_inbox`，每个任务使用唯一普通文件名；不要建立软链接。
-  - 把 `host.capabilities` 加上实际完成的 `image_generate` 或 `image_edit`，并把每张图片以 `{task_id,path,kind}` 写进同一个结果文件的 `images` 数组。
+  - 禁止把生图工具的原始文件直接复制、移动或链接到 `work.paths.asset_inbox`，也不要只改扩展名。原始文件路径只交给下一步 RedBeacon 图片接管命令读取。
+  - 全部图片生成完成后，用宿主原生 JSON 序列化能力在 `work.paths.result_file` 同目录创建 UTF-8 图片交接文件：
+
+```json
+{
+  "schema": "redbeacon-host-image-import/v1",
+  "generation_id": "当前 generation_id",
+  "images": [
+    {"task_id": "工作包 task_id", "path": "生图工具返回的本机绝对路径", "kind": "generated"}
+  ]
+}
+```
+
+执行：
+
+```text
+redbeacon creation image-import --generation-id <generation_id> --json-file <图片交接文件>
+```
+
+  - 只有 `ok=true` 才算图片接管成功。把命令返回的 `images` 数组原样写进同一个宿主结果文件，不能继续使用原始图片路径。
+  - 把 `host.capabilities` 加上实际完成的 `image_generate` 或 `image_edit`。参考图编辑任务仍按工作包返回的 `task_id` 和 `kind` 交接。
 - 生图工具不存在、任务失败、没有本机路径或图片接管失败：执行 `redbeacon creation image-fallback --generation-id <generation_id>`。
   - `consent_required=false`：按账号策略自动使用已授权的平台图片，或改用本机文字卡。
   - `consent_required=true`：此时才问用户一个问题：
@@ -133,7 +152,7 @@ redbeacon creation image-prepare --generation-id <generation_id>
     3. 不使用平台，改用本机文字卡（推荐）
     对应 `--decision` 为 `allow_once`、`allow_always`、`deny_once`。
 
-当前宿主有图片任务和真实生图工具时优先调用，不能为了省步骤直接谎称不可用；没有生图工具时直接进入图片 fallback，不影响已经完成的宿主文案。所有外部图片最终由 RedBeacon 校验路径、解码、转 sRGB、清除元数据并重写 PNG；Skill 不得绕过这个边界。
+当前宿主有图片任务和真实生图工具时优先调用，不能为了省步骤直接谎称不可用；没有生图工具时直接进入图片 fallback，不影响已经完成的宿主文案。`image-import` 必须先在内存中解码图片、应用 EXIF 方向、把嵌入色彩配置转换到 sRGB，再只用像素重写为 PNG；进入 RedBeacon 业务目录的第一份图片就必须不含 EXIF、XMP、ICC、文本、注释、时间戳或未知附加块。普通 RGB/RGBA 图片不缩放、不裁切、不改变像素；净化失败立即丢弃本次接管结果并走图片 fallback，绝不能保存原始容器字节。该步骤只做隐私清理和格式规范化，不宣称改变画面内容或规避平台基于画面本身的识别。
 
 ## 5. 幂等提交
 
