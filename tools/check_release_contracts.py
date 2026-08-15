@@ -192,7 +192,7 @@ def main() -> None:
         "redbeacon creation fail",
         "redbeacon creation batch-cancel",
         "内置生图工具",
-        "未经允许不得调用收费平台能力",
+        "不再询问，直接由 RedBeacon 平台接力",
         "严格串行",
         "不自动通过、不自动发布",
         "ui app --detach --page 审稿",
