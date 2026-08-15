@@ -17,16 +17,16 @@ RedBeacon 是一个本机客户端 + AI 助手能力组成的小红书运营工�
 
 ## 安装
 
-正式版先读取中央版本清单，再执行清单中经过校验的当前安装器。macOS：
+正式版只使用长期不变的官网入口；官网会动态选择并校验当前安装器。macOS：
 
 ```bash
-m=$(mktemp); curl -fsSL https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json -o "$m"; u=$(/usr/bin/osascript -l JavaScript -e 'function run(a){const x=Application.currentApplication();x.includeStandardAdditions=true;const j=JSON.parse(x.read(Path(a[0])));return j.artifacts.filter(v=>v.path==="installers/install.sh")[0].url}' "$m"); curl -fsSL "$u" | bash; rm -f "$m"
+curl -fsSL https://bytestaff.jiomig.com/redbeacon/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-$m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json';$u=($m.artifacts|? path -eq 'installers/install.ps1').url;iex (iwr $u -UseBasicParsing).Content
+irm https://bytestaff.jiomig.com/redbeacon/install.ps1 | iex
 ```
 
 装好后可以直接打开桌面应用，也可以在 Claude Code、Codex、OpenClaw、Hermes 或腾讯 WorkBuddy 中使用已安装的 RedBeacon skill。四种采用 Agent Skills 标准的宿主会收到字节一致的 `SKILL.md`；WorkBuddy 需要新建任务或重启后刷新技能列表。
@@ -46,13 +46,13 @@ $m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/project
 正式版卸载：
 
 ```bash
-m=$(mktemp); curl -fsSL https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json -o "$m"; u=$(/usr/bin/osascript -l JavaScript -e 'function run(a){const x=Application.currentApplication();x.includeStandardAdditions=true;const j=JSON.parse(x.read(Path(a[0])));return j.artifacts.filter(v=>v.path==="installers/uninstall.sh")[0].url}' "$m"); curl -fsSL "$u" | bash; rm -f "$m"
+curl -fsSL https://bytestaff.jiomig.com/redbeacon/uninstall.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-$m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json';$u=($m.artifacts|? path -eq 'installers/uninstall.ps1').url;iex (iwr $u -UseBasicParsing).Content
+irm https://bytestaff.jiomig.com/redbeacon/uninstall.ps1 | iex
 ```
 
 ## 仓库结构
@@ -61,9 +61,9 @@ $m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/project
 .claude/commands/       stable skill 真源目录（发布时派生五宿主格式）
 install/                作为制品交给中央发布 Skill 的安装与卸载脚本
 tools/                  本机构建、测试、干净制品准备和 skill 通道生成
-docs/                   下载节点接入契约与本地双平台构建说明
+docs/                   当前文档索引、下载节点契约、本地构建说明与历史归档
 release/                构建与发布 provenance（不含凭据）
 cli/                    闭源客户端与 CLI 子仓库
 ```
 
-当前维护入口是 [AGENTS.md](AGENTS.md)。项目不再管理 OSS 或公开发布；公开发布只使用全局 `bytestaff-digital-employee-publish` Skill。发布前测试入口是 [RedBeacon-测试版验证指南.md](RedBeacon-测试版验证指南.md)，本地双平台构建与 Windows 虚拟机部署见 [docs/local-desktop-build.md](docs/local-desktop-build.md)。
+当前维护入口是 [AGENTS.md](AGENTS.md)，文档边界见 [docs/README.md](docs/README.md)。项目不再管理 OSS 或公开发布；公开发布只使用全局 `bytestaff-digital-employee-publish` Skill。发布前测试入口是 [RedBeacon-测试版验证指南.md](RedBeacon-测试版验证指南.md)，本地双平台构建与 Windows 虚拟机部署见 [docs/local-desktop-build.md](docs/local-desktop-build.md)。

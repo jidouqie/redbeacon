@@ -1,6 +1,6 @@
 # RedBeacon 本地双平台构建与 Windows 虚拟机部署
 
-最后核对：2026-07-17
+最后核对：2026-08-15
 
 ## 结论
 
@@ -14,6 +14,14 @@
 Linux 客户端暂停构建和分发，不进入 manifest、下载页和发布检查。
 
 当前唯一有效的客户端构建入口是 `tools/build_desktop_local.sh`。旧 GitHub 打包方案已封装为不可直接索引的冷归档；日常开发、搜索、发布检查和 agent 上下文均不得读取或恢复，只有用户明确要求时才允许人工解档。
+
+本地启动源码客户端统一使用：
+
+```bash
+tools/run_desktop_dev.sh stable
+```
+
+需要验证测试通道时改为 `tools/run_desktop_dev.sh test`。该入口固定使用 `cli/.venv` 和当前仓库源码，并清理全局 Python、其他通道及浏览器缓存覆盖变量；不要再直接运行系统 `python`、全局 `redbeacon` 命令或旧安装包来冒充源码客户端。
 
 Windows 11 on Arm 支持运行 x86/x64 用户态程序，因此 ARM64 虚拟机可以运行 x64 Python、PyInstaller 和最终 x64 客户端。它不等于跨平台编译：PyInstaller 会跟随当前 Python 解释器的系统和架构，所以 Windows 包必须在 Windows 内用 **x64 Python** 构建，不能用 ARM64 Python 打包后改文件名。
 

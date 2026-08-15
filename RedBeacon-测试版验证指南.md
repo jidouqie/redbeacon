@@ -1,6 +1,6 @@
 # RedBeacon 测试版验证指南
 
-测试版和正式版可以同时安装，应用名、命令、数据、平台令牌、浏览器缓存和 skill 都互相隔离。线上版本只以中央 canonical manifest 为准：
+测试版和正式版可以同时安装，应用名、命令、数据、平台令牌、浏览器缓存和 skill 都互相隔离。用户始终使用官网固定入口；线上实际版本只以中央 canonical manifest 为准：
 
 - 测试版：`https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json`
 - 正式版：`https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json`
@@ -10,13 +10,13 @@
 macOS：
 
 ```bash
-m=$(mktemp); curl -fsSL https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json -o "$m"; u=$(/usr/bin/osascript -l JavaScript -e 'function run(a){const x=Application.currentApplication();x.includeStandardAdditions=true;const j=JSON.parse(x.read(Path(a[0])));return j.artifacts.filter(v=>v.path==="installers/install-test.sh")[0].url}' "$m"); curl -fsSL "$u" | bash; rm -f "$m"
+curl -fsSL https://bytestaff.jiomig.com/redbeacon-test/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-$m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json';$u=($m.artifacts|? path -eq 'installers/install-test.ps1').url;iex (iwr $u -UseBasicParsing).Content
+irm https://bytestaff.jiomig.com/redbeacon-test/install.ps1 | iex
 ```
 
 已经安装同版本时，脚本会先验证本地客户端、浏览器依赖和 skill；全部健康则跳过客户端大包。强制重装时先设置 `REDBEACON_FORCE_INSTALL=1`。
@@ -26,13 +26,13 @@ $m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/project
 macOS：
 
 ```bash
-m=$(mktemp); curl -fsSL https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json -o "$m"; u=$(/usr/bin/osascript -l JavaScript -e 'function run(a){const x=Application.currentApplication();x.includeStandardAdditions=true;const j=JSON.parse(x.read(Path(a[0])));return j.artifacts.filter(v=>v.path==="installers/uninstall-test.sh")[0].url}' "$m"); curl -fsSL "$u" | bash; rm -f "$m"
+curl -fsSL https://bytestaff.jiomig.com/redbeacon-test/uninstall.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-$m=irm 'https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json';$u=($m.artifacts|? path -eq 'installers/uninstall-test.ps1').url;iex (iwr $u -UseBasicParsing).Content
+irm https://bytestaff.jiomig.com/redbeacon-test/uninstall.ps1 | iex
 ```
 
 默认只卸载程序、命令和测试版 skill，保留 `~/.redbeacon_test` 业务数据。只有明确设置 `REDBEACON_PURGE=1` 才删除测试版数据和登录令牌。
