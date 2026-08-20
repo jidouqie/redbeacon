@@ -191,7 +191,7 @@ Windows 可能在 Chromium 关闭后短暂持有文件句柄。安装器必须�
 
 ### 构建后线上没有变化
 
-这是正常设计。项目构建器不做任何线上变更；只有全局 `bytestaff-digital-employee-publish` Skill 完成不可变制品上传、真实客户端验收和 canonical manifest 原子切换后，用户才会看到新版本。
+这是正常设计。项目构建器不做任何线上变更；只有全局 `bytestaff-digital-employee-publish` Skill 把同一份本机制品分别直传 OSS 和下载节点并原子切换 canonical manifest 后，用户才会看到新版本。客户端完整验收由测试版发布后的用户人工测试完成。
 
 ## 给平台下载页的口径
 

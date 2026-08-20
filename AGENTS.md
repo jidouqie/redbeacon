@@ -93,9 +93,9 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 - Windows 虚拟机构建是阻断项：必须完成 x64 Python/PE 校验、冻结桌面启动、Traceback 扫描、浏览器预热、真实卡片渲染及 PowerShell 安装事务 smoke；安装事务必须验证五宿主 skill 的正式/测试共存、更新和卸载。Windows 未通过，不得交给发布 Skill。
 - 项目仓库必须提交 `docs/download-node-integration.md`、`docs/download-node-project-intake.yaml`、`docs/download-node-project-receipt.json` 与 `release/release-contract.json`，且字节内容必须匹配受保护的中央项目 profile。
 - 公开发布的唯一入口是全局 `bytestaff-digital-employee-publish` Skill 的 `publish_release.py`。项目不得复制、包装或局部重写该发布编排器。
-- 中央 OSS 按项目、通道和可选 component **最多保留最近 3 个完整版本**，且必须始终包含 canonical `latest.json` 当前指向的版本；下载节点仍只保留 current，本机 `~/.local/state/bytestaff-download/<project>` 也只保留与 OSS 相同的三个版本运行目录。版本保留检查是每次发布同一 run 的强制收尾阶段，不是另起的维护任务。发布第 4 个版本后，主发布器必须列出将删版本、对象数、字节数和计划 SHA-256，停在确认门；取得当次明确确认后从同一 run 继续删除最旧 OSS 版本并复验，再自动删除对应通道/component 中不在远端保留集内、且已明确终态的本地旧 run；未完成、绑定异常或无法验证的本地 run 绝不删除。项目代码不得自行获得或调用 OSS 删除权限。
-- 全局 Skill 先上传不可变 OSS/节点制品并停在 `PREPARED_AWAITING_SWITCH_GATE`；只有完成真实客户端 node 正常、node 失败回落 OSS、坏节点内容回落 OSS、旧 `url` 单源兼容四项验收后，才可用同一 run 的 prepare receipt 与验收凭证切换 test canonical。
-- 若本次发布同时迁移更新入口，除常规四项下载验收外，还必须从迁移前最老受支持客户端的真实旧 URL 检查到更高版本，并验证其转发器最终取得当前通道官网安装脚本；这属于迁移阻断项。普通发版不触碰已经建立的旧版升级桥。
+- 中央 OSS 按项目、通道和可选 component **最多保留最近 3 个完整版本**，且必须始终包含 canonical `latest.json` 当前指向的版本；下载节点仍只保留 current，本机 `~/.local/state/bytestaff-download/<project>` 也只保留与 OSS 相同的三个版本运行目录。版本保留检查是每次发布同一 run 的强制收尾阶段，不是另起的维护任务。发布第 4 个版本后，主发布器必须列出将删版本、对象数、字节数和计划 SHA-256，停在确认门；取得当次明确确认后从同一 run 继续删除最旧 OSS 版本并重新列举对象元数据、确认小型 canonical 未变，再自动删除对应通道/component 中不在远端保留集内、且已明确终态的本地旧 run；不得为了保留检查下载当前大包。未完成、绑定异常或无法验证的本地 run 绝不删除。项目代码不得自行获得或调用 OSS 删除权限。
+- 全局 Skill 的现行自动发布路径是“本机同一制品树分别直传中央 OSS 与下载节点”。节点 transfer 使用 `ssh-rsync-v1`：OSS 用本机 `upload-batch`，节点用本机 `rsync` 后在服务器本地 prepare；两端返回成功即原子切换 test canonical 并 finalize。普通自动发布不调用节点从 OSS 拉取、发布机从 OSS/节点全量下载或 Range 回读制品、客户端自动验收 JSON或人工 switch gate。为了原子切换与崩溃恢复，自动流程会读取很小的 `latest.json`；独立、明确触发的人工诊断或恢复能力不受这条自动流程约束，但不能被普通发布隐式调用。
+- 测试版切换完成后由用户手动安装和完整试用；发布结果必须标记 `manual_client_test_required=true`。若本次发布迁移更新入口，用户还应从迁移前最老受支持客户端真实验证升级转发，但这是测试版发布后的人工验收，不得让发布器重新下载制品或阻塞 canonical 切换。普通发版不触碰已经建立的旧版升级桥。
 - 测试版发布后只要客户端、CLI、skill、安装/更新/卸载、制品结构或项目契约有任何修改，测试结论立即作废，必须重发测试版。
 - 正式版必须由用户明确批准，并用测试通过的同一份代码重新构建 stable 通道，再由全局 Skill 发布；项目内没有正式版绕过开关。
 
@@ -105,8 +105,8 @@ RedBeacon 是一个小红书运营数字员工：本机客户端 + CLI + AI skil
 2. 提交根仓的客户端、安装器和四份中央接入契约；根仓与 CLI provenance 必须一致。
 3. 保持 Windows 11 构建虚拟机运行且 SSH 可达，在根仓运行 `tools/build_desktop_local.sh --channel test`，得到唯一干净制品目录。
 4. 从项目根目录调用全局发布 Skill 的唯一编排器，携带 test、版本、根仓 commit、`release/release-contract.json`、release unit、transaction 和唯一 run id；不得从别的 cwd 发布。
-5. Skill 第一阶段停在 switch gate 后，按 `docs/download-node-integration.md` 用真实客户端完成四项下载验收，生成 `bytestaff-client-acceptance/v1` 凭证，再恢复同一个 run 完成 test canonical 切换。
-6. 只以全局 Skill 校验过的 `publication-result.json` 为发布结果与下载链接真源，把测试版交给用户。
+5. Skill 从本机把同一制品树分别直传 OSS 和下载节点；两端接受后直接切换 test canonical、finalize，并生成 `publication-result.json`，中间不等待客户端验收凭证，也不从远端下载制品复验。
+6. 只以全局 Skill 生成的 `publication-result.json` 为发布结果与下载链接真源，把测试版交给用户手动安装和完整试用。
 7. 用户明确确认后，在不改代码的前提下构建 stable，并通过同一全局 Skill 与独立 stable 批准凭证发布正式版。
 
 ## 给 agent 的工作规则
