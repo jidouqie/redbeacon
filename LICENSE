@@ -2,9 +2,10 @@ MIT License
 
 Copyright (c) 2026 djw
 
-本许可仅适用于本仓库中的开源内容（skill 命令、安装脚本、文档）。
-RedBeacon 的 CLI 引擎为独立的专有软件（Proprietary），不在本许可范围内，
-以打包形式分发，保留所有权利。
+本许可仅适用于本公开仓库中的开源内容（Skill、安装/卸载脚本、公开文档和
+明确随仓发布的非敏感辅助文件）。RedBeacon 的桌面客户端、CLI 内核、数据层、
+内容编排和浏览器自动化实现属于独立的专有软件（Proprietary），不在本许可
+范围内；这些核心能力只以封装后的客户端制品分发，保留所有权利。
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of the open-source files in this repository (the "Software"), to deal

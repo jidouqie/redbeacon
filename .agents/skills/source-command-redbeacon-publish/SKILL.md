@@ -1,6 +1,6 @@
 ---
 name: source-command-redbeacon-publish
-description: "发布已通过内容 — 从本机审核表读「通过」记录，浏览器自动化发到小红书；手动触发，无后台"
+description: "发布已通过内容 — 从本机审核表读取「通过」稿件，经平台动态计费确认后自动发布到小红书并归档"
 metadata:
   short-description: "发布已通过内容"
 ---
@@ -27,7 +27,7 @@ metadata:
 
 > **【发布 skill】** 把审核表里**标了「通过」**的内容真正发到小红书：下载图片 → 浏览器自动化填标题/正文/标签 → 发布（或按记录里的定时设置定时发）。
 >
-> 上一步是审核改稿、标「通过」（`/source-command-redbeacon-review`；内容由 `/source-command-redbeacon-generate` 生成后自动进审核表）。全程手动命令触发，无后台常驻/自动定时。
+> 上一步是审核改稿、标「通过」（`/source-command-redbeacon-review`；内容由 `/source-command-redbeacon-generate` 生成后自动进审核表）。本 Skill 处理用户此刻主动交代的发布；客户端账号级自动化也可在客户端运行期间调用同一套登录复验、稿件校验、计费、发布和归档用例，退出客户端后不会后台运行或补跑。
 
 ---
 

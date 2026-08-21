@@ -352,7 +352,7 @@ redbeacon readiness --account-id {ID}
 ```
 
 > ✓ 账号「{ID}号小红书 ·{备注名}」配置全部完成，进入正式运营 🎉
-> 以后随时 **`/source-command-redbeacon-generate`** 生成内容 → 自动进审核表（`/source-command-redbeacon-review` 审）→ 标「通过」后 **`/source-command-redbeacon-publish`** 发布。（生成/发布都是手动命令触发，本工具无后台自动排期。）
+> 以后可以随时 **`/source-command-redbeacon-generate`** 生成内容 → 自动进审核表（`/source-command-redbeacon-review` 审）→ 标「通过」后 **`/source-command-redbeacon-publish`** 发布；也可以在客户端“自动化”页为这个账号开启值守，让同一套流程在客户端运行期间按计划执行。
 
 > 收尾逻辑：登录给"账号落地"的实感、定位+选题给"内容方向"，**最后请用户亲眼过一遍并确认**——确认通过，账号才算真正配好、可以正式运营。账号档案在本机，用户日后随时让你改或去定位页改。
 
@@ -360,7 +360,7 @@ redbeacon readiness --account-id {ID}
 
 ## 注意
 
-- 没有任何自动排期 / 常驻服务，内容生成一律手动 `/source-command-redbeacon-generate` 触发，别向用户承诺"定时自动发"。
+- 不承诺操作系统后台常驻：账号级自动化只在客户端运行期间生效，开启时防止空闲休眠，退出客户端或错过时间点不补跑。单篇定时发布与账号级值守是两种不同设置，不要混为一谈。
 - 审核与改稿在本机（`/source-command-redbeacon-review` 或操作台审稿页），定位 skill 不涉及审核。
 - 命令失败走 stderr `{"error","next"}`，把 error 给用户看，按 next 自愈，别静默吞。
 - `strategy patch` 是增量合并（只覆盖传入字段），所以单项调整可以只传那一个字段——这正是 `/source-command-redbeacon-strategy` 的工作方式。
