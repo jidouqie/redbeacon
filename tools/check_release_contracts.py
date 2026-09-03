@@ -2,6 +2,7 @@
 """Fail closed when RedBeacon drifts from the central publication contract."""
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -64,6 +65,17 @@ def tracked(path: str) -> bool:
         check=False,
     )
     return proc.returncode == 0
+
+
+def literal_assignment(path: Path, name: str) -> object:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if any(isinstance(target, ast.Name) and target.id == name for target in targets):
+            return ast.literal_eval(node.value)
+    fail(f"{path.relative_to(ROOT)} does not define literal {name}")
 
 
 def main() -> None:
@@ -178,6 +190,11 @@ def main() -> None:
     ):
         if marker not in receipt_writer:
             fail(f"the package channel-isolation receipt lost required proof: {marker}")
+    verifier_path = ROOT / "cli" / "packaging" / "verify_frozen_bundle_smoke_report.py"
+    if literal_assignment(receipt_writer_path, "BUNDLE_ASSERTIONS") != literal_assignment(
+        verifier_path, "ASSERTIONS"
+    ):
+        fail("the root evidence merger and CLI frozen smoke verifier disagree on assertions")
 
     build_meta = (ROOT / "cli" / "src" / "redbeacon" / "build_meta.py").read_text(encoding="utf-8")
     downloader = (ROOT / "cli" / "src" / "redbeacon" / "services" / "release_download.py").read_text(encoding="utf-8")
@@ -202,6 +219,10 @@ def main() -> None:
         launch_marker = "launch_installed_app" if name.endswith(".sh") else "Start-InstalledApp"
         if text.count(launch_marker) < 3:
             fail(f"{name} does not auto-launch after fresh and healthy repeat installs")
+        if name.endswith(".sh") and (
+            "unset TMP TEMP TMPDIR CURL_HOME XDG_CONFIG_HOME; /usr/bin/open" not in text
+        ):
+            fail("install-core.sh can leak its disposable installer temp into the desktop app")
         for assistant in ("codex", "openclaw", "hermes", "workbuddy"):
             if assistant not in text.lower():
                 fail(f"{name} does not install the {assistant} skill adapter")

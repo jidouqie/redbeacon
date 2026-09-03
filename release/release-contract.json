@@ -1,12 +1,12 @@
 {
   "schema": "redbeacon-release-provenance/v3",
   "project": "redbeacon",
-  "version": "0.1.119",
+  "version": "0.1.120",
   "release_unit_id": "app",
   "artifact_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon",
   "artifact_source_commit_authority": "git HEAD containing this contract",
   "cli_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon/cli",
-  "cli_commit": "4e78b88d860da2112efd3dc185c945beefd1d0e4",
+  "cli_commit": "856d1c5987929e53340e3a0135e059fb69332fbc",
   "build_entry": "tools/build_desktop_local.sh",
   "artifact_source_paths": {
     "test": "dist/local-build/test/release-artifacts",

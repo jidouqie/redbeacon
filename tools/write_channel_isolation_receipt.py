@@ -32,8 +32,10 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 BUNDLE_ASSERTIONS = [
     "beta-alias-probe",
+    "browser-launch-probes-process-isolated",
     "bundle-executables-present",
     "caller-environment-preserved",
+    "cloakbrowser-chromium-launch-verified",
     "cloakbrowser-installed",
     "desktop-smoke-ready",
     "fixed-channel-browser-cache",
@@ -41,6 +43,7 @@ BUNDLE_ASSERTIONS = [
     "foreign-token-unchanged",
     "frozen-identity-package-owned",
     "frozen-identity-sha256-matched",
+    "frozen-runtime-temp-normalized",
     "hostile-path-overrides-unused",
     "opposite-channel-probe",
     "opposite-channel-runtime-untouched",

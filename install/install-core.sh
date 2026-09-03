@@ -81,7 +81,10 @@ launch_installed_app() {
     warn "$APP_NAME installed successfully, but the desktop app was not found for automatic launch."
     return 0
   fi
-  if /usr/bin/open "$app" >/dev/null 2>&1; then
+  # The public wrapper deliberately points these variables at its private
+  # download directory and deletes it on exit. Never pass disposable temp or
+  # curl/XDG config paths to the long-lived desktop process.
+  if (unset TMP TEMP TMPDIR CURL_HOME XDG_CONFIG_HOME; /usr/bin/open "$app" >/dev/null 2>&1); then
     say "$APP_NAME is starting."
   else
     warn "$APP_NAME installed successfully, but automatic launch failed. Open it from Launchpad or Spotlight."
