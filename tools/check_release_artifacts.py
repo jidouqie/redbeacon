@@ -309,7 +309,13 @@ def main() -> None:
             fail("frozen package runtime identity path is invalid")
         try:
             with zipfile.ZipFile(package_path) as archive:
-                identity_raw = archive.read(member)
+                raw_names = archive.namelist()
+                normalized_to_raw = {
+                    name.replace("\\", "/"): name for name in raw_names
+                }
+                if len(normalized_to_raw) != len(raw_names):
+                    fail("frozen package contains duplicate normalized paths")
+                identity_raw = archive.read(normalized_to_raw[member])
         except (KeyError, zipfile.BadZipFile) as exc:
             fail(f"frozen package runtime identity cannot be read: {exc}")
         if hashlib.sha256(identity_raw).hexdigest() != package.get("runtime_identity_sha256"):
