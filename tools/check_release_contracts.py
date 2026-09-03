@@ -20,6 +20,19 @@ from build_channel_skills import (
 
 ROOT = Path(__file__).resolve().parent.parent
 CENTRAL_ORIGIN = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+FORBIDDEN_PUBLIC_AMBIENT_INPUTS = (
+    "BYTESTAFF_HOME", "CLOAKBROWSER_AUTO_UPDATE", "CLOAKBROWSER_BINARY_PATH",
+    "CLOAKBROWSER_CACHE_DIR", "CLOAKBROWSER_DOWNLOAD_URL", "CLOAKBROWSER_SKIP_CHECKSUM",
+    "CLOAKBROWSER_VERSION", "PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST",
+    "PLAYWRIGHT_DOWNLOAD_HOST", "REDBEACON_BUILD_CHANNEL", "REDBEACON_CHANNEL",
+    "REDBEACON_CLOAKBROWSER_DIR", "REDBEACON_CLOAKBROWSER_DOWNLOAD_URL",
+    "REDBEACON_CODEX_SKILL_DIR", "REDBEACON_DATA_DIR", "REDBEACON_HERMES_SKILL_DIR",
+    "REDBEACON_INSTALLER_TEST_MODE", "REDBEACON_INSTALL_MANIFEST_FILE",
+    "REDBEACON_INSTALL_ROOT", "REDBEACON_LOG_DIR", "REDBEACON_OPENCLAW_SKILL_DIR",
+    "REDBEACON_PLAYWRIGHT_DIR", "REDBEACON_PLAYWRIGHT_DOWNLOAD_URL", "REDBEACON_RENDERER",
+    "REDBEACON_SKILL_DIR", "REDBEACON_UPDATE_URL", "REDBEACON_UPDATE_WORKDIR",
+    "REDBEACON_WORKBUDDY_SKILL_DIR",
+)
 CONTRACTS = (
     "docs/download-node-integration.md",
     "docs/download-node-project-intake.yaml",
@@ -73,6 +86,21 @@ def main() -> None:
             fail(f"canonical contract still contains a placeholder: {path}")
 
     release_contract = json.loads((ROOT / "release" / "release-contract.json").read_text(encoding="utf-8"))
+    if release_contract.get("schema") != "redbeacon-release-provenance/v3":
+        fail("release contract does not use the channel-isolation-aware provenance schema")
+    if release_contract.get("channel_identity_contract") != {
+        "schema": "bytestaff-channel-identity-evidence/v3",
+        "identity_source": "immutable-public-entrypoint",
+        "ambient_override_policy": "forbidden",
+        "artifact_evidence_path": "metadata/channel-identity.json",
+        "hostile_environment_smoke_required": True,
+        "hashed_platform_smoke_receipts_required": True,
+        "frozen_packages_bound": True,
+        "canonical_manifest_literal_required": True,
+        "public_entrypoints_no_arguments": True,
+        "opposite_channel_entrypoints_forbidden": True,
+    }:
+        fail("release contract channel identity policy is incomplete")
     cli_version_text = (ROOT / "cli" / "src" / "redbeacon" / "__init__.py").read_text(encoding="utf-8")
     version_match = re.search(r'__version__\s*=\s*"([^"]+)"', cli_version_text)
     if version_match is None or release_contract.get("version") != version_match.group(1):
@@ -95,6 +123,61 @@ def main() -> None:
         fail("the build does not create the clean central publication source tree")
     if "check_release_dependency_contract.py" not in build_script:
         fail("the build does not validate cross-platform runtime dependency coordinates")
+    for marker in (
+        "assert_source_unchanged",
+        'git -C "$CLI_ROOT" archive --format=tar "$CLI_COMMIT"',
+        'git -C "$ROOT" archive --format=tar "$ROOT_COMMIT"',
+        'python3 "$RELEASE_SOURCE/tools/smoke_unix_install_transaction.py"',
+        '"$RELEASE_SOURCE/tools/prepare_release_artifacts.py"',
+        '"$RELEASE_SOURCE/tools/check_release_artifacts.py"',
+        'assert_source_unchanged "source snapshot"',
+        'assert_source_unchanged "artifact preparation"',
+        'assert_source_unchanged "final artifact handoff"',
+        'BUILD_RUN_ID="redbeacon-${CHANNEL}-',
+        "--contract-commit",
+        "--build-run-id",
+        "--cli-commit",
+        "-BuildRunId $BUILD_RUN_ID",
+        "-CliCommit $CLI_COMMIT",
+        "frozen-bundle-smoke-macos.json",
+        "frozen-bundle-smoke-windows.json",
+        "installer-transaction-smoke-macos.json",
+        "installer-transaction-smoke-windows.json",
+        "redbeacon-local-build-evidence/v2",
+        '"build_run_id": build_run_id',
+    ):
+        if marker not in build_script:
+            fail(f"the build lost its immutable-source provenance gate: {marker}")
+
+    receipt_writer_path = ROOT / "tools" / "write_channel_isolation_receipt.py"
+    if not receipt_writer_path.is_file() or receipt_writer_path.stat().st_size <= 0:
+        fail("the hashed package channel-isolation receipt writer is missing")
+    receipt_writer = receipt_writer_path.read_text(encoding="utf-8")
+    for marker in (
+        "bytestaff-channel-isolation-smoke-receipt/v2",
+        "redbeacon-frozen-bundle-smoke-report/v1",
+        "redbeacon-installer-transaction-smoke-report/v1",
+        "redbeacon-frozen-identity/v1",
+        "redbeacon-runtime-identity-probe/v1",
+        "caller-environment-preserved",
+        "channel-aliases",
+        "exact-process-isolation",
+        "foreign-data-cache",
+        "forged-update-source",
+        "immutable-canonical-source",
+        "opposite-channel",
+        "other-channel-state-preserved",
+        "canonical_manifest_url",
+        "fixed_channel_argument",
+        "verify_bundle_report",
+        "verify_installer_report",
+        "merge_evidence",
+        "raw_reports",
+        "runtime_identity_sha256",
+        "observed_manifest_request_path",
+    ):
+        if marker not in receipt_writer:
+            fail(f"the package channel-isolation receipt lost required proof: {marker}")
 
     build_meta = (ROOT / "cli" / "src" / "redbeacon" / "build_meta.py").read_text(encoding="utf-8")
     downloader = (ROOT / "cli" / "src" / "redbeacon" / "services" / "release_download.py").read_text(encoding="utf-8")
@@ -112,10 +195,10 @@ def main() -> None:
             path.read_bytes().decode("ascii")
         except UnicodeDecodeError as exc:
             fail(f"PowerShell installer must remain ASCII-only: {path.name}: {exc}")
-    for name in ("install.sh", "install.ps1"):
+    for name in ("install-core.sh", "install-core.ps1"):
         text = (ROOT / "install" / name).read_text(encoding="utf-8")
-        if CENTRAL_ORIGIN not in text or "download node" not in text.lower():
-            fail(f"{name} does not implement central node-first installation")
+        if "download node" not in text.lower():
+            fail(f"{name} does not implement node-first artifact installation")
         launch_marker = "launch_installed_app" if name.endswith(".sh") else "Start-InstalledApp"
         if text.count(launch_marker) < 3:
             fail(f"{name} does not auto-launch after fresh and healthy repeat installs")
@@ -127,7 +210,81 @@ def main() -> None:
             fail(f"{name} does not show live size/speed feedback during the primary package download")
         if name.endswith(".ps1"):
             if "function Remove-InstallerTemp" not in text or "finally { Remove-InstallerTemp $tmp }" not in text:
-                fail("install.ps1 can misreport a successful install when Windows temporarily locks cleanup files")
+                fail("install-core.ps1 can misreport a successful install when Windows temporarily locks cleanup files")
+        if "# BYTESTAFF_INTERNAL_CHANNEL_HELPER: explicit-only" not in text.splitlines():
+            fail(f"{name} is not marked as a non-public explicit-channel helper")
+
+    for name in ("uninstall-core.sh", "uninstall-core.ps1"):
+        text = (ROOT / "install" / name).read_text(encoding="utf-8")
+        if "# BYTESTAFF_INTERNAL_CHANNEL_HELPER: explicit-only" not in text.splitlines():
+            fail(f"{name} is not marked as a non-public explicit-channel helper")
+
+    for channel, suffix in (("stable", ""), ("test", "-test")):
+        for operation in ("install", "uninstall"):
+            for extension in ("sh", "ps1"):
+                name = f"{operation}{suffix}.{extension}"
+                text = (ROOT / "install" / name).read_text(encoding="utf-8")
+                lines = text.splitlines()
+                if f"# BYTESTAFF_CHANNEL_IDENTITY: {channel}" not in lines:
+                    fail(f"{name} is not immutably bound to {channel}")
+                canonical = f"{CENTRAL_ORIGIN}/projects/redbeacon/{channel}/latest.json"
+                if lines.count(f"# BYTESTAFF_CANONICAL_MANIFEST_URL: {canonical}") != 1:
+                    fail(f"{name} does not declare its exact canonical manifest")
+                if lines.count(f"# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: {channel}") != 1:
+                    fail(f"{name} does not declare its fixed channel argument")
+                if "# BYTESTAFF_AMBIENT_CHANNEL_OVERRIDES: forbidden" not in lines:
+                    fail(f"{name} does not forbid ambient channel overrides")
+                leaked = [value for value in FORBIDDEN_PUBLIC_AMBIENT_INPUTS if value in text.upper()]
+                if leaked:
+                    fail(f"{name} still references ambient channel inputs: {', '.join(leaked)}")
+                if canonical not in text:
+                    fail(f"{name} does not bind the {channel} canonical manifest")
+                if f'"{channel}"' not in text:
+                    fail(f"{name} does not pass its fixed {channel} identity explicitly")
+                if "--redbeacon-" in text or "REDBEACON_INSTALLER_TEST_MODE" in text:
+                    fail(f"{name} still exposes a runtime source override")
+                if extension == "sh" and "accepts no arguments" not in text:
+                    fail(f"{name} does not reject every shell argument")
+                if extension == "ps1" and ("param()" not in text or "$args.Count -ne 0" not in text):
+                    fail(f"{name} does not reject every PowerShell argument")
+
+    artifact_builder = (ROOT / "tools" / "prepare_release_artifacts.py").read_text(encoding="utf-8")
+    for marker in (
+        "bytestaff-channel-identity-evidence/v3",
+        "bytestaff-channel-isolation-smoke-receipt/v2",
+        "metadata/channel-identity.json",
+        "metadata/channel-isolation-receipt.json",
+        "frozen-bundle-smoke-macos.json",
+        "frozen-bundle-smoke-windows.json",
+        "installer-transaction-smoke-macos.json",
+        "installer-transaction-smoke-windows.json",
+        "build_run_id",
+        "root_commit",
+        "cli_commit",
+        "packages",
+        "install-core.ps1",
+        "install-core.sh",
+        "uninstall-core.ps1",
+        "uninstall-core.sh",
+    ):
+        if marker not in artifact_builder:
+            fail(f"artifact builder lost the channel identity gate: {marker}")
+
+    artifact_checker = (ROOT / "tools" / "check_release_artifacts.py").read_text(encoding="utf-8")
+    for marker in (
+        "bytestaff-channel-identity-evidence/v3",
+        "bytestaff-channel-isolation-smoke-receipt/v2",
+        "redbeacon-local-build-evidence/v2",
+        "channel-isolation-receipt.json",
+        "raw_reports",
+        "runtime_identity_sha256",
+        "observed_manifest_request_path",
+        "public entrypoint exposes ambient identity",
+        "only the current channel public entrypoints",
+        "frozen package",
+    ):
+        if marker not in artifact_checker:
+            fail(f"artifact checker lost the channel identity gate: {marker}")
 
     locate_source = (ROOT / ".claude" / "commands" / "redbeacon-locate.md").read_text(encoding="utf-8")
     for marker in ("我先简述整体想法", "你逐题带我梳理", "不得把他已经说过的内容换个说法再问一次"):

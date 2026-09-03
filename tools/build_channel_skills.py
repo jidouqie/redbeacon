@@ -56,6 +56,9 @@ def transform_test_text(text: str) -> str:
     text = text.replace("~/.redbeacon", "~/.redbeacon_test")
     text = text.replace("~/.bytestaff", "~/.bytestaff_test")
     text = text.replace("/stable/latest.json", "/test/latest.json")
+    # Test release manifests expose only their test-owned, suffixed public
+    # entrypoints.  Keep those coordinates distinct from the stable wrapper
+    # names as well as selecting the test canonical above.
     text = text.replace("/install.ps1", "/install-test.ps1")
     text = text.replace("/install.sh", "/install-test.sh")
     text = text.replace(manifest_token, TEST_MANIFEST_URL)

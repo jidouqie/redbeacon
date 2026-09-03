@@ -1,124 +1,116 @@
-#!/usr/bin/env bash
-# ------------------------------------------------------------------------------
-# RedBeacon uninstaller (Mac/Linux). Run:
-#     Fetch installers/uninstall.sh from the current central manifest and run it.
-#
-# Removes the software bundle, update leftovers, CLI shim, skills, desktop entry,
-# and browser cache.
-# Your BUSINESS DATA is KEPT by default:
-#     ~/.redbeacon   (accounts / cookies / generated content / local DB)
-#     ~/.bytestaff   (platform login / device token)
-# To also wipe that data, run:
-#     Fetch the same central uninstaller, then run it with REDBEACON_PURGE=1.
-# All output is English on purpose (avoids garbled text on some consoles).
-# ------------------------------------------------------------------------------
-set -uo pipefail
-say()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
-warn() { printf '\033[33m!! %s\033[0m\n' "$*"; }
+#!/bin/sh
+# Fixed stable-channel uninstaller bootstrap.
+# BYTESTAFF_CHANNEL_IDENTITY: stable
+# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json
+# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: stable
+# BYTESTAFF_AMBIENT_CHANNEL_OVERRIDES: forbidden
+set -eu
 
-case "${REDBEACON_PURGE:-}" in
-  1|true|TRUE|yes|YES|on|ON) PURGE=1 ;;
-  *) PURGE="" ;;
-esac
-CHANNEL="${REDBEACON_CHANNEL:-stable}"
-case "$CHANNEL" in test|testing|beta) CHANNEL="test" ;; *) CHANNEL="stable" ;; esac
-if [ "$CHANNEL" = "test" ]; then
-  APP_NAME="RedBeacon_test"
-  CMD_NAME="redbeacon-test"
-  CLI_NAME="redbeacon-test-cli"
-  SHARE_NAME="redbeacon-test"
-  DESKTOP_ID="redbeacon-test"
-  DATA_HOME="$HOME/.redbeacon_test"
-  TOKEN_HOME="$HOME/.bytestaff_test"
-  SKILL_DIR="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands-redbeacon-test}"
-  CODEX_SKILL_GLOB="redbeacon-test*"
-else
-  APP_NAME="RedBeacon"
-  CMD_NAME="redbeacon"
-  CLI_NAME="redbeacon-cli"
-  SHARE_NAME="redbeacon"
-  DESKTOP_ID="redbeacon"
-  DATA_HOME="$HOME/.redbeacon"
-  TOKEN_HOME="$HOME/.bytestaff"
-  SKILL_DIR="${REDBEACON_SKILL_DIR:-$HOME/.claude/commands}"
-  CODEX_SKILL_GLOB="redbeacon*"
-fi
-PORTABLE_SKILL_DIRS="
-${REDBEACON_CODEX_SKILL_DIR:-$HOME/.codex/skills}
-${REDBEACON_OPENCLAW_SKILL_DIR:-$HOME/.openclaw/skills}
-${REDBEACON_HERMES_SKILL_DIR:-$HOME/.hermes/skills}
-${REDBEACON_WORKBUDDY_SKILL_DIR:-$HOME/.workbuddy/skills}
-"
+ENTRY_CHANNEL="stable"
+CORE_ARTIFACT="installers/uninstall-core.sh"
+CENTRAL_ORIGIN="https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+MANIFEST_URL="https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json"
 
-refresh_macos_app_registration() {
-  app="$1"
-  [ "$(uname -s 2>/dev/null || true)" = "Darwin" ] || return 0
-  lsreg="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
-  if [ -x "$lsreg" ] && [ -d "$app" ]; then "$lsreg" -u "$app" >/dev/null 2>&1 || true; fi
-  if command -v qlmanage >/dev/null 2>&1; then qlmanage -r cache >/dev/null 2>&1 || true; fi
-  killall Dock >/dev/null 2>&1 || true
+[ "$#" -eq 0 ] || { printf 'xx This uninstaller accepts no arguments.\n' >&2; exit 2; }
+
+die() { printf 'xx %s\n' "$*" >&2; exit 1; }
+
+resolve_trusted_home() {
+  trusted_user="$(/usr/bin/id -un)" || return 1
+  trusted_record="$(/usr/bin/id -P "$trusted_user")" || return 1
+  printf '%s\n' "$trusted_record" | /usr/bin/awk -F: 'NR == 1 { print $9 }'
 }
 
-# 1) stop running app processes if possible
-say "Stopping $APP_NAME..."
-if [ "${REDBEACON_SKIP_PROCESS_STOP:-}" != "1" ]; then
-  pkill -f "$APP_NAME" >/dev/null 2>&1 || true
-  pkill -f "$CLI_NAME" >/dev/null 2>&1 || true
-fi
+TRUSTED_HOME="$(resolve_trusted_home)" || die "Could not resolve the signed-in macOS user's home directory."
+case "$TRUSTED_HOME" in /*) ;; *) die "The trusted macOS home directory is invalid." ;; esac
+[ -d "$TRUSTED_HOME" ] || die "The trusted macOS home directory does not exist."
+HOME="$TRUSTED_HOME"
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+LC_ALL="C"
+export HOME PATH LC_ALL
+unset BASH_ENV ENV CDPATH GLOBIGNORE TAR_OPTIONS UNZIP UNZIPOPT ZIPOPT \
+  DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH LD_PRELOAD LD_LIBRARY_PATH \
+  PYTHONHOME PYTHONPATH CURL_CA_BUNDLE SSL_CERT_FILE 2>/dev/null || true
+umask 077
 
-# 2) bundled app, update leftovers + CLI shim
-say "Removing $APP_NAME app and CLI..."
-refresh_macos_app_registration "$HOME/Applications/$APP_NAME.app"
-rm -rf "$HOME/Applications/$APP_NAME.app" 2>/dev/null || true           # macOS bundle
-rm -rf "$HOME/Applications/$APP_NAME.app.previous-update" 2>/dev/null || true
-rm -rf "$HOME/.local/share/$SHARE_NAME" 2>/dev/null || true             # Linux bundle
-rm -rf "$HOME/.local/share/$SHARE_NAME.previous-update" 2>/dev/null || true
-rm -f  "$HOME/.local/bin/$CMD_NAME" 2>/dev/null || true
-[ "$CHANNEL" = "stable" ] && rm -f "$HOME"/.local/bin/redbeacon-app 2>/dev/null || true
+is_safe_url() {
+  case "$1" in
+    "$CENTRAL_ORIGIN"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
-say "Removing update staging files..."
-rm -rf "$DATA_HOME/data/updates" 2>/dev/null || true
-if [ -n "${REDBEACON_UPDATE_WORKDIR:-}" ]; then
-  rm -rf "$REDBEACON_UPDATE_WORKDIR" 2>/dev/null || true
-fi
-
-# Legacy uv-tool install leftovers (kept for users who installed older builds).
-UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
-if [ "$CHANNEL" = "stable" ] && [ -x "$UV" ]; then
-  "$UV" tool uninstall redbeacon >/dev/null 2>&1 || warn "  redbeacon was not installed via uv (or already removed)"
-fi
-[ "$CHANNEL" = "stable" ] && rm -rf "$HOME/.local/share/uv/tools/redbeacon" 2>/dev/null || true
-
-# 3) skills (Claude command dir + portable Agent Skills hosts)
-say "Removing skills..."
-rm -f  "$SKILL_DIR"/redbeacon*.md 2>/dev/null || true
-printf '%s\n' "$PORTABLE_SKILL_DIRS" | while IFS= read -r skill_root; do
-  [ -n "$skill_root" ] && [ -d "$skill_root" ] || continue
-  if [ "$CHANNEL" = "test" ]; then
-    find "$skill_root" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" -exec rm -rf {} + 2>/dev/null || true
+fetch_file() {
+  url="$1" output="$2" timeout="$3"
+  is_safe_url "$url" || die "Uninstaller URL is unsafe."
+  if [ "${CENTRAL_ORIGIN#https://}" != "$CENTRAL_ORIGIN" ]; then
+    /usr/bin/curl -q -fsSL --proto '=https' --proto-redir '=https' \
+      --connect-timeout 3 --max-time "$timeout" "$url" -o "$output"
   else
-    find "$skill_root" -maxdepth 1 -type d -name "$CODEX_SKILL_GLOB" ! -name 'redbeacon-test*' -exec rm -rf {} + 2>/dev/null || true
+    /usr/bin/curl -q -fsSL --connect-timeout 3 --max-time "$timeout" "$url" -o "$output"
   fi
-done
+}
 
-# 4) desktop entry
-say "Removing desktop entry..."
-rm -f  "$HOME/.local/share/applications/$DESKTOP_ID.desktop" 2>/dev/null || true
+manifest_value() {
+  field="$1"
+  if [ -x /usr/bin/osascript ]; then
+    /usr/bin/osascript -l JavaScript - "$MANIFEST_FILE" "$CORE_ARTIFACT" "$field" <<'JXA'
+function run(argv) {
+  const app = Application.currentApplication(); app.includeStandardAdditions = true;
+  const data = JSON.parse(app.read(Path(argv[0])));
+  if (["project", "channel", "schema", "version"].includes(argv[2])) return String(data[argv[2]] || "");
+  const rows = (data.artifacts || []).filter(x => x.path === argv[1]);
+  if (rows.length !== 1) throw new Error("uninstaller core is missing");
+  return String(rows[0][argv[2]] || "");
+}
+JXA
+    return
+  fi
+  die "The trusted macOS JSON parser is unavailable."
+}
 
-# 5) channel-owned browser engine cache (re-downloadable). Never remove the
-# global Playwright/CloakBrowser caches: other apps or the other RedBeacon
-# channel may still own and use them.
-say "Removing browser engine cache..."
-rm -rf "$DATA_HOME/browser" 2>/dev/null || true
+sha256_file() {
+  [ -x /usr/bin/shasum ] || return 1
+  /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
+}
 
-# 6) business data -- only when REDBEACON_PURGE=1
-if [ -n "$PURGE" ]; then
-  say "PURGE: removing your $APP_NAME data ($DATA_HOME, $TOKEN_HOME)..."
-  rm -rf "$DATA_HOME" 2>/dev/null || true
-  rm -rf "$TOKEN_HOME" 2>/dev/null || true
-else
-  warn "Kept your data: $DATA_HOME (accounts/content) + $TOKEN_HOME (login)."
-  warn "To wipe it too, set REDBEACON_PURGE=1 and run the current central uninstaller again."
-fi
+TMP="$(/usr/bin/mktemp -d /private/tmp/redbeacon-stable-uninstall.XXXXXX)" \
+  || die "Could not create a trusted uninstaller directory."
+trap '/bin/rm -rf "$TMP"' EXIT
+TEMP="$TMP"
+TMPDIR="$TMP"
+CURL_HOME="$TMP/curl-home"
+XDG_CONFIG_HOME="$TMP/xdg-config"
+export TMP TEMP TMPDIR CURL_HOME XDG_CONFIG_HOME
+MANIFEST_FILE="$TMP/latest.json"
+CORE_FILE="$TMP/uninstall-core.sh"
 
-say "$APP_NAME uninstalled."
+fetch_file "$MANIFEST_URL" "$MANIFEST_FILE" 20 \
+  || die "Could not fetch the stable RedBeacon release manifest."
+[ "$(manifest_value project)" = "redbeacon" ] \
+  && [ "$(manifest_value channel)" = "$ENTRY_CHANNEL" ] \
+  || die "Release manifest does not match RedBeacon stable."
+manifest_schema="$(manifest_value schema)"
+manifest_version="$(manifest_value version)"
+[ "$manifest_schema" = "1" ] || die "Release manifest schema is invalid."
+printf '%s\n' "$manifest_version" | /usr/bin/grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+  || die "Release manifest version is invalid."
+
+core_url="$(manifest_value url)"
+core_size="$(manifest_value size)"
+core_sha="$(manifest_value sha256)"
+case "$core_size" in ''|*[!0-9]*) die "Uninstaller core size is invalid." ;; esac
+[ "$core_size" -gt 0 ] || die "Uninstaller core size is invalid."
+case "$core_sha" in ''|*[!0-9a-f]*) die "Uninstaller core SHA-256 is invalid." ;; esac
+[ "${#core_sha}" -eq 64 ] || die "Uninstaller core SHA-256 is invalid."
+expected_core_url="$CENTRAL_ORIGIN/projects/redbeacon/stable/releases/$manifest_version/$CORE_ARTIFACT"
+[ "$core_url" = "$expected_core_url" ] \
+  || die "Uninstaller core URL does not match the stable release."
+
+fetch_file "$core_url" "$CORE_FILE" 60 || die "Could not fetch the stable uninstaller core."
+[ "$(/usr/bin/wc -c < "$CORE_FILE" | /usr/bin/tr -d '[:space:]')" = "$core_size" ] \
+  || die "Uninstaller core size verification failed."
+[ "$(sha256_file "$CORE_FILE")" = "$core_sha" ] \
+  || die "Uninstaller core SHA-256 verification failed."
+
+/bin/bash "$CORE_FILE" "stable" "production"

@@ -65,6 +65,28 @@ if [ -n "$CLI_STATUS" ]; then
   printf '%s\n' "$CLI_STATUS" >&2
   exit 1
 fi
+ROOT_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+CLI_COMMIT="$(git -C "$CLI_ROOT" rev-parse HEAD)"
+
+assert_source_unchanged() {
+  stage="$1"
+  actual_root_commit="$(git -C "$ROOT" rev-parse HEAD)"
+  actual_cli_commit="$(git -C "$CLI_ROOT" rev-parse HEAD)"
+  if [ "$actual_root_commit" != "$ROOT_COMMIT" ] || [ "$actual_cli_commit" != "$CLI_COMMIT" ]; then
+    echo "Source provenance changed during $stage; refusing to hand off artifacts." >&2
+    echo "Expected root=$ROOT_COMMIT cli=$CLI_COMMIT" >&2
+    echo "Actual   root=$actual_root_commit cli=$actual_cli_commit" >&2
+    exit 1
+  fi
+  current_root_status="$(git -C "$ROOT" status --porcelain --untracked-files=all)"
+  current_cli_status="$(git -C "$CLI_ROOT" status --porcelain --untracked-files=all)"
+  if [ -n "$current_root_status" ] || [ -n "$current_cli_status" ]; then
+    echo "Source worktrees changed during $stage; refusing to hand off artifacts." >&2
+    [ -z "$current_root_status" ] || printf '%s\n' "$current_root_status" >&2
+    [ -z "$current_cli_status" ] || printf '%s\n' "$current_cli_status" >&2
+    exit 1
+  fi
+}
 
 cd "$ROOT"
 python3 tools/check_release_contracts.py
@@ -99,28 +121,49 @@ trap 'rm -rf "$WORK"' EXIT
 CLI_ARCHIVE="$WORK/redbeacon-cli.tar"
 RELEASE_ARCHIVE="$WORK/redbeacon-release-source.tar"
 MAC_SOURCE="$WORK/mac-source"
-mkdir -p "$MAC_SOURCE" "$OUTPUT_ROOT"
+RELEASE_SOURCE="$WORK/release-source"
+mkdir -p "$MAC_SOURCE" "$RELEASE_SOURCE" "$OUTPUT_ROOT"
 
-git -C "$CLI_ROOT" archive --format=tar HEAD -o "$CLI_ARCHIVE"
+git -C "$CLI_ROOT" archive --format=tar "$CLI_COMMIT" -o "$CLI_ARCHIVE"
 tar -xf "$CLI_ARCHIVE" -C "$MAC_SOURCE"
-git -C "$ROOT" archive --format=tar HEAD install tools -o "$RELEASE_ARCHIVE"
+git -C "$ROOT" archive --format=tar "$ROOT_COMMIT" \
+  .claude/commands install release tools -o "$RELEASE_ARCHIVE"
+tar -xf "$RELEASE_ARCHIVE" -C "$RELEASE_SOURCE"
+assert_source_unchanged "source snapshot"
 
-CLI_COMMIT="$(git -C "$CLI_ROOT" rev-parse HEAD)"
-ROOT_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 SOURCE_SHA="$(shasum -a 256 "$CLI_ARCHIVE" | awk '{print $1}')"
 RELEASE_SOURCE_SHA="$(shasum -a 256 "$RELEASE_ARCHIVE" | awk '{print $1}')"
 VERSION="$(python3 -c "import pathlib,re; print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', pathlib.Path('$MAC_SOURCE/src/redbeacon/__init__.py').read_text()).group(1))")"
+BUILD_RUN_ID="redbeacon-${CHANNEL}-$(date -u +%Y%m%d%H%M%S)-${ROOT_COMMIT:0:12}"
 APP_NAME="RedBeacon"
 if [ "$CHANNEL" = "test" ]; then APP_NAME="RedBeacon_test"; fi
 LOCAL_OUT="$OUTPUT_ROOT/$CHANNEL"
 rm -rf "$LOCAL_OUT"
 mkdir -p "$LOCAL_OUT"
+MAC_BUNDLE_REPORT="$LOCAL_OUT/frozen-bundle-smoke-macos.json"
+MAC_INSTALLER_REPORT="$LOCAL_OUT/installer-transaction-smoke-macos.json"
+WINDOWS_BUNDLE_REPORT="$LOCAL_OUT/frozen-bundle-smoke-windows.json"
+WINDOWS_INSTALLER_REPORT="$LOCAL_OUT/installer-transaction-smoke-windows.json"
+WINDOWS_OUT_NATIVE="RedBeaconBuild\\out\\$BUILD_RUN_ID"
+WINDOWS_OUT_REMOTE="RedBeaconBuild/out/$BUILD_RUN_ID"
 
 echo "==> Running macOS installer transaction smoke"
-python3 tools/smoke_unix_install_transaction.py
+python3 "$RELEASE_SOURCE/tools/smoke_unix_install_transaction.py" \
+  --report-path "$MAC_INSTALLER_REPORT" \
+  --build-run-id "$BUILD_RUN_ID" \
+  --root-commit "$ROOT_COMMIT" \
+  --cli-commit "$CLI_COMMIT" \
+  --version "$VERSION" \
+  --channel "$CHANNEL"
 
 echo "==> Building macOS arm64 from CLI commit $CLI_COMMIT"
-bash "$MAC_SOURCE/packaging/build_macos_local.sh" --channel "$CHANNEL" --output-dir "$LOCAL_OUT"
+bash "$MAC_SOURCE/packaging/build_macos_local.sh" \
+  --channel "$CHANNEL" \
+  --output-dir "$LOCAL_OUT" \
+  --report-path "$MAC_BUNDLE_REPORT" \
+  --build-run-id "$BUILD_RUN_ID" \
+  --commit "$ROOT_COMMIT" \
+  --cli-commit "$CLI_COMMIT"
 
 echo "==> Sending the identical CLI source snapshot to Windows"
 ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" \
@@ -134,38 +177,54 @@ scp "${SCP_OPTIONS[@]}" "$MAC_SOURCE/packaging/build_windows_local.ps1" \
 
 echo "==> Building Windows x64 inside the Windows 11 ARM64 VM"
 ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" \
-  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&$WINDOWS_POWERSHELL -NoProfile -NonInteractive -ExecutionPolicy Bypass -File RedBeaconBuild\\incoming\\build_windows_local.ps1 -SourceArchive RedBeaconBuild\\incoming\\redbeacon-cli.tar -ReleaseSourceArchive RedBeaconBuild\\incoming\\redbeacon-release-source.tar -Channel $CHANNEL -OutputDir RedBeaconBuild\\out -WorkingRoot RedBeaconBuild\""
+  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&$WINDOWS_POWERSHELL -NoProfile -NonInteractive -ExecutionPolicy Bypass -File RedBeaconBuild\\incoming\\build_windows_local.ps1 -SourceArchive RedBeaconBuild\\incoming\\redbeacon-cli.tar -ReleaseSourceArchive RedBeaconBuild\\incoming\\redbeacon-release-source.tar -Version $VERSION -ContractCommit $ROOT_COMMIT -CliCommit $CLI_COMMIT -BuildRunId $BUILD_RUN_ID -Channel $CHANNEL -OutputDir $WINDOWS_OUT_NATIVE -WorkingRoot RedBeaconBuild\""
 scp "${SCP_OPTIONS[@]}" \
-  "${WINDOWS_HOST}:RedBeaconBuild/out/${APP_NAME}-win-x64.zip" \
+  "${WINDOWS_HOST}:${WINDOWS_OUT_REMOTE}/${APP_NAME}-win-x64.zip" \
   "$LOCAL_OUT/${APP_NAME}-win-x64.zip"
+scp "${SCP_OPTIONS[@]}" \
+  "${WINDOWS_HOST}:${WINDOWS_OUT_REMOTE}/frozen-bundle-smoke-windows.json" \
+  "$WINDOWS_BUNDLE_REPORT"
+scp "${SCP_OPTIONS[@]}" \
+  "${WINDOWS_HOST}:${WINDOWS_OUT_REMOTE}/installer-transaction-smoke-windows.json" \
+  "$WINDOWS_INSTALLER_REPORT"
 
 MAC_PACKAGE="$LOCAL_OUT/${APP_NAME}-mac-arm64.zip"
 WINDOWS_PACKAGE="$LOCAL_OUT/${APP_NAME}-win-x64.zip"
 test -s "$MAC_PACKAGE"
 test -s "$WINDOWS_PACKAGE"
+test -s "$MAC_BUNDLE_REPORT"
+test -s "$MAC_INSTALLER_REPORT"
+test -s "$WINDOWS_BUNDLE_REPORT"
+test -s "$WINDOWS_INSTALLER_REPORT"
+
+assert_source_unchanged "artifact preparation"
 
 ARTIFACT_DIR="$LOCAL_OUT/release-artifacts"
 echo "==> Preparing the clean application, installer, skill, and runtime artifact tree"
-"$MAC_SOURCE/.venv/bin/python" tools/prepare_release_artifacts.py \
+"$MAC_SOURCE/.venv/bin/python" "$RELEASE_SOURCE/tools/prepare_release_artifacts.py" \
   --channel "$CHANNEL" \
   --version "$VERSION" \
+  --contract-commit "$ROOT_COMMIT" \
+  --cli-commit "$CLI_COMMIT" \
+  --build-run-id "$BUILD_RUN_ID" \
   --package-dir "$LOCAL_OUT" \
   --output-dir "$ARTIFACT_DIR"
 
 # shellcheck disable=SC1090
 source "$MAC_SOURCE/packaging/build-versions.env"
 python3 - "$ARTIFACT_DIR/metadata/build-evidence.json" "$CHANNEL" "$VERSION" \
-  "$CLI_COMMIT" "$ROOT_COMMIT" "$SOURCE_SHA" "$RELEASE_SOURCE_SHA" \
+  "$BUILD_RUN_ID" "$CLI_COMMIT" "$ROOT_COMMIT" "$SOURCE_SHA" "$RELEASE_SOURCE_SHA" \
   "$UV_VERSION" "$PYTHON_VERSION" <<'PY'
 import datetime
 import json
 import pathlib
 import sys
 
-(path, channel, version, cli_commit, root_commit, source_sha, release_sha,
+(path, channel, version, build_run_id, cli_commit, root_commit, source_sha, release_sha,
  uv_version, python_version) = sys.argv[1:]
 payload = {
-    "schema": "redbeacon-local-build-evidence/v1",
+    "schema": "redbeacon-local-build-evidence/v2",
+    "build_run_id": build_run_id,
     "channel": channel,
     "version": version,
     "cli_commit": cli_commit,
@@ -183,9 +242,10 @@ pathlib.Path(path).write_text(
 )
 PY
 chmod 0644 "$ARTIFACT_DIR/metadata/build-evidence.json"
-"$MAC_SOURCE/.venv/bin/python" tools/check_release_artifacts.py \
+"$MAC_SOURCE/.venv/bin/python" "$RELEASE_SOURCE/tools/check_release_artifacts.py" \
   "$ARTIFACT_DIR" --channel "$CHANNEL" --version "$VERSION"
+assert_source_unchanged "final artifact handoff"
 
 echo "==> Dual-platform build and artifact preparation complete"
-echo "    channel=$CHANNEL version=$VERSION cli_commit=$CLI_COMMIT"
+echo "    channel=$CHANNEL version=$VERSION cli_commit=$CLI_COMMIT build_run_id=$BUILD_RUN_ID"
 echo "    artifact_dir=$ARTIFACT_DIR"

@@ -1,41 +1,117 @@
 #!/bin/sh
+# Fixed test-channel uninstaller bootstrap. It never delegates to the public
+# stable uninstaller name; both channels download uninstall-core.sh.
+# BYTESTAFF_CHANNEL_IDENTITY: test
+# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json
+# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: test
+# BYTESTAFF_AMBIENT_CHANNEL_OVERRIDES: forbidden
 set -eu
-export REDBEACON_CHANNEL=test
-origin="https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
-manifest_url="${REDBEACON_UPDATE_URL:-$origin/projects/redbeacon/test/latest.json}"
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-case "$manifest_url" in
-  http://127.0.0.1:*/*)
-    [ "${REDBEACON_INSTALLER_TEST_MODE:-}" = "1" ] \
-      || { echo "Unsafe test manifest URL" >&2; exit 1; }
-    curl -fsSL --connect-timeout 3 --max-time 20 "$manifest_url" -o "$tmp/latest.json"
-    ;;
-  https://*)
-    curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 3 --max-time 20 \
-      "$manifest_url" -o "$tmp/latest.json"
-    ;;
-  *) echo "Unsafe test manifest URL" >&2; exit 1 ;;
-esac
-uninstaller_url="$(/usr/bin/osascript -l JavaScript - "$tmp/latest.json" <<'JXA'
+
+ENTRY_CHANNEL="test"
+CORE_ARTIFACT="installers/uninstall-core.sh"
+CENTRAL_ORIGIN="https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+MANIFEST_URL="https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json"
+
+[ "$#" -eq 0 ] || { printf 'xx This uninstaller accepts no arguments.\n' >&2; exit 2; }
+
+die() { printf 'xx %s\n' "$*" >&2; exit 1; }
+
+resolve_trusted_home() {
+  trusted_user="$(/usr/bin/id -un)" || return 1
+  trusted_record="$(/usr/bin/id -P "$trusted_user")" || return 1
+  printf '%s\n' "$trusted_record" | /usr/bin/awk -F: 'NR == 1 { print $9 }'
+}
+
+TRUSTED_HOME="$(resolve_trusted_home)" || die "Could not resolve the signed-in macOS user's home directory."
+case "$TRUSTED_HOME" in /*) ;; *) die "The trusted macOS home directory is invalid." ;; esac
+[ -d "$TRUSTED_HOME" ] || die "The trusted macOS home directory does not exist."
+HOME="$TRUSTED_HOME"
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+LC_ALL="C"
+export HOME PATH LC_ALL
+unset BASH_ENV ENV CDPATH GLOBIGNORE TAR_OPTIONS UNZIP UNZIPOPT ZIPOPT \
+  DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH LD_PRELOAD LD_LIBRARY_PATH \
+  PYTHONHOME PYTHONPATH CURL_CA_BUNDLE SSL_CERT_FILE 2>/dev/null || true
+umask 077
+
+is_safe_url() {
+  case "$1" in
+    "$CENTRAL_ORIGIN"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+fetch_file() {
+  url="$1" output="$2" timeout="$3"
+  is_safe_url "$url" || die "Uninstaller URL is unsafe."
+  if [ "${CENTRAL_ORIGIN#https://}" != "$CENTRAL_ORIGIN" ]; then
+    /usr/bin/curl -q -fsSL --proto '=https' --proto-redir '=https' \
+      --connect-timeout 3 --max-time "$timeout" "$url" -o "$output"
+  else
+    /usr/bin/curl -q -fsSL --connect-timeout 3 --max-time "$timeout" "$url" -o "$output"
+  fi
+}
+
+manifest_value() {
+  field="$1"
+  if [ -x /usr/bin/osascript ]; then
+    /usr/bin/osascript -l JavaScript - "$MANIFEST_FILE" "$CORE_ARTIFACT" "$field" <<'JXA'
 function run(argv) {
   const app = Application.currentApplication(); app.includeStandardAdditions = true;
   const data = JSON.parse(app.read(Path(argv[0])));
-  const rows = (data.artifacts || []).filter(x => x.path === "installers/uninstall.sh");
-  if (rows.length !== 1) throw new Error("test uninstaller is missing");
-  return String(rows[0].url);
+  if (["project", "channel", "schema", "version"].includes(argv[2])) return String(data[argv[2]] || "");
+  const rows = (data.artifacts || []).filter(x => x.path === argv[1]);
+  if (rows.length !== 1) throw new Error("uninstaller core is missing");
+  return String(rows[0][argv[2]] || "");
 }
 JXA
-)"
-case "$uninstaller_url" in
-  http://127.0.0.1:*/*)
-    [ "${REDBEACON_INSTALLER_TEST_MODE:-}" = "1" ] \
-      || { echo "Unsafe test uninstaller URL" >&2; exit 1; }
-    curl -fsSL --connect-timeout 3 --max-time 60 "$uninstaller_url" | bash
-    ;;
-  https://*)
-    curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 3 --max-time 60 \
-      "$uninstaller_url" | bash
-    ;;
-  *) echo "Unsafe test uninstaller URL" >&2; exit 1 ;;
-esac
+    return
+  fi
+  die "The trusted macOS JSON parser is unavailable."
+}
+
+sha256_file() {
+  [ -x /usr/bin/shasum ] || return 1
+  /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
+}
+
+TMP="$(/usr/bin/mktemp -d /private/tmp/redbeacon-test-uninstall.XXXXXX)" \
+  || die "Could not create a trusted uninstaller directory."
+trap '/bin/rm -rf "$TMP"' EXIT
+TEMP="$TMP"
+TMPDIR="$TMP"
+CURL_HOME="$TMP/curl-home"
+XDG_CONFIG_HOME="$TMP/xdg-config"
+export TMP TEMP TMPDIR CURL_HOME XDG_CONFIG_HOME
+MANIFEST_FILE="$TMP/latest.json"
+CORE_FILE="$TMP/uninstall-core.sh"
+
+fetch_file "$MANIFEST_URL" "$MANIFEST_FILE" 20 \
+  || die "Could not fetch the test RedBeacon release manifest."
+[ "$(manifest_value project)" = "redbeacon" ] \
+  && [ "$(manifest_value channel)" = "$ENTRY_CHANNEL" ] \
+  || die "Release manifest does not match RedBeacon test."
+manifest_schema="$(manifest_value schema)"
+manifest_version="$(manifest_value version)"
+[ "$manifest_schema" = "1" ] || die "Release manifest schema is invalid."
+printf '%s\n' "$manifest_version" | /usr/bin/grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+  || die "Release manifest version is invalid."
+
+core_url="$(manifest_value url)"
+core_size="$(manifest_value size)"
+core_sha="$(manifest_value sha256)"
+case "$core_size" in ''|*[!0-9]*) die "Uninstaller core size is invalid." ;; esac
+[ "$core_size" -gt 0 ] || die "Uninstaller core size is invalid."
+case "$core_sha" in ''|*[!0-9a-f]*) die "Uninstaller core SHA-256 is invalid." ;; esac
+[ "${#core_sha}" -eq 64 ] || die "Uninstaller core SHA-256 is invalid."
+expected_core_url="$CENTRAL_ORIGIN/projects/redbeacon/test/releases/$manifest_version/$CORE_ARTIFACT"
+[ "$core_url" = "$expected_core_url" ] \
+  || die "Uninstaller core URL does not match the test release."
+
+fetch_file "$core_url" "$CORE_FILE" 60 || die "Could not fetch the test uninstaller core."
+[ "$(/usr/bin/wc -c < "$CORE_FILE" | /usr/bin/tr -d '[:space:]')" = "$core_size" ] \
+  || die "Uninstaller core size verification failed."
+[ "$(sha256_file "$CORE_FILE")" = "$core_sha" ] \
+  || die "Uninstaller core SHA-256 verification failed."
+
+/bin/bash "$CORE_FILE" "test" "production"

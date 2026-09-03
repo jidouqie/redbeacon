@@ -1,12 +1,12 @@
 {
-  "schema": "redbeacon-release-provenance/v1",
+  "schema": "redbeacon-release-provenance/v3",
   "project": "redbeacon",
-  "version": "0.1.118",
+  "version": "0.1.119",
   "release_unit_id": "app",
   "artifact_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon",
   "artifact_source_commit_authority": "git HEAD containing this contract",
   "cli_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon/cli",
-  "cli_commit": "bf992f5c1f323ff87adfc8fe0d145d44c40b9d47",
+  "cli_commit": "4e78b88d860da2112efd3dc185c945beefd1d0e4",
   "build_entry": "tools/build_desktop_local.sh",
   "artifact_source_paths": {
     "test": "dist/local-build/test/release-artifacts",
@@ -20,6 +20,18 @@
     "test",
     "stable"
   ],
+  "channel_identity_contract": {
+    "schema": "bytestaff-channel-identity-evidence/v3",
+    "identity_source": "immutable-public-entrypoint",
+    "ambient_override_policy": "forbidden",
+    "artifact_evidence_path": "metadata/channel-identity.json",
+    "hostile_environment_smoke_required": true,
+    "hashed_platform_smoke_receipts_required": true,
+    "frozen_packages_bound": true,
+    "canonical_manifest_literal_required": true,
+    "public_entrypoints_no_arguments": true,
+    "opposite_channel_entrypoints_forbidden": true
+  },
   "publisher": "global bytestaff-digital-employee-publish Skill",
   "project_owns_publication_credentials": false,
   "secrets_recorded": false

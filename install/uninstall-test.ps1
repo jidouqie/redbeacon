@@ -1,34 +1,137 @@
+# RedBeacon test uninstaller bootstrap (Windows).
+# BYTESTAFF_CHANNEL_IDENTITY: test
+# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json
+# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: test
+# BYTESTAFF_AMBIENT_CHANNEL_OVERRIDES: forbidden
+param()
+
 $ErrorActionPreference = "Stop"
-$oldChannel = $env:REDBEACON_CHANNEL
+if($args.Count -ne 0){ throw "This uninstaller accepts no arguments." }
+
+function Get-TrustedWindowsEnvironment(){
+  $userProfile = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+  $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+  $appData = [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)
+  $systemDirectory = [Environment]::SystemDirectory
+  foreach($entry in @(
+    @("User profile", $userProfile), @("Local application data", $localAppData),
+    @("Application data", $appData), @("Windows system directory", $systemDirectory)
+  )){
+    if([string]::IsNullOrWhiteSpace($entry[1]) -or -not [IO.Path]::IsPathRooted($entry[1])){
+      throw "$($entry[0]) could not be resolved from Windows known folders."
+    }
+  }
+  $windowsDirectory = [IO.Directory]::GetParent($systemDirectory).FullName
+  $powerShellDirectory = [IO.Path]::Combine($systemDirectory, "WindowsPowerShell", "v1.0")
+  $powerShellExe = [IO.Path]::Combine($powerShellDirectory, "powershell.exe")
+  if(-not [IO.File]::Exists($powerShellExe)){ throw "Trusted Windows PowerShell was not found." }
+  $tempRoot = [IO.Path]::Combine($localAppData, "Temp")
+  [void][IO.Directory]::CreateDirectory($tempRoot)
+  return [pscustomobject]@{
+    UserProfile = $userProfile; LocalAppData = $localAppData; AppData = $appData
+    TempRoot = $tempRoot; PowerShellExe = $powerShellExe
+    Path = "$systemDirectory;$windowsDirectory;$powerShellDirectory"
+    PSModulePath = [IO.Path]::Combine($powerShellDirectory, "Modules")
+  }
+}
+
+function Push-TrustedWindowsEnvironment($Trusted){
+  $values = @{
+    "HOME" = $Trusted.UserProfile
+    "USERPROFILE" = $Trusted.UserProfile
+    "LOCALAPPDATA" = $Trusted.LocalAppData
+    "APPDATA" = $Trusted.AppData
+    "PATH" = $Trusted.Path
+    "TEMP" = $Trusted.TempRoot
+    "TMP" = $Trusted.TempRoot
+    "TMPDIR" = $Trusted.TempRoot
+    "PSMODULEPATH" = $Trusted.PSModulePath
+  }
+  $keys = @($values.Keys) + @(
+  )
+  $old = @{}
+  foreach($key in $keys){
+    $old[$key] = [Environment]::GetEnvironmentVariable($key, "Process")
+  }
+  foreach($entry in $values.GetEnumerator()){
+    [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, "Process")
+  }
+  return $old
+}
+
+function Pop-TrustedWindowsEnvironment($Old){
+  foreach($entry in $Old.GetEnumerator()){
+    [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+  }
+}
+
 function Assert-TestWrapperUrl([string]$Url, [string]$Label){
   try { $uri = [Uri]$Url } catch { throw "$Label URL is invalid." }
-  $safeHttps = ($uri.Scheme -eq "https" -and -not $uri.UserInfo -and -not $uri.Query -and -not $uri.Fragment)
-  $safeLoopback = ($env:REDBEACON_INSTALLER_TEST_MODE -eq "1" -and $uri.Scheme -eq "http" -and $uri.Host -eq "127.0.0.1")
-  if(-not $safeHttps -and -not $safeLoopback){ throw "$Label URL is unsafe." }
+  $plain = (-not $uri.UserInfo -and -not $uri.Query -and -not $uri.Fragment)
+  $owned = $Url.StartsWith($script:ReleaseOrigin + "/", [System.StringComparison]::Ordinal)
+  if(-not $plain -or -not $owned){ throw "$Label URL is unsafe." }
+  return $uri
 }
-function Read-Utf8Script([string]$Url){
-  $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 60
-  $body = $response.Content
-  if($body -is [byte[]]){ $text = [System.Text.Encoding]::UTF8.GetString($body) }
-  else { $text = [string]$body }
-  $text = $text.TrimStart([char]0xFEFF)
-  if([string]::IsNullOrWhiteSpace($text)){ throw "Uninstaller script is empty." }
-  if($text.Contains([char]0xFFFD)){ throw "Uninstaller script is not valid UTF-8." }
+
+function Read-StrictUtf8File([string]$Path, [string]$Label){
+  try {
+    return [System.Text.UTF8Encoding]::new($false, $true).GetString([System.IO.File]::ReadAllBytes($Path))
+  }
+  catch { throw "$Label is not valid UTF-8." }
+}
+
+function Get-TestCoreArtifact($Manifest, [string]$Version, [string]$CoreName){
+  $artifactPath = "installers/$CoreName"
+  $matches = @()
+  foreach($candidate in @($Manifest.artifacts)){
+    if(([string]$candidate.path) -ceq $artifactPath){ $matches += $candidate }
+  }
+  if($matches.Count -ne 1){ throw "RedBeacon test $CoreName is missing from the central manifest." }
+  $entry = $matches[0]
+  try { $size = [Int64]$entry.size } catch { throw "Uninstaller core size is invalid." }
+  $sha = ([string]$entry.sha256).ToLowerInvariant()
+  if($size -le 0 -or $sha -notmatch '^[0-9a-f]{64}$'){ throw "Uninstaller core metadata is invalid." }
+  $url = [string]$entry.url
+  $coreUri = Assert-TestWrapperUrl $url "Uninstaller core"
+  $expectedUrl = "$($script:ReleaseOrigin)/projects/redbeacon/test/releases/$Version/installers/$CoreName"
+  if($url -cne $expectedUrl){ throw "Uninstaller core URL does not match the test release." }
+  return [pscustomobject]@{ Url = $url; Size = $size; Sha256 = $sha }
+}
+
+function Read-VerifiedTestCore($Artifact, [string]$Path){
+  Microsoft.PowerShell.Utility\Invoke-WebRequest -Uri $Artifact.Url -OutFile $Path -UseBasicParsing -TimeoutSec 60 | Microsoft.PowerShell.Core\Out-Null
+  if(([IO.FileInfo]::new($Path)).Length -ne [Int64]$Artifact.Size){ throw "Uninstaller core size mismatch." }
+  $actual = (Microsoft.PowerShell.Utility\Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+  if($actual -ne $Artifact.Sha256){ throw "Uninstaller core checksum mismatch." }
+  $text = (Read-StrictUtf8File $Path "Uninstaller core").TrimStart([char]0xFEFF)
+  if([string]::IsNullOrWhiteSpace($text)){ throw "Uninstaller core is empty." }
   return $text
 }
+
+$script:ReleaseOrigin = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
+$manifestUrl = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json"
+$trusted = Get-TrustedWindowsEnvironment
+$oldEnvironment = Push-TrustedWindowsEnvironment $trusted
+$tmp = $null
 try {
-  $env:REDBEACON_CHANNEL = "test"
-  $origin = "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com"
-  $manifestUrl = if($env:REDBEACON_UPDATE_URL){ $env:REDBEACON_UPDATE_URL } else { "$origin/projects/redbeacon/test/latest.json" }
-  Assert-TestWrapperUrl $manifestUrl "Manifest"
-  $manifest = Invoke-RestMethod -Uri $manifestUrl -UseBasicParsing -TimeoutSec 20
-  $entry = @($manifest.artifacts | Where-Object { ([string]$_.path) -eq "installers/uninstall.ps1" })
-  if($entry.Count -ne 1){ throw "RedBeacon test uninstaller is missing from the central manifest." }
-  $uninstallerUrl = [string]$entry[0].url
-  Assert-TestWrapperUrl $uninstallerUrl "Uninstaller"
-  Invoke-Expression (Read-Utf8Script $uninstallerUrl)
+  $tmp = [IO.Path]::Combine($trusted.TempRoot, "rb_test_uninstall_" + [guid]::NewGuid().ToString("N"))
+  [void][IO.Directory]::CreateDirectory($tmp)
+  [void](Assert-TestWrapperUrl $manifestUrl "Manifest")
+  $manifestFile = [IO.Path]::Combine($tmp, "latest.json")
+  Microsoft.PowerShell.Utility\Invoke-WebRequest -Uri $manifestUrl -OutFile $manifestFile -UseBasicParsing -TimeoutSec 20 | Microsoft.PowerShell.Core\Out-Null
+  try { $manifest = Microsoft.PowerShell.Utility\ConvertFrom-Json -InputObject (Read-StrictUtf8File $manifestFile "Release manifest") }
+  catch { throw "Release manifest is not valid UTF-8 JSON." }
+  $version = [string]$manifest.version
+  if(([string]$manifest.schema) -ne "1" -or ([string]$manifest.project) -ne "redbeacon" -or ([string]$manifest.channel) -ne "test" -or $version -notmatch '^\d+\.\d+\.\d+$'){
+    throw "Release manifest does not match RedBeacon test."
+  }
+  $artifact = Get-TestCoreArtifact $manifest $version "uninstall-core.ps1"
+  $coreFile = [IO.Path]::Combine($tmp, "uninstall-core.ps1")
+  [void](Read-VerifiedTestCore $artifact $coreFile)
+  & $trusted.PowerShellExe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $coreFile -RedBeaconUninstallerChannel "test" -RedBeaconUninstallerExecutionMode "production"
+  if($LASTEXITCODE -ne 0){ throw "RedBeacon test uninstaller core failed with exit code $LASTEXITCODE." }
 }
 finally {
-  if($null -eq $oldChannel){ Remove-Item Env:\REDBEACON_CHANNEL -ErrorAction SilentlyContinue }
-  else { $env:REDBEACON_CHANNEL = $oldChannel }
+  try { if($tmp -and [IO.Directory]::Exists($tmp)){ [IO.Directory]::Delete($tmp, $true) } } catch {}
+  Pop-TrustedWindowsEnvironment $oldEnvironment
 }
