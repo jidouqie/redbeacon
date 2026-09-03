@@ -122,11 +122,11 @@ redbeacon checkin
 ```bash
 redbeacon config set proxy_api_url "<巨量 getips 链接>"
 redbeacon config set proxy_auto_rotate true    # ★必须开：发布时才会真的换 IP
-redbeacon config set proxy_speed_test true     # 建议开：取到 IP 先对小红书测速，劣质自动丢弃换下一个
+redbeacon config set proxy_speed_test true     # 默认开：用当前账号 Cookie 浏览器打开小红书首页验证
 redbeacon config test-proxy
 ```
 
-`{"ok": true, "proxy": "http://ip:port"}` = 通。失败 → 核对 trade_no / sign / 套餐余额。
+`test-proxy` 只确认 API 能取回格式有效的候选 IP；真正发布前会把候选 IP 挂到对应账号浏览器上打开小红书首页，打不开就换下一条。连续 5 条都不可用时停止本次发布，不会改用直连。失败时核对 trade_no / sign / 套餐余额。
 
 ---
 
