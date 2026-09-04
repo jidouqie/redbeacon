@@ -1,8 +1,8 @@
 ---
 name: source-command-redbeacon-xhslogin
-description: "扫码登录小红书 — 弹二维码用 App 扫 / 查登录态 / 退出重登；登录态是发布的前提"
+description: "登录小红书国版或外版 RedNote — 扫码/手机号登录、查状态、退出重登；登录态是发布的前提"
 metadata:
-  short-description: "扫码登录小红书"
+  short-description: "登录小红书国版或外版 RedNote"
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
@@ -21,7 +21,7 @@ metadata:
 > - **把输入成本压到最小**：能给选项就别让用户打字，能一个数字就别让他写句子；该替他想的下一步你先想好、给推荐（标「推荐」）。
 > - 用户**熟了会直接自然语言**提要求（「写第3条」「发出去」「换个标题」）→ 照做，别硬塞编号流程。
 
-> **【小红书登录 skill / xhslogin】** 给账号挂上**小红书**登录态（扫码）。**注意区分**：这是小红书账号的登录，**不是**数字员工平台登录（平台登录 = `/source-command-redbeacon-login`，管会员/算力点）。发布（`/source-command-redbeacon-publish`）必须先有有效小红书登录态，掉线会被跳过。本 skill 负责扫码登录、查状态、退出重登。
+> **【小红书登录 skill / xhslogin】** 给账号挂上**小红书国版**或**外版 RedNote** 登录态（扫码或手机号验证码）。**注意区分**：这是小红书账号的登录，**不是**数字员工平台登录（平台登录 = `/source-command-redbeacon-login`，管会员/算力点）。发布（`/source-command-redbeacon-publish`）必须先有有效小红书登录态，掉线会被跳过。本 skill 负责选择入口、登录、查状态、退出重登。
 >
 > 上一步是建号（`/source-command-redbeacon-accounts`）。链路顺序是 登录（stage3）→ 定位（stage5）——建号后先扫码落地，登录成功后**下一步是给账号定位**（`/source-command-redbeacon-locate`）。登录用的浏览器会话**命令结束即停**，不是常驻服务。
 >
@@ -48,6 +48,11 @@ redbeacon xhs-login status --account-id {ID}
 - `login_status == "logged_in"` → 看着已登录。但库里的状态可能过期（cookie 掉线库里仍写着登录），用户若说"要发布 / 怀疑掉线"，进「确认是否真的还在线」用 `verify` 实测；否则可直接告知已登录、给下一步。
 - 其它（`logged_out` / 空）→ 进「扫码登录」。
 
+`xhs_platform` 是账号入口：`domestic`=国版，`international`=外版 RedNote。升级前已经存在的账号默认 `domestic`；用户明确说是外卡号、RedNote 号或会跳到 `rednote.com` 时，直接选外版，不再重复追问。其余首次登录只问一个选择题：
+
+1. 国版（推荐，普通小红书账号）
+2. 外版 RedNote（外卡注册或登录后跳到 rednote.com）
+
 ---
 
 ## 确认是否真的还在线（verify，实测）
@@ -73,6 +78,14 @@ redbeacon xhs-login verify --account-id {ID}
 redbeacon xhs-login start --account-id {ID}
 ```
 
+上面是国版默认入口；外版必须显式使用：
+
+```bash
+redbeacon xhs-login start --account-id {ID} --platform international
+```
+
+无论从哪个入口开始，RedBeacon 都会按登录完成后的最终官方域名复核：跳到 `rednote.com` 自动记为外版，留在 `xiaohongshu.com` 记为国版，后续打开浏览器、登录复验和发布都跟随这个持久化结果。
+
 它会按进度往 stdout 依次打多行 JSON，**逐条转达给用户**，别等全部结束才说话：
 
 | 收到 | 跟用户说 |
@@ -83,7 +96,7 @@ redbeacon xhs-login start --account-id {ID}
 | `{"already_logged_in":true}` 或直接 `{"logged_in":true}` | 该账号本来就在线，无需重扫。 |
 | stderr `{"error":"扫码超时或登录失败"}` | 超时/失败了。给编号选项：`1. 再扫一次（重跑 login start，推荐）/ 2. 先算了，待会儿再登`。回 1 就重跑。 |
 
-> 扫码成功后会自动保存 cookie、回写昵称和登录态，登录用的浏览器随即关闭。
+> 登录成功后会自动保存 cookie、回写昵称、登录态和国版/外版身份，登录用的浏览器随即关闭。
 
 ---
 
@@ -132,5 +145,5 @@ redbeacon readiness --account-id {ID}
 
 - 登录态是**发布的硬前提**：发布时若账号掉线，该账号会被直接跳过（并提醒重登），不会报错也不会发出去。所以发布前不确定就先 `verify`。
 - 登录浏览器是有界面窗口（要扫码），但**命令一结束就关**，无任何常驻/后台进程，别向用户承诺"保持登录在线服务"。
-- `login start` 是前台阻塞、最长 180s；让用户尽快扫，超时就重跑。
+- `login start` 是前台阻塞、最长 180s；也可以在打开的浏览器里用手机号验证码登录。超时就重跑。
 - 命令成功走 stdout JSON、失败走 stderr `{"error","next"}`；把 error 给用户看，按 next 自愈，别静默吞。
