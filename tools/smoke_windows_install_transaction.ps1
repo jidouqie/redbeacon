@@ -28,6 +28,8 @@ if([System.IO.File]::Exists($ReportPath) -or [System.IO.Directory]::Exists($Repo
   throw "Refusing to overwrite installer smoke report: $ReportPath"
 }
 
+& (Join-Path $PSScriptRoot "tests\smoke_windows_process_observer.ps1") -SmokeScript $PSCommandPath
+
 $scripts = @(
   "install\install.ps1",
   "install\install-test.ps1",
@@ -884,48 +886,59 @@ function Get-ServerRequestPaths() {
 }
 
 function Invoke-ObservedPublicWrapper([string]$ScriptName) {
-  # Win32_ProcessStartTrace queues even a short-lived child, so this proves the
-  # restored installer stays in the public PowerShell process. The uninstaller
-  # intentionally retains one verified helper PowerShell for this release.
+  # Register the asynchronous EventArrived queue before execution. Start() and
+  # WaitForNextEvent() create different WMI subscriptions; mixing them loses
+  # short-lived children that finish before the synchronous subscription starts.
   $query = [System.Management.WqlEventQuery]::new(
     "SELECT * FROM Win32_ProcessStartTrace"
   )
-  $options = [System.Management.EventWatcherOptions]::new()
-  # WMI event delivery can lag behind a short-lived helper on Windows ARM64;
-  # allow the queued start event to arrive after the entrypoint returns.
-  $options.Timeout = [TimeSpan]::FromSeconds(2)
   $watcher = [System.Management.ManagementEventWatcher]::new($query)
-  $watcher.Options = $options
+  $sourceIdentifier = "RedBeaconInstallerSmoke-" + [guid]::NewGuid().ToString("N")
   $secondaryPowerShell = @()
-  $watcher.Start()
   $previousPreference = $ErrorActionPreference
-  $ErrorActionPreference = "Continue"
-  $global:LASTEXITCODE = 0
+  Register-ObjectEvent -InputObject $watcher -EventName EventArrived -SourceIdentifier $sourceIdentifier | Out-Null
   try {
-    $captured = @(& $smokeWrappers[$ScriptName] *>&1)
-    $exitCode = $LASTEXITCODE
+    $watcher.Start()
+    $ErrorActionPreference = "Continue"
+    $global:LASTEXITCODE = 0
+    try {
+      $captured = @(& $smokeWrappers[$ScriptName] *>&1)
+      $exitCode = $LASTEXITCODE
+    }
+    finally {
+      $ErrorActionPreference = $previousPreference
+      # Drain the same queue, including delayed delivery. A bounded quiet tail
+      # never invents a child; the actual PID is retained as raw evidence.
+      $deadline = [DateTime]::UtcNow.AddSeconds(15)
+      while($true){
+        $event = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout 2
+        if($null -eq $event){ break }
+        try {
+          $started = $event.SourceEventArgs.NewEvent
+          $image = ([string]$started.ProcessName).ToLowerInvariant()
+          if(
+            [int]$started.ParentProcessID -eq $PID -and
+            @("powershell.exe", "pwsh.exe") -contains $image
+          ){
+            $secondaryPowerShell += [pscustomobject]@{
+              pid = [int]$started.ProcessID
+              command = $image
+            }
+          }
+        }
+        finally { Remove-Event -EventIdentifier $event.EventIdentifier -ErrorAction Stop }
+        if([DateTime]::UtcNow -gt $deadline){ throw "Process event queue did not drain within its observation deadline" }
+      }
+    }
   }
   finally {
     $ErrorActionPreference = $previousPreference
-    while($true){
-      try { $started = $watcher.WaitForNextEvent() }
-      catch [System.Management.ManagementException] {
-        if($_.Exception.ErrorCode -eq [System.Management.ManagementStatus]::Timedout){ break }
-        throw
-      }
-      $image = ([string]$started.ProcessName).ToLowerInvariant()
-      if(
-        [int]$started.ParentProcessID -eq $PID -and
-        @("powershell.exe", "pwsh.exe") -contains $image
-      ){
-        $secondaryPowerShell += [pscustomobject]@{
-          pid = [int]$started.ProcessID
-          command = $image
-        }
-      }
+    try { $watcher.Stop() }
+    finally {
+      $watcher.Dispose()
+      Unregister-Event -SourceIdentifier $sourceIdentifier -ErrorAction SilentlyContinue
+      Remove-Event -SourceIdentifier $sourceIdentifier -ErrorAction SilentlyContinue
     }
-    $watcher.Stop()
-    $watcher.Dispose()
   }
   return [pscustomobject]@{
     Captured = @($captured)
