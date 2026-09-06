@@ -80,7 +80,8 @@ redbeacon checkin
 |---|---|
 | 登录平台 / 重新登录平台 / 退出平台 | `/source-command-redbeacon-login` |
 | 查算力点 / 平台登录态 | `/source-command-redbeacon-login`（跑 `checkin`） |
-| 配代理，或「配置 / 检查配置」 | `/source-command-redbeacon-config` |
+| 配账号专属代理 | `/source-command-redbeacon-accounts` |
+| 配置 / 检查平台配置 | `/source-command-redbeacon-config` |
 | 建号 / 改名 / 删号 / 多账号管理 | `/source-command-redbeacon-accounts` |
 | 给账号定位（首次定性赛道/受众/差异化） | `/source-command-redbeacon-locate` |
 | 贴小红书账号主页，说“对标/复刻/模仿这个账号”，提取定位、运营、文案、视觉空壳并生成 10 条完整选题 | `/source-command-redbeacon-benchmark` |
@@ -243,5 +244,5 @@ redbeacon backup import --file ~/rb-backup.json --force  # 当前库已有数据
 
 - 这是路由器，本身不直接改数据，只判断方向、把用户交给对应 skill。
 - `readiness` 的阶段顺序：**登录小红书（stage3）→ 定位（stage5）**。建号后先扫码让账号落地、看到登录成功（先给实感）；再定内容方向。定位+种子选题做完，由 `/source-command-redbeacon-locate` 引导用户过目确认（在操作台/对话里看）。
-- **多账号开新号**：不带参数的 `readiness` 是「任一账号满足即 ready」的**全局聚合**判断——账号 1 配好后全局永远 `ready`，**加新号时它不会提示新号没配**。用户说「加个号」就去 `/source-command-redbeacon-accounts`，开号后**用 `readiness --account-id {新id}` 逐号驱动** onboarding，步骤与 1 号一致，全局配置（平台登录/代理）不再重复。
+- **多账号开新号**：不带参数的 `readiness` 是「任一账号满足即 ready」的**全局聚合**判断——账号 1 配好后全局永远 `ready`，**加新号时它不会提示新号没配**。用户说「加个号」就去 `/source-command-redbeacon-accounts`，开号后**用 `readiness --account-id {新id}` 逐号驱动** onboarding，步骤与 1 号一致，全局配置（平台登录）不再重复。
 - **审核在哪**：审核改稿在**本机操作台**（`redbeacon ui app`）或直接在对话里让我标。无常驻服务，别向用户承诺"自动定时发布"。

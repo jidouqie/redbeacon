@@ -187,6 +187,8 @@ def main() -> None:
         "raw_reports",
         "runtime_identity_sha256",
         "observed_manifest_request_path",
+        "single-stage-public-entrypoint",
+        "secondary_shell_observed_count",
     ):
         if marker not in receipt_writer:
             fail(f"the package channel-isolation receipt lost required proof: {marker}")
@@ -212,29 +214,6 @@ def main() -> None:
             path.read_bytes().decode("ascii")
         except UnicodeDecodeError as exc:
             fail(f"PowerShell installer must remain ASCII-only: {path.name}: {exc}")
-    for name in ("install-core.sh", "install-core.ps1"):
-        text = (ROOT / "install" / name).read_text(encoding="utf-8")
-        if "download node" not in text.lower():
-            fail(f"{name} does not implement node-first artifact installation")
-        launch_marker = "launch_installed_app" if name.endswith(".sh") else "Start-InstalledApp"
-        if text.count(launch_marker) < 3:
-            fail(f"{name} does not auto-launch after fresh and healthy repeat installs")
-        if name.endswith(".sh") and (
-            "unset TMP TEMP TMPDIR CURL_HOME XDG_CONFIG_HOME; /usr/bin/open" not in text
-        ):
-            fail("install-core.sh can leak its disposable installer temp into the desktop app")
-        for assistant in ("codex", "openclaw", "hermes", "workbuddy"):
-            if assistant not in text.lower():
-                fail(f"{name} does not install the {assistant} skill adapter")
-        progress_marker = "progress and speed shown below" if name.endswith(".sh") else "MiB/s from download node"
-        if progress_marker not in text:
-            fail(f"{name} does not show live size/speed feedback during the primary package download")
-        if name.endswith(".ps1"):
-            if "function Remove-InstallerTemp" not in text or "finally { Remove-InstallerTemp $tmp }" not in text:
-                fail("install-core.ps1 can misreport a successful install when Windows temporarily locks cleanup files")
-        if "# BYTESTAFF_INTERNAL_CHANNEL_HELPER: explicit-only" not in text.splitlines():
-            fail(f"{name} is not marked as a non-public explicit-channel helper")
-
     for name in ("uninstall-core.sh", "uninstall-core.ps1"):
         text = (ROOT / "install" / name).read_text(encoding="utf-8")
         if "# BYTESTAFF_INTERNAL_CHANNEL_HELPER: explicit-only" not in text.splitlines():
@@ -255,11 +234,12 @@ def main() -> None:
                     fail(f"{name} does not declare its fixed channel argument")
                 if "# BYTESTAFF_AMBIENT_CHANNEL_OVERRIDES: forbidden" not in lines:
                     fail(f"{name} does not forbid ambient channel overrides")
-                leaked = [value for value in FORBIDDEN_PUBLIC_AMBIENT_INPUTS if value in text.upper()]
-                if leaked:
-                    fail(f"{name} still references ambient channel inputs: {', '.join(leaked)}")
                 if canonical not in text:
                     fail(f"{name} does not bind the {channel} canonical manifest")
+                opposite = "test" if channel == "stable" else "stable"
+                opposite_canonical = f"{CENTRAL_ORIGIN}/projects/redbeacon/{opposite}/latest.json"
+                if opposite_canonical in text:
+                    fail(f"{name} contains the opposite-channel canonical manifest")
                 if f'"{channel}"' not in text:
                     fail(f"{name} does not pass its fixed {channel} identity explicitly")
                 if "--redbeacon-" in text or "REDBEACON_INSTALLER_TEST_MODE" in text:
@@ -268,8 +248,81 @@ def main() -> None:
                     fail(f"{name} does not reject every shell argument")
                 if extension == "ps1" and ("param()" not in text or "$args.Count -ne 0" not in text):
                     fail(f"{name} does not reject every PowerShell argument")
+                if operation == "install":
+                    lower_text = text.lower()
+                    fixed_channel_line = (
+                        f'CHANNEL="{channel}"'
+                        if extension == "sh" else f'$Channel = "{channel}"'
+                    )
+                    fixed_manifest_line = (
+                        f'MANIFEST_URL="{canonical}"'
+                        if extension == "sh"
+                        else f'$script:CanonicalManifestUrl = "{canonical}"'
+                    )
+                    if text.splitlines().count(fixed_channel_line) != 1:
+                        fail(f"{name} does not assign its fixed channel exactly once")
+                    if text.splitlines().count(fixed_manifest_line) != 1:
+                        fail(f"{name} does not assign its fixed canonical manifest exactly once")
+                    if "download node" not in lower_text:
+                        fail(f"{name} does not implement node-first artifact installation")
+                    launch_marker = "launch_installed_app" if extension == "sh" else "Start-InstalledApp"
+                    if text.count(launch_marker) < 3:
+                        fail(f"{name} does not auto-launch after fresh and healthy repeat installs")
+                    if extension == "sh" and (
+                        "unset TMP TEMP TMPDIR CURL_HOME XDG_CONFIG_HOME; /usr/bin/open" not in text
+                    ):
+                        fail(f"{name} can leak its disposable installer temp into the desktop app")
+                    for assistant in ("codex", "openclaw", "hermes", "workbuddy"):
+                        if assistant not in lower_text:
+                            fail(f"{name} does not install the {assistant} skill adapter")
+                    progress_marker = (
+                        "progress and speed shown below"
+                        if extension == "sh" else "MiB/s from download node"
+                    )
+                    if progress_marker not in text:
+                        fail(f"{name} does not show live size/speed feedback during package download")
+                    if "install-core" in lower_text:
+                        fail(f"{name} still downloads or invokes an install-core helper")
+                    if extension == "ps1":
+                        if (
+                            "function Remove-InstallerTemp" not in text
+                            or "finally { Remove-InstallerTemp $tmp }" not in text
+                        ):
+                            fail(f"{name} can misreport success when Windows locks cleanup files")
+                        if (
+                            "powershellexe" in lower_text
+                            or re.search(
+                                r"(?im)^\s*(?:&\s*)?(?:['\"]?[^\s'\"]*[\\/])?"
+                                r"(?:powershell|pwsh)(?:\.exe)?['\"]?(?:\s|$)",
+                                lower_text,
+                            )
+                        ):
+                            fail(f"{name} starts or locates a second PowerShell")
+                    elif re.search(r"(?:^|[;&|])\s*/bin/bash(?:\s|$)", text, re.MULTILINE):
+                        fail(f"{name} starts a second Bash process")
+                else:
+                    leaked = [
+                        value for value in FORBIDDEN_PUBLIC_AMBIENT_INPUTS
+                        if value in text.upper()
+                    ]
+                    if leaked:
+                        fail(f"{name} still references ambient channel inputs: {', '.join(leaked)}")
+
+    updater = (ROOT / "cli" / "src" / "redbeacon" / "services" / "updater.py").read_text(
+        encoding="utf-8"
+    )
+    for marker in (
+        '_PUBLIC_INSTALL_ORIGIN = "https://bytestaff.jiomig.com"',
+        'product = "redbeacon-test" if build_meta.is_test() else "redbeacon"',
+        'return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command]',
+        'return ["/bin/sh", "-lc", f"curl -fsSL {shlex_quote(url)} | bash"]',
+    ):
+        if marker not in updater:
+            fail("the long-lived user-facing installer command or website route changed")
 
     artifact_builder = (ROOT / "tools" / "prepare_release_artifacts.py").read_text(encoding="utf-8")
+    if '"install-core.ps1"' in artifact_builder or '"install-core.sh"' in artifact_builder:
+        fail("artifact builder still publishes the retired runtime install-core stage")
     for marker in (
         "bytestaff-channel-identity-evidence/v3",
         "bytestaff-channel-isolation-smoke-receipt/v2",
@@ -283,8 +336,6 @@ def main() -> None:
         "root_commit",
         "cli_commit",
         "packages",
-        "install-core.ps1",
-        "install-core.sh",
         "uninstall-core.ps1",
         "uninstall-core.sh",
     ):

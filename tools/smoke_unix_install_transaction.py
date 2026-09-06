@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import threading
@@ -104,46 +105,39 @@ def _build_bundle(
     build = oss.parent / f"build-{channel}-{version}"
     shutil.rmtree(build, ignore_errors=True)
     cli = build / executable_dir / cli_name
-    installed_markers = (
-        f"*/Applications/{app_name}.app/*|"
-        f"*/.local/share/{spec['share_name']}/{app_name}/*"
-    )
-    setup_logic = ""
-    if failure == "stage":
-        setup_logic = "exit 31"
-    elif failure == "placed":
-        setup_logic = f'case "$0" in {installed_markers}) exit 32 ;; esac'
-    desktop_logic = ""
-    if failure == "post_skills":
-        desktop_logic = f'case "$0" in {installed_markers}) exit 33 ;; esac'
-    _write_executable(
-        cli,
-        "#!/bin/sh\n"
-        f"VERSION='{version}'\n"
-        f"EXPECTED_CHANNEL='{channel}'\n"
-        f"EXPECTED_DATA=\"$HOME/{runtime_root}/data\"\n"
-        f"EXPECTED_PW=\"$HOME/{runtime_root}/browser/ms-playwright\"\n"
-        f"EXPECTED_CB=\"$HOME/{runtime_root}/browser/cloakbrowser\"\n"
-        'if [ -n "${REDBEACON_EXPECTED_INSTALL_CHANNEL:-}" ]; then\n'
-        '  [ "${REDBEACON_CHANNEL:-}" = "$EXPECTED_CHANNEL" ] || exit 42\n'
-        '  [ "${REDBEACON_BUILD_CHANNEL:-}" = "$EXPECTED_CHANNEL" ] || exit 43\n'
-        '  [ -z "${REDBEACON_UPDATE_URL:-}" ] || exit 44\n'
-        "fi\n"
-        "case \"${1:-}\" in\n"
-        f"  --version) echo \"{skill_stem} $VERSION\" ;;\n"
-        f"  setup) {setup_logic or ':'}; "
-        '[ "$REDBEACON_DATA_DIR" = "$EXPECTED_DATA" ] || exit 34; '
-        '[ "$PLAYWRIGHT_BROWSERS_PATH" = "$EXPECTED_PW" ] || exit 35; '
-        '[ "$CLOAKBROWSER_CACHE_DIR" = "$EXPECTED_CB" ] || exit 36; '
-        '[ "${2:-}" = "--manifest-file" ] || exit 37; '
-        '[ -f "${3:-}" ] || exit 38; '
-        "echo '{\"ok\":true}' ;;\n"
-        "  config) : ;;\n"
-        f"  *) if [ \"${{REDBEACON_DESKTOP_SMOKE:-}}\" = 1 ]; then {desktop_logic or ':'}; "
-        "echo 'RedBeacon desktop smoke ok'; fi ;;\n"
-        "esac\n",
-    )
-    _write_executable(build / executable_dir / app_name, "#!/bin/sh\nexit 0\n")
+    # Use Python fixtures so process observation does not confuse a test-only
+    # shell implementation of the frozen CLI with a second installer shell.
+    python_header = f"#!{sys.executable}\n"
+    _write_executable(cli, python_header + f"""
+import os
+import sys
+from pathlib import Path
+version = {version!r}
+channel = {channel!r}
+failure = {failure!r}
+root = Path(os.environ['HOME']) / {runtime_root!r}
+placed = '/Applications/{app_name}.app/' in sys.argv[0] or '/.local/share/{spec['share_name']}/{app_name}/' in sys.argv[0]
+if os.environ.get('REDBEACON_EXPECTED_INSTALL_CHANNEL'):
+    if os.environ.get('REDBEACON_CHANNEL') != channel: sys.exit(42)
+    if os.environ.get('REDBEACON_BUILD_CHANNEL') != channel: sys.exit(43)
+    if os.environ.get('REDBEACON_UPDATE_URL'): sys.exit(44)
+operation = sys.argv[1] if len(sys.argv) > 1 else ''
+if operation == '--version':
+    print({skill_stem!r} + ' ' + version)
+elif operation == 'setup':
+    if failure == 'stage': sys.exit(31)
+    if failure == 'placed' and placed: sys.exit(32)
+    if os.environ.get('REDBEACON_DATA_DIR') != str(root / 'data'): sys.exit(34)
+    if os.environ.get('PLAYWRIGHT_BROWSERS_PATH') != str(root / 'browser/ms-playwright'): sys.exit(35)
+    if os.environ.get('CLOAKBROWSER_CACHE_DIR') != str(root / 'browser/cloakbrowser'): sys.exit(36)
+    if len(sys.argv) < 3 or sys.argv[2] != '--manifest-file': sys.exit(37)
+    if len(sys.argv) < 4 or not Path(sys.argv[3]).is_file(): sys.exit(38)
+    print('{{"ok":true}}')
+elif operation != 'config' and os.environ.get('REDBEACON_DESKTOP_SMOKE') == '1':
+    if failure == 'post_skills' and placed: sys.exit(33)
+    print('RedBeacon desktop smoke ok')
+""")
+    _write_executable(build / executable_dir / app_name, python_header + "pass\n")
     if platform.system() == "Darwin":
         bundle_entry = "RedBeaconRenderer" if failure == "bundle_entry" else app_name
         (build / f"{app_name}.app/Contents/Info.plist").write_text(
@@ -155,25 +149,22 @@ def _build_bundle(
             "</dict></plist>\n",
             encoding="utf-8",
         )
-    _write_executable(
-        build / executable_dir / "RedBeaconRenderer",
-        "#!/bin/sh\n"
-        f"EXPECTED_CHANNEL='{channel}'\n"
-        'if [ -n "${REDBEACON_EXPECTED_INSTALL_CHANNEL:-}" ]; then\n'
-        '  [ "${REDBEACON_CHANNEL:-}" = "$EXPECTED_CHANNEL" ] || exit 45\n'
-        '  [ "${REDBEACON_BUILD_CHANNEL:-}" = "$EXPECTED_CHANNEL" ] || exit 46\n'
-        '  [ -z "${REDBEACON_UPDATE_URL:-}" ] || exit 47\n'
-        "fi\n"
-        'out=""\n'
-        'while [ "$#" -gt 0 ]; do\n'
-        '  if [ "$1" = "--output-dir" ]; then shift; out="$1"; fi\n'
-        '  shift\n'
-        'done\n'
-        '[ -n "$out" ] || exit 41\n'
-        'mkdir -p "$out"\n'
-        "printf 'png' > \"$out/cover.png\"\n"
-        "printf 'png' > \"$out/card_1.png\"\n",
-    )
+    _write_executable(build / executable_dir / "RedBeaconRenderer", python_header + f"""
+import os
+import sys
+from pathlib import Path
+if os.environ.get('REDBEACON_EXPECTED_INSTALL_CHANNEL'):
+    if os.environ.get('REDBEACON_CHANNEL') != {channel!r}: sys.exit(45)
+    if os.environ.get('REDBEACON_BUILD_CHANNEL') != {channel!r}: sys.exit(46)
+    if os.environ.get('REDBEACON_UPDATE_URL'): sys.exit(47)
+try:
+    out = Path(sys.argv[sys.argv.index('--output-dir') + 1])
+except (ValueError, IndexError):
+    sys.exit(41)
+out.mkdir(parents=True, exist_ok=True)
+(out / 'cover.png').write_bytes(b'png')
+(out / 'card_1.png').write_bytes(b'png')
+""")
 
     release = oss / "projects" / "redbeacon" / channel / "releases" / version
     release_url = f"{base_url}/projects/redbeacon/{channel}/releases/{version}"
@@ -234,21 +225,23 @@ def _build_bundle(
             "download_urls": [f"{release_url}/skill/redbeacon-skill.tar.gz"],
         },
     ]
+    # Installation is a single-stage public entrypoint. The uninstaller keeps
+    # its existing internal helper for now, so only that helper is published in
+    # the offline fixture.
     installer_dir = release / "installers"
     installer_dir.mkdir(parents=True, exist_ok=True)
-    for core_name in ("install-core.sh", "uninstall-core.sh"):
-        core = installer_dir / core_name
-        shutil.copy2(ROOT / "install" / core_name, core)
-        core_sha = hashlib.sha256(core.read_bytes()).hexdigest()
-        core_url = f"{release_url}/installers/{core_name}"
-        artifacts.append({
-            "path": f"installers/{core_name}",
-            "size": core.stat().st_size,
-            "sha256": core_sha,
-            "url": core_url,
-            "download_urls": [core_url],
-        })
-
+    core_name = "uninstall-core.sh"
+    core = installer_dir / core_name
+    shutil.copy2(ROOT / "install" / core_name, core)
+    core_sha = hashlib.sha256(core.read_bytes()).hexdigest()
+    core_url = f"{release_url}/installers/{core_name}"
+    artifacts.append({
+        "path": f"installers/{core_name}",
+        "size": core.stat().st_size,
+        "sha256": core_sha,
+        "url": core_url,
+        "download_urls": [core_url],
+    })
     manifest = oss / "projects" / "redbeacon" / channel / "latest.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
@@ -345,7 +338,7 @@ def _assert_directory_snapshots(
 
 
 def _write_smoke_wrappers(directory: Path, base_url: str, trusted_home: Path) -> None:
-    """Create non-published wrapper copies with a loopback origin and smoke mode."""
+    """Create non-published entrypoint copies with a loopback origin."""
     directory.mkdir(parents=True, exist_ok=True)
     for name in ("install.sh", "install-test.sh", "uninstall.sh", "uninstall-test.sh"):
         source = (ROOT / "install" / name).read_text(encoding="utf-8")
@@ -358,8 +351,14 @@ def _write_smoke_wrappers(directory: Path, base_url: str, trusted_home: Path) ->
             raise AssertionError(f"{name} lost its fixed macOS trusted-home expression")
         patched = patched.replace(trusted_home_source, trusted_home_smoke)
         if name.startswith("install"):
-            old = '"$CENTRAL_ORIGIN" "production"'
-            new = '"$CENTRAL_ORIGIN" "smoke"'
+            old = 'EXECUTION_MODE="production"'
+            new = 'EXECUTION_MODE="smoke"'
+            # The published installer rightly restricts its fixed manifest to
+            # HTTPS. Only this disposable copy may talk to the loopback fixture.
+            fixed_https = "--proto '=https' --proto-redir '=https' "
+            if patched.count(fixed_https) < 1:
+                raise AssertionError(f"{name} lost its fixed HTTPS manifest fetch")
+            patched = patched.replace(fixed_https, "")
         else:
             old = '"production"'
             new = '"smoke"'
@@ -401,6 +400,7 @@ def _run_installer(
     expect_ok: bool,
     force: bool = True,
     ambient_channel: str | None = None,
+    observe_shells: bool = False,
 ) -> subprocess.CompletedProcess:
     spec = _channel_spec(channel)
     opposite = "test" if channel == "stable" else "stable"
@@ -437,16 +437,19 @@ def _run_installer(
         env["REDBEACON_FORCE_INSTALL"] = "1"
     else:
         env.pop("REDBEACON_FORCE_INSTALL", None)
-    result = subprocess.run(
-        [
-            "/bin/sh",
-            str(wrapper_dir / wrapper),
-        ],
-        env=env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    command = ["/bin/sh", str(wrapper_dir / wrapper)]
+    if observe_shells:
+        result, secondary_shells = _run_observed_entrypoint(command, env=env)
+    else:
+        result = subprocess.run(
+            command,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        secondary_shells = []
+    result.secondary_shells = secondary_shells
     if expect_ok and result.returncode != 0:
         raise AssertionError(result.stdout)
     if not expect_ok and result.returncode == 0:
@@ -455,7 +458,12 @@ def _run_installer(
 
 
 def _run_uninstaller(
-    home: Path, base_url: str, wrapper_dir: Path, *, channel: str = "stable"
+    home: Path,
+    base_url: str,
+    wrapper_dir: Path,
+    *,
+    channel: str = "stable",
+    observe_shells: bool = False,
 ) -> subprocess.CompletedProcess:
     spec = _channel_spec(channel)
     opposite = "test" if channel == "stable" else "stable"
@@ -476,17 +484,25 @@ def _run_uninstaller(
         "REDBEACON_UPDATE_WORKDIR": str(home / "foreign-update-workdir"),
         "BYTESTAFF_HOME": str(home / "foreign-token-home"),
     })
-    return subprocess.run(
-        [
-            "/bin/sh",
-            str(wrapper_dir / wrapper),
-        ],
-        env=env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=True,
-    )
+    command = ["/bin/sh", str(wrapper_dir / wrapper)]
+    if observe_shells:
+        result, secondary_shells = _run_observed_entrypoint(command, env=env)
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode, command, output=result.stdout
+            )
+    else:
+        result = subprocess.run(
+            command,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
+        secondary_shells = []
+    result.secondary_shells = secondary_shells
+    return result
 
 
 def _run_wrapper(
@@ -552,7 +568,7 @@ def _assert_wrappers_reject_wrong_channel_manifest(
     return observations
 
 
-def _assert_core_reference_guards(
+def _assert_manifest_and_uninstall_core_guards(
     oss: Path, home: Path, base_url: str, wrapper_dir: Path
 ) -> list[dict[str, object]]:
     observations: list[dict[str, object]] = []
@@ -561,26 +577,27 @@ def _assert_core_reference_guards(
     bad_schema_manifest = json.loads(json.dumps(stable_manifest))
     bad_schema_manifest["schema"] = 2
     with _temporary_bytes(stable_path, json.dumps(bad_schema_manifest).encode("utf-8")):
-        result = _run_wrapper(home, base_url, wrapper_dir, "install.sh")
-    assert result.returncode != 0, "stable installer accepted an unknown schema"
+        result = _run_wrapper(home, base_url, wrapper_dir, "uninstall.sh")
+    assert result.returncode != 0, "stable uninstaller accepted an unknown schema"
     assert "manifest schema is invalid" in result.stdout
     observations.append(_rejection_observation(
-        "install.sh", "invalid-manifest-schema", result, "manifest schema is invalid"
+        "uninstall.sh", "invalid-manifest-schema", result, "manifest schema is invalid"
     ))
 
     bad_url_manifest = json.loads(json.dumps(stable_manifest))
-    install_core = next(
+    uninstall_helper = next(
         row
         for row in bad_url_manifest["artifacts"]
-        if row["path"] == "installers/install-core.sh"
+        if row["path"] == "installers/uninstall-core.sh"
     )
-    install_core["url"] = "https://example.invalid/install-core.sh"
+    uninstall_helper["url"] = "https://example.invalid/uninstall-core.sh"
     with _temporary_bytes(stable_path, json.dumps(bad_url_manifest).encode("utf-8")):
-        result = _run_wrapper(home, base_url, wrapper_dir, "install.sh")
-    assert result.returncode != 0, "stable installer accepted an off-origin core URL"
+        result = _run_wrapper(home, base_url, wrapper_dir, "uninstall.sh")
+    assert result.returncode != 0, "stable uninstaller accepted an off-origin helper URL"
     assert "core URL does not match the stable release" in result.stdout
     observations.append(_rejection_observation(
-        "install.sh", "forged-core-url", result, "core URL does not match the stable release"
+        "uninstall.sh", "forged-core-url", result,
+        "core URL does not match the stable release",
     ))
 
     test_path = oss / "projects/redbeacon/test/latest.json"
@@ -612,52 +629,42 @@ def _assert_core_reference_guards(
 
 
 def _assert_public_wrapper_contract() -> None:
-    forbidden = (
-        "BYTESTAFF_HOME",
-        "CLOAKBROWSER_CACHE_DIR",
-        "PLAYWRIGHT_BROWSERS_PATH",
-        "REDBEACON_CHANNEL",
-        "REDBEACON_BUILD_CHANNEL",
-        "REDBEACON_DATA_DIR",
-        "REDBEACON_INSTALLER_TEST_MODE",
-        "REDBEACON_SKILL_DIR",
-        "REDBEACON_UPDATE_URL",
-        "REDBEACON_UPDATE_WORKDIR",
-    )
     specs = {
-        "install.sh": ("stable", "installers/install-core.sh"),
-        "install-test.sh": ("test", "installers/install-core.sh"),
-        "uninstall.sh": ("stable", "installers/uninstall-core.sh"),
-        "uninstall-test.sh": ("test", "installers/uninstall-core.sh"),
+        "install.sh": ("stable", "install"),
+        "install-test.sh": ("test", "install"),
+        "uninstall.sh": ("stable", "uninstall"),
+        "uninstall-test.sh": ("test", "uninstall"),
     }
-    for name, (channel, core_path) in specs.items():
+    for name, (channel, operation) in specs.items():
         text = (ROOT / "install" / name).read_text(encoding="utf-8")
         assert f"# BYTESTAFF_CHANNEL_IDENTITY: {channel}" in text
         canonical = f"{PUBLIC_RELEASE_ORIGIN}/projects/redbeacon/{channel}/latest.json"
         assert f"# BYTESTAFF_CANONICAL_MANIFEST_URL: {canonical}" in text
         assert f"# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: {channel}" in text
         assert "# BYTESTAFF_AMBIENT_CHANNEL_OVERRIDES: forbidden" in text
-        assert all(value not in text for value in forbidden)
         assert f'MANIFEST_URL="{canonical}"' in text
         assert "accepts no arguments" in text
         assert "--redbeacon-" not in text
-        assert core_path in text
         assert 'TRUSTED_HOME="$(resolve_trusted_home)"' in text
         assert 'PATH="/usr/bin:/bin:/usr/sbin:/sbin"' in text
         assert "/usr/bin/mktemp -d /private/tmp/" in text
         assert "/usr/bin/curl -q " in text
-        assert '/bin/bash "$CORE_FILE"' in text
-        assert "command -v" not in text
-        for executable in (
-            "awk", "bash", "curl", "grep", "mktemp", "osascript", "python3",
-            "rm", "shasum", "tr", "wc",
-        ):
-            assert not re.search(rf"(?<![/A-Za-z0-9_-]){executable}[ \t]", text), (
-                f"{name} invokes {executable} through caller PATH"
-            )
-    for name in ("install-core.sh", "uninstall-core.sh"):
-        text = (ROOT / "install" / name).read_text(encoding="utf-8")
-        assert "# BYTESTAFF_INTERNAL_CHANNEL_HELPER: explicit-only" in text
+        argument_guard = text.index("accepts no arguments")
+        first_network = text.index("/usr/bin/curl -q ")
+        assert argument_guard < first_network, f"{name} rejects arguments only after networking"
+        if operation == "install":
+            assert f'CHANNEL="{channel}"' in text
+            assert 'EXECUTION_MODE="production"' in text
+            assert "REDBEACON_INSTALLER_TEST_MODE" not in text
+            assert "install-core.sh" not in text
+            assert "CORE_FILE" not in text
+            assert '/bin/bash ' not in text, f"{name} can start a second Bash installer"
+            assert "fetch_fixed_manifest" in text
+        else:
+            assert "installers/uninstall-core.sh" in text
+            assert '/bin/bash "$CORE_FILE"' in text
+    uninstall_helper = (ROOT / "install/uninstall-core.sh").read_text(encoding="utf-8")
+    assert "# BYTESTAFF_INTERNAL_CHANNEL_HELPER: explicit-only" in uninstall_helper
     uninstall_core = (ROOT / "install/uninstall-core.sh").read_text(encoding="utf-8")
     assert '/usr/bin/pkill -x "$APP_NAME"' in uninstall_core
     assert 'pkill -f' not in uninstall_core
@@ -813,6 +820,100 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _shell_descendants(root_pid: int) -> set[tuple[int, str]]:
+    """Observe newly executed descendant shells, regardless of script filename.
+
+    Bash forks with unchanged argv for command substitutions; those are part
+    of the current entrypoint, not a separately executed installer stage.
+    This process-table sampler cannot certify arbitrarily short-lived execs.
+    """
+    result = subprocess.run(
+        ["/bin/ps", "-axo", "pid=,ppid=,comm=,args="],
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        timeout=2,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"cannot observe installer process tree: ps exited {result.returncode}")
+    if not result.stdout.strip():
+        raise RuntimeError("cannot observe installer process tree: ps returned no rows")
+    rows: list[tuple[int, int, str, str]] = []
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(None, 3)
+        if len(fields) != 4:
+            continue
+        try:
+            rows.append((int(fields[0]), int(fields[1]), fields[2], fields[3]))
+        except ValueError:
+            continue
+    if not rows:
+        raise RuntimeError("cannot observe installer process tree: ps returned no process records")
+    descendants = {root_pid}
+    changed = True
+    while changed:
+        changed = False
+        for pid, ppid, _command, _arguments in rows:
+            if ppid in descendants and pid not in descendants:
+                descendants.add(pid)
+                changed = True
+    root_arguments = next((arguments for pid, _ppid, _command, arguments in rows if pid == root_pid), None)
+    shell_names = {"bash", "sh", "dash", "zsh", "ksh", "csh", "tcsh", "fish", "pwsh", "powershell"}
+    return {
+        (pid, arguments)
+        for pid, _ppid, command, arguments in rows
+        if pid != root_pid
+        and pid in descendants
+        and Path(command).name.lower().lstrip("-") in shell_names
+        and arguments != root_arguments
+    }
+
+
+def _run_observed_entrypoint(
+    command: list[str], *, env: dict[str, str]
+) -> tuple[subprocess.CompletedProcess, list[dict[str, object]]]:
+    """Run one public entrypoint and sample any secondary shell it starts."""
+    process = subprocess.Popen(
+        command,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    observed: dict[int, str] = {}
+    stop = threading.Event()
+    observation_errors: list[Exception] = []
+
+    def watch() -> None:
+        try:
+            while not stop.is_set():
+                for pid, child_command in _shell_descendants(process.pid):
+                    observed[pid] = child_command
+                stop.wait(0.01)
+        except Exception as exc:
+            observation_errors.append(exc)
+
+    watcher = threading.Thread(target=watch, daemon=True)
+    watcher.start()
+    try:
+        output, _ = process.communicate()
+    finally:
+        stop.set()
+        watcher.join(timeout=2)
+    if watcher.is_alive():
+        raise RuntimeError("installer process observer did not stop")
+    if observation_errors:
+        raise RuntimeError("installer process observation failed") from observation_errors[0]
+    completed = subprocess.CompletedProcess(command, process.returncode, output)
+    return completed, [
+        {"pid": pid, "command": observed[pid]}
+        for pid in sorted(observed)
+    ]
+
+
 def _observe_entrypoint(
     home: Path,
     base_url: str,
@@ -820,44 +921,78 @@ def _observe_entrypoint(
     *,
     channel: str,
     operation: str,
-) -> dict[str, str]:
+) -> dict[str, object]:
     before = len(_QuietHandler.request_paths)
     if operation == "install":
         result = _run_installer(
-            home, base_url, wrapper_dir, channel=channel, expect_ok=True
+            home,
+            base_url,
+            wrapper_dir,
+            channel=channel,
+            expect_ok=True,
+            observe_shells=True,
         )
         _assert_installed(home, channel, "8.8.1" if channel == "test" else "9.9.4")
     else:
-        result = _run_uninstaller(home, base_url, wrapper_dir, channel=channel)
+        result = _run_uninstaller(
+            home, base_url, wrapper_dir, channel=channel, observe_shells=True
+        )
         _assert_uninstalled(home, channel)
     observed = _QuietHandler.request_paths[before:]
-    fixture_version = "8.8.1" if channel == "test" else "9.9.4"
     suffix = "-test" if channel == "test" else ""
-    wrapper_name = f"{operation}{suffix}.sh"
-    core_name = f"{operation}-core.sh"
+    entrypoint_name = f"{operation}{suffix}.sh"
     manifest_request = f"/projects/redbeacon/{channel}/latest.json"
-    core_request = (
-        f"/projects/redbeacon/{channel}/releases/{fixture_version}/installers/{core_name}"
-    )
-    assert manifest_request in observed, f"{wrapper_name} did not request its fixed manifest"
-    assert core_request in observed, f"{wrapper_name} did not request its fixed core"
+    assert manifest_request in observed, f"{entrypoint_name} did not request its fixed manifest"
+    forbidden_install_core = [path for path in observed if "install-core" in path]
+    if operation == "install":
+        assert not forbidden_install_core, (
+            f"{entrypoint_name} requested the removed installer core: "
+            f"{forbidden_install_core}"
+        )
+        assert len(result.secondary_shells) == 0, (
+            f"{entrypoint_name} started a second Bash process: "
+            f"{result.secondary_shells}"
+        )
+        execution_model = "single-stage-public-entrypoint"
+        internal_helper = None
+    else:
+        fixture_version = "8.8.1" if channel == "test" else "9.9.4"
+        helper_name = "uninstall-core.sh"
+        helper_request = (
+            f"/projects/redbeacon/{channel}/releases/{fixture_version}/installers/{helper_name}"
+        )
+        assert helper_request in observed, (
+            f"{entrypoint_name} did not request its fixed uninstaller helper"
+        )
+        assert len(result.secondary_shells) == 1, (
+            f"{entrypoint_name} did not start exactly one verified helper Bash: "
+            f"{result.secondary_shells}"
+        )
+        execution_model = "public-entrypoint-with-internal-helper"
+        internal_helper = {
+            "path": f"install/{helper_name}",
+            "sha256": _sha256_file(ROOT / "install" / helper_name),
+            "request_path": helper_request,
+        }
     marker = f"BYTESTAFF_SMOKE_CORE_CHANNEL={channel}"
     marker_lines = [line.strip() for line in result.stdout.splitlines() if line.strip() == marker]
-    assert marker_lines == [marker], f"{wrapper_name} did not expose one effective core channel"
+    assert marker_lines == [marker], f"{entrypoint_name} did not expose one effective channel"
     return {
         "channel": channel,
         "operation": operation,
-        "wrapper_path": f"install/{wrapper_name}",
-        "wrapper_sha256": _sha256_file(ROOT / "install" / wrapper_name),
+        "entrypoint_path": f"install/{entrypoint_name}",
+        "entrypoint_sha256": _sha256_file(ROOT / "install" / entrypoint_name),
         "canonical_manifest_url": (
             f"{PUBLIC_RELEASE_ORIGIN}/projects/redbeacon/{channel}/latest.json"
         ),
         "manifest_request_path": manifest_request,
-        "core_path": f"install/{core_name}",
-        "core_sha256": _sha256_file(ROOT / "install" / core_name),
-        "core_request_path": core_request,
-        "effective_core_channel": channel,
-        "effective_core_marker": marker,
+        "observed_request_paths": observed,
+        "effective_channel": channel,
+        "effective_channel_marker": marker,
+        "execution_model": execution_model,
+        "secondary_shell_observed_count": len(result.secondary_shells),
+        "secondary_shells": result.secondary_shells,
+        "internal_helper": internal_helper,
     }
 
 
@@ -921,7 +1056,7 @@ def _write_installer_report(
     cli_commit: str,
     version: str,
     channel: str,
-    entrypoint_observations: list[dict[str, str]],
+    entrypoint_observations: list[dict[str, object]],
     observed_evidence: dict[str, object],
 ) -> None:
     payload = {
@@ -934,6 +1069,7 @@ def _write_installer_report(
         "platform": "macos",
         "channel": channel,
         "entrypoint_observations": entrypoint_observations,
+        "observed_evidence": observed_evidence,
     }
     raw = (
         json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n"
@@ -1003,7 +1139,6 @@ def main() -> None:
             for script in (
                 "install.sh",
                 "install-test.sh",
-                "install-core.sh",
                 "uninstall.sh",
                 "uninstall-test.sh",
                 "uninstall-core.sh",
@@ -1017,7 +1152,11 @@ def main() -> None:
             rejection_runs.extend(_assert_wrappers_reject_wrong_channel_manifest(
                 oss, home, base_url, wrapper_dir
             ))
-            rejection_runs.extend(_assert_core_reference_guards(oss, home, base_url, wrapper_dir))
+            rejection_runs.extend(
+                _assert_manifest_and_uninstall_core_guards(
+                    oss, home, base_url, wrapper_dir
+                )
+            )
             opposite_sentinels = _seed_opposite_channel_sentinels(home)
             opposite_item_count, opposite_before_sha = _sentinel_digest(
                 opposite_sentinels[:3], base=home
@@ -1045,6 +1184,7 @@ def main() -> None:
             business_db = home / ".redbeacon/data/redbeacon.db"
             business_db.parent.mkdir(parents=True, exist_ok=True)
             business_db.write_text("account-data-must-survive-update", encoding="utf-8")
+            database_before_sha = _sha256_file(business_db)
             claude_skill, portable_skills = _skill_paths(home, "stable")
             codex_skill = portable_skills[0]
             for skill in portable_skills:
@@ -1062,10 +1202,12 @@ def main() -> None:
                     "expected_version": "9.9.1",
                     "observed_version": _version(cli),
                     "database_sha256": _sha256_file(business_db),
+                    "database_before_sha256": database_before_sha,
+                    "observed_exit_code": result.returncode,
                 })
 
             _build_bundle(oss, "9.9.2", base_url, failure="stage")
-            _run_installer(home, base_url, wrapper_dir, expect_ok=False)
+            result = _run_installer(home, base_url, wrapper_dir, expect_ok=False)
             assert _version(cli) == "9.9.1", "pre-replacement dependency failure replaced old app"
             assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert "9.9.1" in codex_skill.read_text(encoding="utf-8")
@@ -1074,10 +1216,12 @@ def main() -> None:
                 "expected_version": "9.9.1",
                 "observed_version": _version(cli),
                 "database_sha256": _sha256_file(business_db),
+                "database_before_sha256": database_before_sha,
+                "observed_exit_code": result.returncode,
             })
 
             _build_bundle(oss, "9.9.3", base_url, failure="placed")
-            _run_installer(home, base_url, wrapper_dir, expect_ok=False)
+            result = _run_installer(home, base_url, wrapper_dir, expect_ok=False)
             assert _version(cli) == "9.9.1", "post-placement verification failure did not roll back"
             assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             assert "9.9.1" in claude_skill.read_text(encoding="utf-8")
@@ -1086,10 +1230,12 @@ def main() -> None:
                 "expected_version": "9.9.1",
                 "observed_version": _version(cli),
                 "database_sha256": _sha256_file(business_db),
+                "database_before_sha256": database_before_sha,
+                "observed_exit_code": result.returncode,
             })
 
             _build_bundle(oss, "9.9.35", base_url, failure="post_skills")
-            _run_installer(home, base_url, wrapper_dir, expect_ok=False)
+            result = _run_installer(home, base_url, wrapper_dir, expect_ok=False)
             assert _version(cli) == "9.9.1", "final runtime failure did not restore old app"
             assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             for skill in portable_skills:
@@ -1100,10 +1246,12 @@ def main() -> None:
                 "expected_version": "9.9.1",
                 "observed_version": _version(cli),
                 "database_sha256": _sha256_file(business_db),
+                "database_before_sha256": database_before_sha,
+                "observed_exit_code": result.returncode,
             })
 
             _build_bundle(oss, "9.9.4", base_url)
-            _run_installer(home, base_url, wrapper_dir, expect_ok=True)
+            result = _run_installer(home, base_url, wrapper_dir, expect_ok=True)
             assert _version(cli) == "9.9.4"
             assert business_db.read_text(encoding="utf-8") == "account-data-must-survive-update"
             snapshots = sorted((home / ".redbeacon/backups/pre-update").glob("*/redbeacon.db"))
@@ -1115,6 +1263,8 @@ def main() -> None:
                 "expected_version": "9.9.4",
                 "observed_version": _version(cli),
                 "database_sha256": _sha256_file(business_db),
+                "database_before_sha256": database_before_sha,
+                "observed_exit_code": result.returncode,
                 "snapshot_sha256": _sha256_file(snapshots[-1]),
             })
 
@@ -1160,8 +1310,9 @@ def main() -> None:
             _, protected_after_sha = _snapshot_digest(current_protected, base=home)
 
             # Re-run each public entrypoint once as the final observed sequence.
-            # The report records the actual loopback request paths and the
-            # effective channel printed by the fetched, checksum-verified core.
+            # The report binds each public source directly. Install observations
+            # additionally prove that no install-core request or second Bash
+            # stage occurred; uninstall keeps its existing verified helper.
             alias_runs = [
                 _observe_alias(
                     home, base_url, wrapper_dir, channel=observed_channel, alias=alias

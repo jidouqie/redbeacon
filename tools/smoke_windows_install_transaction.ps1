@@ -30,7 +30,6 @@ if([System.IO.File]::Exists($ReportPath) -or [System.IO.Directory]::Exists($Repo
 
 $scripts = @(
   "install\install.ps1",
-  "install\install-core.ps1",
   "install\install-test.ps1",
   "install\uninstall.ps1",
   "install\uninstall-core.ps1",
@@ -64,7 +63,7 @@ foreach($relative in $scripts){
 # retain a TEMP handle briefly after installation. Reproduce that exact case:
 # cleanup may leave the temporary directory behind, but it must not throw and
 # turn an already committed installation into a reported failure.
-$installerPath = Join-Path $ProjectRoot "install\install-core.ps1"
+$installerPath = Join-Path $ProjectRoot "install\install.ps1"
 $cleanupTokens = $null
 $cleanupErrors = $null
 $installerAst = [System.Management.Automation.Language.Parser]::ParseFile(
@@ -75,7 +74,7 @@ $cleanupAst = $installerAst.Find({
   return ($node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
           $node.Name -eq "Remove-InstallerTemp")
 }, $true)
-if(-not $cleanupAst){ throw "install-core.ps1 has no Remove-InstallerTemp function" }
+if(-not $cleanupAst){ throw "install.ps1 has no Remove-InstallerTemp function" }
 Invoke-Expression $cleanupAst.Extent.Text
 function Warn($m){ Write-Host "!! $m" -ForegroundColor Yellow }
 $cleanupProbe = Join-Path $env:TEMP ("redbeacon_cleanup_lock_" + [guid]::NewGuid())
@@ -197,8 +196,7 @@ function New-SmokeWrappers() {
       throw "$relative does not contain exactly two fixed canonical-manifest literals"
     }
     foreach($forbidden in @(
-      "REDBEACON_INSTALLER_TEST_MODE", "REDBEACON_CHANNEL", "REDBEACON_BUILD_CHANNEL",
-      "REDBEACON_UPDATE_URL", "RedBeaconStableManifestUrl", "RedBeaconTestManifestUrl"
+      "REDBEACON_INSTALLER_TEST_MODE", "RedBeaconStableManifestUrl", "RedBeaconTestManifestUrl"
     )){
       if($text.Contains($forbidden)){ throw "$relative still accepts forbidden channel input: $forbidden" }
     }
@@ -213,14 +211,56 @@ function New-SmokeWrappers() {
       }
       $text = $text.Replace($entry.Key, $entry.Value)
     }
+    if($name.StartsWith("install")){
+      $desktopExpression = '[Environment]::GetFolderPath("Desktop")'
+      if([regex]::Matches($text, [regex]::Escape($desktopExpression)).Count -ne 2){
+        throw "$relative lost its two Windows desktop known-folder expressions"
+      }
+      $text = $text.Replace(
+        $desktopExpression,
+        (ConvertTo-PowerShellSingleQuotedLiteral (Join-Path $fakeHome "Desktop"))
+      )
+    }
     foreach($required in @(
       '[Environment]::SystemDirectory', 'Microsoft.PowerShell.Utility\Invoke-WebRequest',
-      'Microsoft.PowerShell.Utility\Get-FileHash', '.PowerShellExe -NoProfile -NonInteractive'
+      'Microsoft.PowerShell.Utility\Get-FileHash'
     )){
       if(-not $text.Contains($required)){ throw "$relative lost trusted execution primitive: $required" }
     }
-    foreach($forbiddenTempRead in @('$env:TEMP', '$env:TMP', '$env:TMPDIR', '$env:PATH')){
-      if($text.Contains($forbiddenTempRead)){ throw "$relative reads caller execution environment: $forbiddenTempRead" }
+    if($name.StartsWith("install")){
+      $argumentGuardIndex = $text.IndexOf('$args.Count -ne 0')
+      $firstNetworkIndex = $text.IndexOf('Microsoft.PowerShell.Utility\Invoke-WebRequest')
+      if($argumentGuardIndex -lt 0 -or $firstNetworkIndex -lt 0 -or $argumentGuardIndex -gt $firstNetworkIndex){
+        throw "$relative does not reject arguments before its first network primitive"
+      }
+      $fixedChannelAssignment = '$Channel = "' + $fixedChannel + '"'
+      if([regex]::Matches($text, [regex]::Escape($fixedChannelAssignment)).Count -ne 1){
+        throw "$relative does not contain exactly one fixed channel assignment"
+      }
+      if($text.Contains('.PowerShellExe -NoProfile -NonInteractive')){
+        throw "$relative still starts a second PowerShell installer"
+      }
+      foreach($forbiddenCore in @("install-core.ps1", "Read-VerifiedStableCore", "Get-StableCoreArtifact")){
+        if($text.Contains($forbiddenCore)){ throw "$relative still references removed installer core: $forbiddenCore" }
+      }
+      $initializeIndex = $text.IndexOf("Initialize-TrustedWindowsInstallerEnvironment")
+      $tempReadIndex = $text.IndexOf('$env:TEMP')
+      if($initializeIndex -lt 0 -or $tempReadIndex -lt $initializeIndex){
+        throw "$relative reads caller TEMP before trusted environment initialization"
+      }
+      # Console.Out deliberately bypasses PowerShell's success stream. Make the
+      # disposable smoke copy emit the same marker through the capturable stream
+      # so the report can bind the actually observed fixed channel.
+      $consoleMarker = '[Console]::Out.WriteLine("BYTESTAFF_SMOKE_CORE_CHANNEL=$Channel")'
+      if([regex]::Matches($text, [regex]::Escape($consoleMarker)).Count -ne 1){
+        throw "$relative lost its fixed-channel smoke marker"
+      }
+      $text = $text.Replace(
+        $consoleMarker,
+        'Write-Output "BYTESTAFF_SMOKE_CORE_CHANNEL=$Channel"'
+      )
+    } elseif(-not $text.Contains('.PowerShellExe -NoProfile -NonInteractive')){
+      throw "$relative lost its verified uninstaller helper invocation"
     }
     $originCount = [regex]::Matches($text, [regex]::Escape($centralOrigin)).Count
     if($originCount -ne 3){ throw "$relative does not contain exactly three fixed central-origin literals" }
@@ -230,8 +270,8 @@ function New-SmokeWrappers() {
       $productionMode = '-RedBeaconUninstallerExecutionMode "production"'
       $smokeMode = '-RedBeaconUninstallerExecutionMode "smoke"'
     } else {
-      $productionMode = '-RedBeaconInstallerExecutionMode "production"'
-      $smokeMode = '-RedBeaconInstallerExecutionMode "smoke"'
+      $productionMode = '$RedBeaconInstallerExecutionMode = "production"'
+      $smokeMode = '$RedBeaconInstallerExecutionMode = "smoke"'
     }
     $modeCount = [regex]::Matches($text, [regex]::Escape($productionMode)).Count
     if($modeCount -ne 1){ throw "$relative does not contain exactly one fixed production execution mode" }
@@ -275,8 +315,12 @@ function Assert-PublicWrapperRejectsArguments([string]$ScriptName) {
     $arguments = @($argumentSet.Values)
     $rejected = $false
     try { & $source @arguments }
-    catch { $rejected = $_.Exception.Message -like "*accepts no arguments*" }
+    catch {
+      $rejected = $_.Exception.Message -like "*accepts no arguments*"
+      $probe = [pscustomobject]@{ ExitCode = 0; Thrown = $true; Output = $_.Exception.Message }
+    }
     if(-not $rejected){ throw "$ScriptName accepted caller-controlled arguments: $($arguments -join ' ')" }
+    Add-RejectionEvidence $ScriptName "extra-arguments" $probe "accepts no arguments"
   }
 }
 
@@ -313,7 +357,7 @@ public static class HijackProbe {
   $script:ForeignDirectoryExpected[$script:HostileBin] = @($expected)
 }
 
-function New-FakeChannel([string]$Channel) {
+function New-FakeChannel([string]$Channel, [string]$FixtureVersion = "9.9.9", [string]$Failure = "") {
   if($Channel -eq "test"){
     $appName = "RedBeacon_test"
     $cliName = "redbeacon-test-cli"
@@ -341,8 +385,10 @@ using System.IO;
 namespace RedBeaconInstallerSmoke$typeSuffix {
   public static class Cli {
     public static int Main(string[] args) {
-      if (args.Length > 0 && args[0] == "--version") { Console.WriteLine("redbeacon 9.9.9"); return 0; }
+      bool placed = System.Reflection.Assembly.GetExecutingAssembly().Location.IndexOf("\\Programs\\", StringComparison.OrdinalIgnoreCase) >= 0;
+      if (args.Length > 0 && args[0] == "--version") { Console.WriteLine("redbeacon $FixtureVersion"); return 0; }
       if (args.Length > 0 && args[0] == "setup") {
+        if ("$Failure" == "stage" || ("$Failure" == "placed" && placed)) { Console.Error.WriteLine("injected setup failure: $Failure"); return 51; }
         var home = Environment.GetEnvironmentVariable("USERPROFILE");
         var root = Path.Combine(home, "$runtimeFolder");
         if (Environment.GetEnvironmentVariable("REDBEACON_DATA_DIR") != Path.Combine(root, "data")) return 34;
@@ -352,6 +398,7 @@ namespace RedBeaconInstallerSmoke$typeSuffix {
         Console.WriteLine("{\"ok\":true}"); return 0;
       }
       if (Environment.GetEnvironmentVariable("REDBEACON_DESKTOP_SMOKE") == "1") {
+        if ("$Failure" == "post_skills" && placed) { Console.Error.WriteLine("injected post-skills failure"); return 52; }
         Console.WriteLine("RedBeacon desktop smoke ok");
       }
       return 0;
@@ -391,8 +438,10 @@ namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
   if($LASTEXITCODE -ne 0){ throw "Fake renderer compilation failed" }
   [System.IO.File]::WriteAllBytes((Join-Path $assetDir "RedBeacon.ico"), [byte[]](0))
 
+  if($Failure -eq "bundle_entry"){ Remove-Item -LiteralPath $rendererPath -Force }
+
   $channelRoot = Join-Path $fake "projects\redbeacon\$Channel"
-  $releaseRoot = Join-Path $channelRoot "releases\9.9.9"
+  $releaseRoot = Join-Path $channelRoot "releases\$FixtureVersion"
   $zipDir = Join-Path $releaseRoot "packages"
   New-Item -ItemType Directory -Force -Path $zipDir | Out-Null
   $zip = Join-Path $zipDir "$appName-win-x64.zip"
@@ -401,16 +450,16 @@ namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
   $skillRoot = Join-Path $build "skill-$Channel"
   $commands = Join-Path $skillRoot ".claude\commands"
   New-Item -ItemType Directory -Force -Path $commands | Out-Null
-  $skillText = "---`ndescription: smoke $Channel`n---`n# smoke`n$skillCommand checkin"
+  $skillText = "---`ndescription: smoke $Channel $FixtureVersion`n---`n# smoke`n$skillCommand checkin"
   [System.IO.File]::WriteAllText((Join-Path $commands $skillFile), $skillText, [System.Text.UTF8Encoding]::new($false))
   $portableRoot = Join-Path $skillRoot "agent-skills\$([System.IO.Path]::GetFileNameWithoutExtension($skillFile))"
   New-Item -ItemType Directory -Force -Path $portableRoot | Out-Null
-  $portableText = "---`nname: $([System.IO.Path]::GetFileNameWithoutExtension($skillFile))`ndescription: `"smoke $Channel`"`n---`n`n# smoke`n$skillCommand checkin"
+  $portableText = "---`nname: $([System.IO.Path]::GetFileNameWithoutExtension($skillFile))`ndescription: `"smoke $Channel $FixtureVersion`"`n---`n`n# smoke`n$skillCommand checkin"
   [System.IO.File]::WriteAllText((Join-Path $portableRoot "SKILL.md"), $portableText, [System.Text.UTF8Encoding]::new($false))
   $skillMetadata = @{
     schema = 2
     channel = $Channel
-    version = "9.9.9"
+    version = "$FixtureVersion"
     files = @($skillFile)
     assistants = @("claude-code", "codex", "openclaw", "hermes", "workbuddy")
     portable_skills = @("agent-skills/$([System.IO.Path]::GetFileNameWithoutExtension($skillFile))/SKILL.md")
@@ -423,23 +472,21 @@ namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
   $skillDir = Join-Path $releaseRoot "skill"
   New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
   $skillBundle = Join-Path $skillDir "redbeacon-skill.tar.gz"
-  & tar.exe -czf $skillBundle -C $skillRoot .
+  & (Join-Path ([Environment]::SystemDirectory) "tar.exe") -czf $skillBundle -C $skillRoot .
   if($LASTEXITCODE -ne 0){ throw "Fake skill archive creation failed" }
 
   $installerDir = Join-Path $releaseRoot "installers"
   New-Item -ItemType Directory -Force -Path $installerDir | Out-Null
-  Copy-Item -Force (Join-Path $ProjectRoot "install\install-core.ps1") (Join-Path $installerDir "install-core.ps1")
   Copy-Item -Force (Join-Path $ProjectRoot "install\uninstall-core.ps1") (Join-Path $installerDir "uninstall-core.ps1")
 
   $artifacts = @()
   foreach($relative in @(
     "packages/$appName-win-x64.zip",
     "skill/redbeacon-skill.tar.gz",
-    "installers/install-core.ps1",
     "installers/uninstall-core.ps1"
   )){
     $localPath = Join-Path $releaseRoot ($relative.Replace('/', '\'))
-    $url = "http://127.0.0.1:8765/projects/redbeacon/$Channel/releases/9.9.9/$relative"
+    $url = "http://127.0.0.1:8765/projects/redbeacon/$Channel/releases/$FixtureVersion/$relative"
     $artifacts += @{
       path = $relative
       size = (Get-Item -LiteralPath $localPath).Length
@@ -452,7 +499,7 @@ namespace RedBeaconInstallerSmokeRenderer$typeSuffix {
     schema = 1
     project = "redbeacon"
     channel = $Channel
-    version = "9.9.9"
+    version = "$FixtureVersion"
     created_at = "2026-07-17T00:00:00Z"
     commit = "installer-smoke"
     artifacts = $artifacts
@@ -622,6 +669,9 @@ function Set-HostileWrapperEnvironment([string]$TargetChannel, [string]$Alias) {
   foreach($name in $hostileEnvironmentNames){
     $snapshot[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
   }
+  if($null -eq $script:ForeignBefore){
+    $script:ForeignBefore = Get-TreeObservation @($script:ForeignDirectoryExpected.Keys)
+  }
   return $snapshot
 }
 
@@ -630,6 +680,10 @@ function Assert-EnvironmentSnapshot($Snapshot, [string]$Label) {
     $actual = [Environment]::GetEnvironmentVariable($name, "Process")
     if($actual -cne $Snapshot[$name]){ throw "$Label changed hostile caller environment variable $name" }
   }
+  $actualEnvironment = @{}
+  foreach($name in $hostileEnvironmentNames){ $actualEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process") }
+  $script:CallerBefore += Get-EnvironmentDigest $Snapshot
+  $script:CallerAfter += Get-EnvironmentDigest $actualEnvironment
 }
 
 function Assert-ForeignSentinels() {
@@ -810,6 +864,76 @@ function Uninstall-ThroughWrapper([string]$Channel, [string]$Alias) {
   Assert-Uninstalled $Channel
 }
 
+function Get-ServerRequestPaths() {
+  if(-not [System.IO.File]::Exists($serverRequestLog)){ return @() }
+  $logStream = [System.IO.File]::Open(
+    $serverRequestLog,
+    [System.IO.FileMode]::Open,
+    [System.IO.FileAccess]::Read,
+    [System.IO.FileShare]::ReadWrite
+  )
+  try {
+    $logReader = [System.IO.StreamReader]::new($logStream, [System.Text.Encoding]::UTF8)
+    try { $serverLog = $logReader.ReadToEnd() } finally { $logReader.Dispose() }
+  }
+  finally { $logStream.Dispose() }
+  return @(
+    [regex]::Matches($serverLog, '"GET ([^ ]+) HTTP/') |
+      ForEach-Object { $_.Groups[1].Value }
+  )
+}
+
+function Invoke-ObservedPublicWrapper([string]$ScriptName) {
+  # Win32_ProcessStartTrace queues even a short-lived child, so this proves the
+  # restored installer stays in the public PowerShell process. The uninstaller
+  # intentionally retains one verified helper PowerShell for this release.
+  $query = [System.Management.WqlEventQuery]::new(
+    "SELECT * FROM Win32_ProcessStartTrace"
+  )
+  $options = [System.Management.EventWatcherOptions]::new()
+  # WMI event delivery can lag behind a short-lived helper on Windows ARM64;
+  # allow the queued start event to arrive after the entrypoint returns.
+  $options.Timeout = [TimeSpan]::FromSeconds(2)
+  $watcher = [System.Management.ManagementEventWatcher]::new($query)
+  $watcher.Options = $options
+  $secondaryPowerShell = @()
+  $watcher.Start()
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $global:LASTEXITCODE = 0
+  try {
+    $captured = @(& $smokeWrappers[$ScriptName] *>&1)
+    $exitCode = $LASTEXITCODE
+  }
+  finally {
+    $ErrorActionPreference = $previousPreference
+    while($true){
+      try { $started = $watcher.WaitForNextEvent() }
+      catch [System.Management.ManagementException] {
+        if($_.Exception.ErrorCode -eq [System.Management.ManagementStatus]::Timedout){ break }
+        throw
+      }
+      $image = ([string]$started.ProcessName).ToLowerInvariant()
+      if(
+        [int]$started.ParentProcessID -eq $PID -and
+        @("powershell.exe", "pwsh.exe") -contains $image
+      ){
+        $secondaryPowerShell += [pscustomobject]@{
+          pid = [int]$started.ProcessID
+          command = $image
+        }
+      }
+    }
+    $watcher.Stop()
+    $watcher.Dispose()
+  }
+  return [pscustomobject]@{
+    Captured = @($captured)
+    ExitCode = $exitCode
+    SecondaryPowerShell = @($secondaryPowerShell)
+  }
+}
+
 function Invoke-ObservedEntrypoint([string]$ObservedChannel, [string]$Operation) {
   $suffix = if($ObservedChannel -eq "test"){ "-test" } else { "" }
   $scriptName = "$Operation$suffix.ps1"
@@ -822,16 +946,10 @@ function Invoke-ObservedEntrypoint([string]$ObservedChannel, [string]$Operation)
     $env:REDBEACON_PURGE = "0"
     Remove-Item Env:\REDBEACON_FORCE_INSTALL -ErrorAction SilentlyContinue
   }
-  $previousPreference = $ErrorActionPreference
-  $ErrorActionPreference = "Continue"
-  $global:LASTEXITCODE = 0
-  try {
-    $captured = @(& $smokeWrappers[$scriptName] *>&1)
-    $exitCode = $LASTEXITCODE
-  }
-  finally {
-    $ErrorActionPreference = $previousPreference
-  }
+  $requestCountBefore = @(Get-ServerRequestPaths).Count
+  $execution = Invoke-ObservedPublicWrapper $scriptName
+  $captured = @($execution.Captured)
+  $exitCode = $execution.ExitCode
   foreach($item in $captured){ [Console]::Out.WriteLine([string]$item) }
   if($exitCode -ne 0){ throw "$scriptName final observation returned exit code $exitCode" }
   Assert-EnvironmentSnapshot $snapshot "$scriptName final observation"
@@ -843,50 +961,189 @@ function Invoke-ObservedEntrypoint([string]$ObservedChannel, [string]$Operation)
   }
   $marker = "BYTESTAFF_SMOKE_CORE_CHANNEL=$ObservedChannel"
   $markerLines = @($captured | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ceq $marker })
-  if($markerLines.Count -ne 1){ throw "$scriptName did not expose exactly one effective core channel" }
+  if($markerLines.Count -ne 1){ throw "$scriptName did not expose exactly one effective channel" }
 
   Start-Sleep -Milliseconds 200
-  $serverLog = ""
-  if([System.IO.File]::Exists($serverRequestLog)){
-    $logStream = [System.IO.File]::Open(
-      $serverRequestLog,
-      [System.IO.FileMode]::Open,
-      [System.IO.FileAccess]::Read,
-      [System.IO.FileShare]::ReadWrite
+  $allRequests = @(Get-ServerRequestPaths)
+  $observedRequests = @()
+  if($allRequests.Count -gt $requestCountBefore){
+    $observedRequests = @(
+      $allRequests[$requestCountBefore..($allRequests.Count - 1)]
     )
-    try {
-      $logReader = [System.IO.StreamReader]::new($logStream, [System.Text.Encoding]::UTF8)
-      try { $serverLog = $logReader.ReadToEnd() } finally { $logReader.Dispose() }
-    }
-    finally { $logStream.Dispose() }
   }
   $manifestRequest = "/projects/redbeacon/$ObservedChannel/latest.json"
-  $coreName = "$Operation-core.ps1"
-  $coreRequest = "/projects/redbeacon/$ObservedChannel/releases/9.9.9/installers/$coreName"
-  if(-not $serverLog.Contains("`"GET $manifestRequest HTTP/")){
+  if($observedRequests -cnotcontains $manifestRequest){
     throw "$scriptName did not request its fixed manifest path"
   }
-  if(-not $serverLog.Contains("`"GET $coreRequest HTTP/")){
-    throw "$scriptName did not request its fixed core path"
+  $internalHelper = $null
+  if($Operation -eq "install"){
+    $forbiddenCoreRequests = @($observedRequests | Where-Object { $_ -like "*install-core*" })
+    if($forbiddenCoreRequests.Count -ne 0){
+      throw "$scriptName requested the removed installer core: $($forbiddenCoreRequests -join ', ')"
+    }
+    if($execution.SecondaryPowerShell.Count -ne 0){
+      throw "$scriptName started a second PowerShell installer process"
+    }
+    $executionModel = "single-stage-public-entrypoint"
+  } else {
+    $helperName = "uninstall-core.ps1"
+    $helperRequest = "/projects/redbeacon/$ObservedChannel/releases/9.9.9/installers/$helperName"
+    if($observedRequests -cnotcontains $helperRequest){
+      throw "$scriptName did not request its fixed uninstaller helper"
+    }
+    if($execution.SecondaryPowerShell.Count -ne 1){
+      throw "$scriptName did not start exactly one verified helper PowerShell; observed $($execution.SecondaryPowerShell.Count)"
+    }
+    $executionModel = "public-entrypoint-with-internal-helper"
+    $internalHelper = [pscustomobject][ordered]@{
+      path = "install/$helperName"
+      sha256 = ([string]$coreHashes["install\$helperName"]).ToLowerInvariant()
+      request_path = $helperRequest
+    }
   }
-  $wrapperKey = "install\$scriptName"
-  $coreKey = "install\$coreName"
+  $entrypointKey = "install\$scriptName"
   return [pscustomobject][ordered]@{
     channel = $ObservedChannel
     operation = $Operation
-    wrapper_path = "install/$scriptName"
-    wrapper_sha256 = ([string]$publicWrapperHashes[$wrapperKey]).ToLowerInvariant()
+    entrypoint_path = "install/$scriptName"
+    entrypoint_sha256 = ([string]$publicWrapperHashes[$entrypointKey]).ToLowerInvariant()
     canonical_manifest_url = "$centralOrigin/projects/redbeacon/$ObservedChannel/latest.json"
     manifest_request_path = $manifestRequest
-    core_path = "install/$coreName"
-    core_sha256 = ([string]$coreHashes[$coreKey]).ToLowerInvariant()
-    core_request_path = $coreRequest
-    effective_core_channel = $ObservedChannel
-    effective_core_marker = $marker
+    observed_request_paths = @($observedRequests)
+    effective_channel = $ObservedChannel
+    effective_channel_marker = $marker
+    execution_model = $executionModel
+    secondary_shell_observed_count = $execution.SecondaryPowerShell.Count
+    secondary_shells = @($execution.SecondaryPowerShell)
+    internal_helper = $internalHelper
   }
 }
 
-function Write-InstallerTransactionReport($Observations) {
+function Get-TextDigest([string]$Text) {
+  $hasher = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([BitConverter]::ToString($hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text)))).Replace("-", "").ToLowerInvariant()
+  } finally { $hasher.Dispose() }
+}
+
+function Get-EnvironmentDigest($Values) {
+  $rows = @($Values.Keys | Sort-Object | ForEach-Object {
+    [ordered]@{ name = $_; value = $Values[$_] } | ConvertTo-Json -Compress
+  })
+  return Get-TextDigest ($rows -join "`n")
+}
+
+function Get-TreeObservation([string[]]$Paths) {
+  $rows = @()
+  foreach($path in @($Paths | Sort-Object -Unique)){
+    if(-not (Test-Path -LiteralPath $path)){ throw "Snapshot path is missing: $path" }
+    $items = @(Get-Item -LiteralPath $path -Force)
+    if($items[0].PSIsContainer){ $items += @(Get-ChildItem -LiteralPath $path -Force -Recurse) }
+    foreach($item in @($items | Sort-Object FullName)){
+      $digest = if($item.PSIsContainer){ "directory" } else { (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+      $rows += ($item.FullName.Substring($work.Length) + "=" + $digest)
+    }
+  }
+  return [pscustomobject]@{ Count = $rows.Count; Sha256 = Get-TextDigest ($rows -join "`n") }
+}
+
+function Channel-ObservedPaths([string]$ObservedChannel) {
+  $spec = Channel-Spec $ObservedChannel
+  return @(
+    (Join-Path $fakeHome $spec.RuntimeFolder), (Join-Path $fakeHome $spec.TokenFolder),
+    (Join-Path $fakeLocalAppData "Programs\$($spec.AppName)"),
+    (Join-Path $spec.SkillDir $spec.SkillFile),
+    (Join-Path $fakeHome ".local\bin\$($spec.CmdName).cmd")
+  ) + @(foreach($hostName in @("codex", "openclaw", "hermes", "workbuddy")){
+    Join-Path $fakeHome ".$hostName\skills\$($spec.SkillBase)"
+  }) + @(Channel-ShortcutPaths $ObservedChannel)
+}
+
+function Add-RejectionEvidence([string]$ScriptName, [string]$ProbeName, $Probe, [string]$Diagnostic) {
+  $script:RejectionEvidence += [pscustomobject][ordered]@{
+    wrapper = $ScriptName; probe = $ProbeName
+    observed_exit_code = [int]$Probe.ExitCode; observed_exception = [bool]$Probe.Thrown
+    diagnostic = $Diagnostic; raw_output = $Probe.Output
+    raw_output_sha256 = Get-TextDigest $Probe.Output
+  }
+}
+
+function Get-InstalledVersion([string]$ObservedChannel) {
+  $spec = Channel-Spec $ObservedChannel
+  $cliName = if($ObservedChannel -eq "test"){ "redbeacon-test-cli.exe" } else { "redbeacon-cli.exe" }
+  $cli = Join-Path $fakeLocalAppData "Programs\$($spec.AppName)\$cliName"
+  $output = & $cli --version
+  if($LASTEXITCODE -ne 0){ throw "Cannot read installed $ObservedChannel version" }
+  return (($output | Out-String).Trim() -split '\s+')[-1]
+}
+
+function Invoke-ObservedAlias([string]$ObservedChannel, [string]$Alias) {
+  $snapshot = Set-HostileWrapperEnvironment $ObservedChannel $Alias
+  $env:REDBEACON_FORCE_INSTALL = "1"
+  $name = if($ObservedChannel -eq "test"){ "install-test.ps1" } else { "install.ps1" }
+  $global:LASTEXITCODE = 0
+  $output = @(Invoke-PublicWrapper $name)
+  if($LASTEXITCODE -ne 0){ throw "$name alias probe failed" }
+  Assert-EnvironmentSnapshot $snapshot "$name/$Alias"
+  Assert-Installed $ObservedChannel
+  $marker = "BYTESTAFF_SMOKE_CORE_CHANNEL=$ObservedChannel"
+  if(@($output | Where-Object { ([string]$_).Trim() -ceq $marker }).Count -ne 1){
+    throw "$name/$Alias has no unique effective-channel marker"
+  }
+  return [ordered]@{
+    target_channel = $ObservedChannel; ambient_alias = $Alias
+    effective_core_channel = $ObservedChannel; effective_core_marker = $marker
+    observed_installed_version = Get-InstalledVersion $ObservedChannel
+  }
+}
+
+function Assert-TransactionRollbackEvidence() {
+  $db = Business-Database "stable"
+  $databaseBefore = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
+  $baselineVersion = Get-InstalledVersion "stable"
+  $protectedPaths = @(Channel-ObservedPaths "stable" | Where-Object { $_ -notlike "*\.redbeacon" })
+  $before = Get-TreeObservation $protectedPaths
+  foreach($case in @(
+    @{ Probe = "invalid-bundle-entry-rollback"; Version = "9.9.10"; Failure = "bundle_entry"; Diagnostic = "card renderer" },
+    @{ Probe = "pre-replacement-rollback"; Version = "9.9.11"; Failure = "stage"; Diagnostic = "injected setup failure" },
+    @{ Probe = "post-placement-rollback"; Version = "9.9.12"; Failure = "placed"; Diagnostic = "injected setup failure" },
+    @{ Probe = "post-skills-rollback"; Version = "9.9.13"; Failure = "post_skills"; Diagnostic = "post-skills failure" }
+  )){
+    New-FakeChannel "stable" $case.Version $case.Failure
+    $snapshot = Set-HostileWrapperEnvironment "stable" "test"
+    $env:REDBEACON_FORCE_INSTALL = "1"
+    $probe = Invoke-RejectionProbe "install.ps1"
+    if(-not $probe.Failed -or $probe.Output -notlike "*$($case.Diagnostic)*"){
+      throw "$($case.Probe) did not reach its expected failure: $($probe.Output)"
+    }
+    Assert-EnvironmentSnapshot $snapshot $case.Probe
+    Assert-BusinessDatabase "stable"
+    $after = Get-TreeObservation $protectedPaths
+    if($before.Sha256 -ne $after.Sha256){ throw "$($case.Probe) did not restore the old client, launchers and five-host skills" }
+    $script:TransactionEvidence += [ordered]@{
+      probe = $case.Probe; expected_version = $baselineVersion
+      observed_version = Get-InstalledVersion "stable"
+      observed_exit_code = [int]$probe.ExitCode; observed_exception = [bool]$probe.Thrown
+      database_before_sha256 = $databaseBefore
+      database_sha256 = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+  }
+  New-FakeChannel "stable" "9.9.14"
+  Install-ThroughWrapper "stable" "test" $true
+  Assert-BusinessDatabase "stable"
+  Assert-DatabaseSnapshot "stable"
+  $latestSnapshot = Get-ChildItem -LiteralPath (Join-Path $fakeHome ".redbeacon\backups\pre-update") -Filter redbeacon.db -File -Recurse | Sort-Object FullName | Select-Object -Last 1
+  $script:TransactionEvidence += [ordered]@{
+    probe = "committed-update-database-snapshot"; expected_version = "9.9.14"
+    observed_version = Get-InstalledVersion "stable"; observed_exit_code = 0; observed_exception = $false
+    database_before_sha256 = $databaseBefore
+    database_sha256 = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
+    snapshot_sha256 = (Get-FileHash -LiteralPath $latestSnapshot.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  New-FakeChannel "stable"
+}
+
+function Write-InstallerTransactionReport($Observations, $ObservedEvidence) {
   $payload = [ordered]@{
     schema = "redbeacon-installer-transaction-smoke-report/v1"
     project = "redbeacon"
@@ -897,6 +1154,7 @@ function Write-InstallerTransactionReport($Observations) {
     platform = "windows"
     channel = $Channel
     entrypoint_observations = @($Observations)
+    observed_evidence = $ObservedEvidence
   }
   $parent = [System.IO.Path]::GetDirectoryName($ReportPath)
   [System.IO.Directory]::CreateDirectory($parent) | Out-Null
@@ -918,6 +1176,28 @@ function Write-InstallerTransactionReport($Observations) {
   }
 }
 
+function Invoke-RejectionProbe([string]$ScriptName) {
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $global:LASTEXITCODE = 0
+  $captured = @()
+  $thrown = $false
+  try { $captured = @(Invoke-PublicWrapper $ScriptName *>&1) }
+  catch {
+    $thrown = $true
+    $captured += $_
+  }
+  finally { $ErrorActionPreference = $previousPreference }
+  $exitCode = $LASTEXITCODE
+  $output = ($captured | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+  return [pscustomobject]@{
+    Failed = ($thrown -or $exitCode -ne 0)
+    ExitCode = $exitCode
+    Output = $output
+    Thrown = $thrown
+  }
+}
+
 function Assert-WrapperRejectsOppositeManifest([string]$ScriptName, [string]$Channel) {
   $opposite = if($Channel -eq "test"){ "stable" } else { "test" }
   $manifestPath = Join-Path $fake "projects\redbeacon\$Channel\latest.json"
@@ -931,8 +1211,8 @@ function Assert-WrapperRejectsOppositeManifest([string]$ScriptName, [string]$Cha
       [System.IO.File]::ReadAllText($oppositePath),
       [System.Text.UTF8Encoding]::new($false)
     )
-    try { Invoke-PublicWrapper $ScriptName }
-    catch { $rejected = $_.Exception.Message -like "*does not match RedBeacon $Channel*" }
+    $probe = Invoke-RejectionProbe $ScriptName
+    $rejected = ($probe.Failed -and $probe.Output -like "*does not match RedBeacon $Channel*")
   }
   finally {
     [System.IO.File]::WriteAllText($manifestPath, $originalManifest, [System.Text.UTF8Encoding]::new($false))
@@ -940,6 +1220,7 @@ function Assert-WrapperRejectsOppositeManifest([string]$ScriptName, [string]$Cha
   if(-not $rejected){ throw "$ScriptName accepted canonical bytes for the opposite channel" }
   Assert-EnvironmentSnapshot $snapshot "$ScriptName opposite-manifest failure"
   Assert-ForeignSentinels
+  Add-RejectionEvidence $ScriptName "opposite-channel-manifest" $probe "does not match RedBeacon $Channel"
 }
 
 function Assert-WrapperRejectsWrongCoreUrl([string]$ScriptName, [string]$Channel, [string]$CoreName) {
@@ -958,8 +1239,8 @@ function Assert-WrapperRejectsWrongCoreUrl([string]$ScriptName, [string]$Channel
       ($manifest | ConvertTo-Json -Depth 8),
       [System.Text.UTF8Encoding]::new($false)
     )
-    try { Invoke-PublicWrapper $ScriptName }
-    catch { $rejected = $_.Exception.Message -like "*core URL does not match*" }
+    $probe = Invoke-RejectionProbe $ScriptName
+    $rejected = ($probe.Failed -and $probe.Output -like "*core URL does not match*")
   }
   finally {
     [System.IO.File]::WriteAllText($manifestPath, $originalManifest, [System.Text.UTF8Encoding]::new($false))
@@ -967,6 +1248,7 @@ function Assert-WrapperRejectsWrongCoreUrl([string]$ScriptName, [string]$Channel
   if(-not $rejected){ throw "$ScriptName accepted a non-canonical core URL" }
   Assert-EnvironmentSnapshot $snapshot "$ScriptName wrong-URL failure"
   Assert-ForeignSentinels
+  Add-RejectionEvidence $ScriptName "forged-core-url" $probe "core URL does not match"
 }
 
 function Assert-WrapperRejectsTamperedCore([string]$ScriptName, [string]$Channel, [string]$CoreName) {
@@ -980,8 +1262,8 @@ function Assert-WrapperRejectsTamperedCore([string]$ScriptName, [string]$Channel
     [Array]::Copy($originalCore, $tampered, $originalCore.Length)
     $tampered[$tampered.Length - 1] = 10
     [System.IO.File]::WriteAllBytes($corePath, $tampered)
-    try { Invoke-PublicWrapper $ScriptName }
-    catch { $rejected = $_.Exception.Message -like "*core size mismatch*" }
+    $probe = Invoke-RejectionProbe $ScriptName
+    $rejected = ($probe.Failed -and $probe.Output -like "*core size mismatch*")
   }
   finally {
     [System.IO.File]::WriteAllBytes($corePath, $originalCore)
@@ -989,6 +1271,7 @@ function Assert-WrapperRejectsTamperedCore([string]$ScriptName, [string]$Channel
   if(-not $rejected){ throw "$ScriptName executed a core whose bytes do not match the manifest" }
   Assert-EnvironmentSnapshot $snapshot "$ScriptName tampered-core failure"
   Assert-ForeignSentinels
+  Add-RejectionEvidence $ScriptName "tampered-core" $probe "core size mismatch"
 }
 
 function New-ProcessProbeExecutable() {
@@ -1042,14 +1325,14 @@ function Assert-InstallerProductionProcessIsolation([string]$Template) {
   $tokens = $null
   $errors = $null
   $ast = [System.Management.Automation.Language.Parser]::ParseFile(
-    (Join-Path $ProjectRoot "install\install-core.ps1"), [ref]$tokens, [ref]$errors
+    (Join-Path $ProjectRoot "install\install.ps1"), [ref]$tokens, [ref]$errors
   )
   $stopAst = $ast.Find({
     param($node)
     return ($node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
             $node.Name -eq "Stop-RunningRedBeacon")
   }, $true)
-  if(-not $stopAst){ throw "install-core.ps1 has no Stop-RunningRedBeacon function" }
+  if(-not $stopAst){ throw "install.ps1 has no Stop-RunningRedBeacon function" }
   Invoke-Expression $stopAst.Extent.Text
   function Say($m){ Write-Host "==> $m" -ForegroundColor Cyan }
   $allNames = @("RbInstall", "rb-install-cli", "RbInstall_test", "rb-install-test-cli")
@@ -1108,6 +1391,14 @@ function Assert-ProductionProcessIsolation() {
         Assert-ProbeRunning $processes["RedBeacon"] "stable desktop"
         Assert-ProbeRunning $processes["redbeacon-cli"] "stable CLI"
       }
+      $targetName = if($channel -eq "stable"){ "RedBeacon" } else { "RedBeacon_test" }
+      $otherName = if($channel -eq "stable"){ "RedBeacon_test" } else { "RedBeacon" }
+      $script:ProcessEvidence += [pscustomobject]@{
+        target_channel = $channel; target_process = $targetName
+        target_exit_code = $processes[$targetName].ExitCode
+        opposite_process = $otherName
+        opposite_process_observed_running = (-not $processes[$otherName].HasExited)
+      }
       Assert-EnvironmentSnapshot $snapshot "$channel production uninstaller"
       Assert-ForeignSentinels
     }
@@ -1116,6 +1407,12 @@ function Assert-ProductionProcessIsolation() {
   Write-Host "Windows production process cleanup is channel-exact"
 }
 
+$script:RejectionEvidence = @()
+$script:TransactionEvidence = @()
+$script:ProcessEvidence = @()
+$script:CallerBefore = @()
+$script:CallerAfter = @()
+$script:ForeignBefore = $null
 $script:ForeignSentinels = @{}
 $script:ForeignDirectoryExpected = @{}
 
@@ -1154,14 +1451,16 @@ try {
   Assert-ProductionProcessIsolation
 
   foreach($case in @(
-    @{ Script = "install.ps1"; Channel = "stable"; Core = "install-core.ps1" },
-    @{ Script = "uninstall.ps1"; Channel = "stable"; Core = "uninstall-core.ps1" },
-    @{ Script = "install-test.ps1"; Channel = "test"; Core = "install-core.ps1" },
-    @{ Script = "uninstall-test.ps1"; Channel = "test"; Core = "uninstall-core.ps1" }
+    @{ Script = "install.ps1"; Channel = "stable" },
+    @{ Script = "uninstall.ps1"; Channel = "stable" },
+    @{ Script = "install-test.ps1"; Channel = "test" },
+    @{ Script = "uninstall-test.ps1"; Channel = "test" }
   )){
     Assert-WrapperRejectsOppositeManifest $case.Script $case.Channel
-    Assert-WrapperRejectsWrongCoreUrl $case.Script $case.Channel $case.Core
-    Assert-WrapperRejectsTamperedCore $case.Script $case.Channel $case.Core
+    if($case.Script.StartsWith("uninstall")){
+      Assert-WrapperRejectsWrongCoreUrl $case.Script $case.Channel "uninstall-core.ps1"
+      Assert-WrapperRejectsTamperedCore $case.Script $case.Channel "uninstall-core.ps1"
+    }
   }
 
   Seed-ChannelState "stable"
@@ -1173,6 +1472,7 @@ try {
   Install-ThroughWrapper "stable" "testing" $false
   Install-ThroughWrapper "stable" "beta" $false
   Seed-BusinessDatabase "stable"
+  Assert-TransactionRollbackEvidence
   Install-ThroughWrapper "stable" "test" $true
   Assert-BusinessDatabase "stable"
   Assert-DatabaseSnapshot "stable"
@@ -1189,7 +1489,9 @@ try {
   Assert-ChannelPersistentState "stable" $true
   Assert-ChannelPersistentState "test" $true
 
+  $oppositeBefore = Get-TreeObservation (Channel-ObservedPaths "test")
   Uninstall-ThroughWrapper "stable" "beta"
+  $oppositeAfter = Get-TreeObservation (Channel-ObservedPaths "test")
   Assert-BusinessDatabase "stable"
   Assert-ChannelPersistentState "stable" $false
   Assert-ChannelPersistentState "test" $true
@@ -1212,6 +1514,12 @@ try {
   if([Environment]::GetEnvironmentVariable("Path", "User") -ne $originalPersistentUserPath){
     throw "Windows installer transaction smoke mutated the real persistent user PATH"
   }
+  $aliasRuns = @()
+  foreach($aliasChannel in @("stable", "test")){
+    foreach($alias in @("testing", "beta")){
+      $aliasRuns += Invoke-ObservedAlias $aliasChannel $alias
+    }
+  }
   $observations = @()
   foreach($observedChannel in @("stable", "test")){
     foreach($operation in @("install", "uninstall")){
@@ -1220,7 +1528,28 @@ try {
   }
   Assert-ForeignSentinels
   Assert-PublicWrapperSourcesUnchanged
-  Write-InstallerTransactionReport $observations
+  $foreignAfter = Get-TreeObservation @($script:ForeignDirectoryExpected.Keys)
+  $observedEvidence = [ordered]@{
+    alias_runs = @($aliasRuns)
+    rejection_runs = @($script:RejectionEvidence)
+    state_snapshots = @(
+      [ordered]@{ scope = "caller-controlled-paths"; item_count = $script:ForeignBefore.Count; before_sha256 = $script:ForeignBefore.Sha256; after_sha256 = $foreignAfter.Sha256 },
+      [ordered]@{ scope = "opposite-test-state-during-stable-uninstall"; item_count = $oppositeBefore.Count; before_sha256 = $oppositeBefore.Sha256; after_sha256 = $oppositeAfter.Sha256 }
+    )
+    process_isolation = @($script:ProcessEvidence)
+    transaction_checks = @($script:TransactionEvidence)
+    caller_environment = [ordered]@{
+      before_sha256 = Get-TextDigest ($script:CallerBefore -join "`n")
+      after_sha256 = Get-TextDigest ($script:CallerAfter -join "`n")
+    }
+    execution_hijack = [ordered]@{
+      probes = @("caller-path-binaries", "powershell-command-shadows")
+      protected_before_sha256 = $script:ForeignBefore.Sha256
+      protected_after_sha256 = $foreignAfter.Sha256
+      marker_observed_count = [int](Test-Path -LiteralPath $script:ExecutionHijackMarker)
+    }
+  }
+  Write-InstallerTransactionReport $observations $observedEvidence
   Write-Host "Windows installer transaction smoke passed"
   Write-Host "Raw installer transaction smoke report: $ReportPath"
 }

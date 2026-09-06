@@ -23,7 +23,7 @@ metadata:
 
 > **【账号 skill】** 小红书账号的 CRUD。**账号不是一条空记录，而是一组会互相影响文案产出的联动数据的载体**——新建账号后不留空壳，**立刻接着扫码登录**（`/source-command-redbeacon-xhslogin`）让账号落地。建号本身用户几乎无感，先把"扫码登录成功"这个实感给到他。
 >
-> 上一步是配置（`/source-command-redbeacon-config`），下一步是**登录**（`/source-command-redbeacon-xhslogin`）；之后的顺序是 登录 → 定位（`/source-command-redbeacon-locate`）。代理验证走 `/source-command-redbeacon-config` 的 `test-proxy`。
+> 上一步是配置（`/source-command-redbeacon-config`），下一步是**登录**（`/source-command-redbeacon-xhslogin`）；之后的顺序是 登录 → 定位（`/source-command-redbeacon-locate`）。代理配置和验证均按本页的账号代理入口执行。
 >
 > **遵循主入口的「自动推进原则」**：这些都是必需步骤，建完号直接进登录，别问"要不要登录"。
 
@@ -108,7 +108,7 @@ redbeacon accounts create                        # 没起，兜底「{id}号小�
 > redbeacon readiness --account-id {新id}
 > ```
 >
-> 它只看这个号的进度（stage3 登录 → stage5 定位 → ready）。**整条开号链路都用 `--account-id {新id}` 驱动并把 id 透传给每个子 skill**，直到这个号自己 `ready`。新号的步骤和 1 号完全一致（登录 → 定位 → 过目确认），唯一不同是**全局配置（平台登录 / 代理）已配过、不再重复**。
+> 它只看这个号的进度（stage3 登录 → stage5 定位 → ready）。**整条开号链路都用 `--account-id {新id}` 驱动并把 id 透传给每个子 skill**，直到这个号自己 `ready`。新号的步骤和 1 号完全一致（登录 → 定位 → 过目确认），唯一不同是**全局配置（平台登录）已配过、不再重复**。
 
 ---
 
@@ -128,19 +128,30 @@ redbeacon accounts patch --account-id {ID} --data-file account.json
 
 ## 改代理（proxy / 加代理 / 换代理）
 
-> **账号不强制绑代理。** 账号就是账号，是否挂代理是发布时的选择，不是账号的必备属性。这里只是给「想给某个账号固定绑一个代理」的用户提供入口，绝大多数情况可以不设。
+代理按账号单独设置，入口是客户端「账号管理」中的账号卡片。每个账号可开启或关闭代理，填写协议（默认 SOCKS5）、IP / 域名、端口、用户名和密码。登录、打开浏览器、学习和发布都使用这个账号的固定配置；不再通过 API 提取或轮换 IP。没有开启的账号使用当前网络。
 
-如果用户确实要给账号绑固定代理：
+先认准用户指定的账号；同一条代理不能同时启用到两个账号。密码只加密保存在本机，读取配置不会回传密码，空密码表示保留已保存的密码。
+
+查看：
 
 ```bash
-redbeacon accounts patch --account-id {ID} --data-file account.json
+redbeacon accounts proxy --account-id {ID}
 ```
+
+设置时，将配置写入 UTF-8 JSON 文件 `account-proxy.json`，调用统一账号代理入口：
 
 ```json
-{"proxy": "http://user:pass@host:port"}
+{"enabled": true, "protocol": "socks5", "host": "proxy.example.com", "port": 1080, "username": "代理用户名", "password": "代理密码"}
 ```
 
-清空走 `{"proxy": ""}`。代理 IP 怎么拿、怎么验证（巨量引擎）走 `/source-command-redbeacon-config` 的 `test-proxy`。发布时是否走代理的开关属于发布环节，不在本 skill。
+```bash
+redbeacon accounts proxy --account-id {ID} --data-file account-proxy.json
+redbeacon accounts test-proxy --account-id {ID}
+```
+
+检测使用这个账号已有登录状态的浏览器打开小红书；仅 HTTP 响应成功不能代替账号验证。验证失败应报告真实结果，不更换到别的账号代理，也不回落直连。临时凭据文件使用后删除。
+
+关闭代理写入 `{"enabled": false}`，保留配置便于重新开启；清除配置写入 `{"enabled": false, "clear": true}`。完成后打开客户端账号管理页让用户核查。
 
 ---
 
@@ -189,7 +200,7 @@ redbeacon accounts get --account-id {ID}
 | 改定位 / 文案预设 / 图片预设 | `/source-command-redbeacon-strategy` |
 | 「这期文案/图不行」诊断调参 | `/source-command-redbeacon-diagnose` |
 | 扫码登录 / 退出 / 重登 | `/source-command-redbeacon-xhslogin` |
-| 登录平台 / 代理 | `/source-command-redbeacon-config` |
+| 登录平台 | `/source-command-redbeacon-config` |
 
 ---
 

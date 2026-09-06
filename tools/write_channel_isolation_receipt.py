@@ -367,7 +367,7 @@ def _observation_specs(platform: str) -> list[tuple[str, str, str, str]]:
     return result
 
 
-def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
+def _validate_observed_installer_evidence(value: Any, *, platform: str) -> list[str]:
     expected_keys = {
         "alias_runs", "rejection_runs", "state_snapshots", "process_isolation",
         "transaction_checks", "caller_environment", "execution_hijack",
@@ -375,6 +375,7 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
     if not isinstance(value, dict) or set(value) != expected_keys:
         _fail(f"{platform} observed installer evidence fields are not exact")
 
+    coverage: set[str] = set()
     aliases = value["alias_runs"]
     expected_aliases = [
         (target, alias) for target in ("stable", "test") for alias in ("testing", "beta")
@@ -397,16 +398,16 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
         if record != expected:
             _fail(f"{platform} alias {target}/{alias} did not observe fixed channel identity")
 
+    coverage.add("channel-aliases")
     rejections = value["rejection_runs"]
     if not isinstance(rejections, list) or len(rejections) < 12:
         _fail(f"{platform} rejection observations are incomplete")
     probe_counts: dict[str, int] = {}
+    probe_wrappers: dict[str, set[str]] = {}
     extension = ".ps1" if platform == "windows" else ".sh"
     for record in rejections:
-        if not isinstance(record, dict) or set(record) != {
-            "wrapper", "probe", "observed_exit_code", "diagnostic",
-            "raw_output", "raw_output_sha256",
-        }:
+        rejection_fields = {"wrapper", "probe", "observed_exit_code", "diagnostic", "raw_output", "raw_output_sha256"}
+        if not isinstance(record, dict) or not rejection_fields.issubset(record) or not set(record).issubset(rejection_fields | {"observed_exception"}):
             _fail(f"{platform} rejection observation fields are invalid")
         wrapper = record.get("wrapper")
         probe = record.get("probe")
@@ -417,8 +418,9 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
             _fail(f"{platform} rejection wrapper is invalid")
         if not isinstance(probe, str) or not probe:
             _fail(f"{platform} rejection probe is invalid")
-        if type(exit_code) is not int or exit_code == 0:
-            _fail(f"{platform} rejection did not observe a nonzero exit")
+        exception = record.get("observed_exception", False)
+        if type(exception) is not bool or type(exit_code) is not int or (exit_code == 0 and not exception):
+            _fail(f"{platform} rejection did not observe an exit failure or exception")
         if not isinstance(diagnostic, str) or not diagnostic:
             _fail(f"{platform} rejection diagnostic is invalid")
         if not isinstance(raw_output, str) or diagnostic.lower() not in raw_output.lower():
@@ -426,6 +428,7 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
         if record.get("raw_output_sha256") != _sha256_bytes(raw_output.encode("utf-8")):
             _fail(f"{platform} rejection raw output digest mismatch")
         probe_counts[probe] = probe_counts.get(probe, 0) + 1
+        probe_wrappers.setdefault(probe, set()).add(wrapper)
     for required, minimum in {
         "extra-arguments": 4,
         "opposite-channel-manifest": 4,
@@ -435,6 +438,11 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
         if probe_counts.get(required, 0) < minimum:
             _fail(f"{platform} rejection coverage is missing {required}")
 
+    expected_wrappers = {spec[2] for spec in _observation_specs(platform)}
+    for probe in ("extra-arguments", "opposite-channel-manifest"):
+        if probe_wrappers.get(probe) != expected_wrappers:
+            _fail(f"{platform} rejection coverage does not test every public wrapper: {probe}")
+    coverage.update({"argument-rejection-before-network", "opposite-channel", "forged-update-source"})
     snapshots = value["state_snapshots"]
     expected_scopes = [
         "caller-controlled-paths",
@@ -454,6 +462,7 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
         if not isinstance(before, str) or SHA256.fullmatch(before) is None or after != before:
             _fail(f"{platform} preserved-state snapshot changed")
 
+    coverage.update({"foreign-data-cache", "other-channel-state-preserved"})
     processes = value["process_isolation"]
     if not isinstance(processes, list) or not processes:
         _fail(f"{platform} process-isolation observations are missing")
@@ -465,11 +474,14 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
             _fail(f"{platform} process-isolation observation fields are invalid")
         if record.get("target_channel") not in {"stable", "test"}:
             _fail(f"{platform} process-isolation target channel is invalid")
+        if any(not isinstance(record.get(key), str) or not record[key] for key in ("target_process", "opposite_process")) or record["target_process"] == record["opposite_process"]:
+            _fail(f"{platform} process-isolation process names are invalid")
         if type(record.get("target_exit_code")) is not int:
             _fail(f"{platform} target process has no observed exit code")
         if record.get("opposite_process_observed_running") is not True:
             _fail(f"{platform} opposite-channel process was not observed alive")
 
+    coverage.add("exact-process-isolation")
     transactions = value["transaction_checks"]
     required_transactions = {
         "invalid-bundle-entry-rollback",
@@ -478,28 +490,37 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
         "post-skills-rollback",
         "committed-update-database-snapshot",
     }
-    if not isinstance(transactions, list) or {row.get("probe") for row in transactions if isinstance(row, dict)} != required_transactions:
+    if not isinstance(transactions, list) or len(transactions) != len(required_transactions) or {row.get("probe") for row in transactions if isinstance(row, dict)} != required_transactions:
         _fail(f"{platform} transaction observations are incomplete")
     for record in transactions:
-        allowed = {"probe", "expected_version", "observed_version", "database_sha256", "snapshot_sha256"}
+        allowed = {"probe", "expected_version", "observed_version", "database_sha256", "database_before_sha256", "snapshot_sha256", "observed_exit_code", "observed_exception"}
         if not isinstance(record, dict) or not set(record).issubset(allowed) or not {
-            "probe", "expected_version", "observed_version", "database_sha256"
+            "probe", "expected_version", "observed_version", "database_sha256", "database_before_sha256", "observed_exit_code"
         }.issubset(record):
             _fail(f"{platform} transaction observation fields are invalid")
-        if record["expected_version"] != record["observed_version"]:
+        expected_version = ("9.9.14" if platform == "windows" else "9.9.4") if record["probe"] == "committed-update-database-snapshot" else ("9.9.9" if platform == "windows" else "9.9.1")
+        if record["expected_version"] != expected_version or record["expected_version"] != record["observed_version"]:
             _fail(f"{platform} transaction did not retain/commit the expected version")
         if not isinstance(record["database_sha256"], str) or SHA256.fullmatch(record["database_sha256"]) is None:
             _fail(f"{platform} transaction database digest is invalid")
+        if record["database_before_sha256"] != record["database_sha256"]:
+            _fail(f"{platform} transaction changed the business database")
+        exit_code = record["observed_exit_code"]
+        exception = record.get("observed_exception", False)
+        if type(exception) is not bool or type(exit_code) is not int or (exit_code == 0 and not exception) != (record["probe"] == "committed-update-database-snapshot"):
+            _fail(f"{platform} transaction exit code does not match its probe")
         if record["probe"] == "committed-update-database-snapshot":
             if record.get("snapshot_sha256") != record["database_sha256"]:
                 _fail(f"{platform} committed update snapshot did not preserve the database")
 
+    coverage.add("transactional-rollback")
     caller = value["caller_environment"]
     if not isinstance(caller, dict) or set(caller) != {"before_sha256", "after_sha256"}:
         _fail(f"{platform} caller-environment observation fields are invalid")
     if not isinstance(caller["before_sha256"], str) or SHA256.fullmatch(caller["before_sha256"]) is None or caller["after_sha256"] != caller["before_sha256"]:
         _fail(f"{platform} caller environment changed")
 
+    coverage.add("caller-environment-preserved")
     hijack = value["execution_hijack"]
     if not isinstance(hijack, dict) or set(hijack) != {
         "probes", "protected_before_sha256", "protected_after_sha256", "marker_observed_count"
@@ -515,6 +536,17 @@ def _validate_observed_installer_evidence(value: Any, *, platform: str) -> None:
     ):
         _fail(f"{platform} caller-controlled execution probe was not preserved")
 
+    coverage.add("command-hijack-resistance")
+    return sorted(coverage)
+
+
+def verified_installer_coverage(payload: dict[str, Any], *, platform: str) -> list[str]:
+    """Derive coverage only after every required observation has been checked."""
+    coverage = _validate_observed_installer_evidence(payload.get("observed_evidence"), platform=platform)
+    # Entrypoint bytes, requests and process inventories are verified separately
+    # by verify_installer_report before this derived inventory can be published.
+    return sorted([*coverage, "immutable-canonical-source"])
+
 
 def verify_installer_report(
     report: Path, *, installer_source: Path, artifact_root: Path,
@@ -524,7 +556,7 @@ def verify_installer_report(
     raw, payload = _strict_json_file(report, label=f"{platform} installer transaction report")
     expected_keys = {
         "schema", "project", "build_run_id", "root_commit", "cli_commit", "version",
-        "platform", "channel", "entrypoint_observations",
+        "platform", "channel", "entrypoint_observations", "observed_evidence",
     }
     if set(payload) != expected_keys:
         _fail(f"{platform} installer transaction report fields are not exact")
@@ -534,45 +566,91 @@ def verify_installer_report(
         cli_commit=cli_commit, version=version, channel=channel,
         platform=platform, bundle=False,
     )
+    _validate_observed_installer_evidence(payload.get("observed_evidence"), platform=platform)
     observations = payload.get("entrypoint_observations")
     specs = _observation_specs(platform)
     if not isinstance(observations, list) or len(observations) != len(specs):
         _fail(f"{platform} entrypoint observation inventory is incomplete")
-    extension = "ps1" if platform == "windows" else "sh"
     for record, (observed_channel, operation, wrapper_name, fixture_version) in zip(observations, specs, strict=True):
         expected_keys = {
-            "channel", "operation", "wrapper_path", "wrapper_sha256",
-            "canonical_manifest_url", "manifest_request_path", "core_path", "core_sha256",
-            "core_request_path", "effective_core_channel", "effective_core_marker",
+            "channel", "operation", "entrypoint_path", "entrypoint_sha256",
+            "canonical_manifest_url", "manifest_request_path", "observed_request_paths",
+            "effective_channel", "effective_channel_marker", "execution_model",
+            "secondary_shell_observed_count", "secondary_shells", "internal_helper",
         }
         if not isinstance(record, dict) or set(record) != expected_keys:
             _fail(f"{platform} {wrapper_name} observation fields are invalid")
-        core_name = f"{operation}-core.{extension}"
-        wrapper_source = installer_source / wrapper_name
-        core_source = installer_source / core_name
+        entrypoint_source = installer_source / wrapper_name
         canonical = f"{CENTRAL_ORIGIN}/projects/redbeacon/{observed_channel}/latest.json"
-        expected = {
+        manifest_request = f"/projects/redbeacon/{observed_channel}/latest.json"
+        expected_base = {
             "channel": observed_channel,
             "operation": operation,
-            "wrapper_path": f"install/{wrapper_name}",
-            "wrapper_sha256": _sha256_file(wrapper_source),
+            "entrypoint_path": f"install/{wrapper_name}",
+            "entrypoint_sha256": _sha256_file(entrypoint_source),
             "canonical_manifest_url": canonical,
-            "manifest_request_path": f"/projects/redbeacon/{observed_channel}/latest.json",
-            "core_path": f"install/{core_name}",
-            "core_sha256": _sha256_file(core_source),
-            "core_request_path": f"/projects/redbeacon/{observed_channel}/releases/{fixture_version}/installers/{core_name}",
-            "effective_core_channel": observed_channel,
-            "effective_core_marker": f"BYTESTAFF_SMOKE_CORE_CHANNEL={observed_channel}",
+            "manifest_request_path": manifest_request,
+            "effective_channel": observed_channel,
+            "effective_channel_marker": f"BYTESTAFF_SMOKE_CORE_CHANNEL={observed_channel}",
         }
-        if record != expected:
+        for key, expected_value in expected_base.items():
+            if record.get(key) != expected_value:
+                _fail(f"{platform} {wrapper_name} observation is not byte/request/channel exact")
+        request_paths = record.get("observed_request_paths")
+        if (
+            not isinstance(request_paths, list)
+            or not request_paths
+            or any(not isinstance(path, str) or not path.startswith("/") for path in request_paths)
+            or manifest_request not in request_paths
+        ):
+            _fail(f"{platform} {wrapper_name} observed request inventory is invalid")
+        shells = record.get("secondary_shells")
+        if not isinstance(shells, list) or type(record.get("secondary_shell_observed_count")) is not int or len(shells) != record["secondary_shell_observed_count"]:
+            _fail(f"{platform} {wrapper_name} shell observation inventory is invalid")
+        for shell in shells:
+            if not isinstance(shell, dict) or set(shell) != {"pid", "command"} or type(shell["pid"]) is not int or shell["pid"] <= 0 or not isinstance(shell["command"], str) or not shell["command"]:
+                _fail(f"{platform} {wrapper_name} shell observation is invalid")
+        if len({shell["pid"] for shell in shells}) != len(shells):
+            _fail(f"{platform} {wrapper_name} shell observations repeat a process")
+        if operation == "install":
+            if (
+                record.get("execution_model") != "single-stage-public-entrypoint"
+                or record.get("secondary_shell_observed_count") != 0
+                or record.get("internal_helper") is not None
+                or any("/installers/install-core." in path for path in request_paths)
+            ):
+                _fail(f"{platform} {wrapper_name} did not execute as one public installer stage")
+        else:
+            extension = "ps1" if platform == "windows" else "sh"
+            core_name = f"uninstall-core.{extension}"
+            core_source = installer_source / core_name
+            core_request = (
+                f"/projects/redbeacon/{observed_channel}/releases/{fixture_version}/"
+                f"installers/{core_name}"
+            )
+            expected_helper = {
+                "path": f"install/{core_name}",
+                "sha256": _sha256_file(core_source),
+                "request_path": core_request,
+            }
+            if (
+                record.get("execution_model") != "public-entrypoint-with-internal-helper"
+                or record.get("secondary_shell_observed_count") != 1
+                or record.get("internal_helper") != expected_helper
+                or core_request not in request_paths
+            ):
+                _fail(f"{platform} {wrapper_name} uninstaller helper observation is invalid")
+        if record.get("effective_channel") != observed_channel:
             _fail(f"{platform} {wrapper_name} observation is not byte/request/channel exact")
         if observed_channel == channel:
-            artifact_wrapper = artifact_root / "installers" / wrapper_name
-            artifact_core = artifact_root / "installers" / core_name
-            if _sha256_file(artifact_wrapper) != expected["wrapper_sha256"]:
-                _fail(f"{platform} release wrapper changed after installer smoke: {wrapper_name}")
-            if _sha256_file(artifact_core) != expected["core_sha256"]:
-                _fail(f"{platform} release core changed after installer smoke: {core_name}")
+            artifact_entrypoint = artifact_root / "installers" / wrapper_name
+            if _sha256_file(artifact_entrypoint) != expected_base["entrypoint_sha256"]:
+                _fail(f"{platform} release entrypoint changed after installer smoke: {wrapper_name}")
+            helper = record.get("internal_helper")
+            if isinstance(helper, dict):
+                helper_name = Path(str(helper["path"])).name
+                if _sha256_file(artifact_root / "installers" / helper_name) != helper["sha256"]:
+                    _fail(f"{platform} release helper changed after installer smoke: {helper_name}")
     return raw, payload
 
 
@@ -599,6 +677,8 @@ def merge_evidence(
     app_name, _ = _expected_names(channel)
     platform_rows: list[dict[str, Any]] = []
     target_entrypoints: list[dict[str, Any]] = []
+    bundle_coverage: list[set[str]] = []
+    installer_coverage: list[set[str]] = []
     for platform in ("macos", "windows"):
         platform_tag = "mac-arm64" if platform == "macos" else "win-x64"
         package = artifact_root / "packages" / f"{app_name}-{platform_tag}.zip"
@@ -613,6 +693,8 @@ def merge_evidence(
             root_commit=root_commit, cli_commit=cli_commit, version=version,
             channel=channel, platform=platform,
         )
+        bundle_coverage.append(set(bundle_payload["assertions"]))
+        installer_coverage.append(set(verified_installer_coverage(installer_payload, platform=platform)))
         report_rows = []
         for kind, report_raw in (("frozen-bundle", bundle_raw), ("installer-transaction", installer_raw)):
             relative = f"metadata/raw/{kind}-smoke-{platform}.json"
@@ -633,21 +715,27 @@ def merge_evidence(
         for record in installer_payload["entrypoint_observations"]:
             if record["channel"] != channel:
                 continue
-            wrapper_name = Path(record["wrapper_path"]).name
-            core_name = Path(record["core_path"]).name
-            target_entrypoints.append({
+            entrypoint_name = Path(record["entrypoint_path"]).name
+            entrypoint = {
                 "operation": record["operation"],
                 "platform": platform,
-                "path": f"installers/{wrapper_name}",
-                "sha256": record["wrapper_sha256"],
+                "path": f"installers/{entrypoint_name}",
+                "sha256": record["entrypoint_sha256"],
                 "canonical_manifest_url": record["canonical_manifest_url"],
                 "fixed_channel_argument": channel,
                 "observed_manifest_request_path": record["manifest_request_path"],
-                "internal_helper_path": f"installers/{core_name}",
-                "internal_helper_sha256": record["core_sha256"],
-                "observed_core_request_path": record["core_request_path"],
-                "observed_effective_core_channel": record["effective_core_channel"],
-            })
+                "internal_helper_path": None,
+                "internal_helper_sha256": None,
+                "observed_core_request_path": None,
+                "observed_effective_core_channel": record["effective_channel"],
+            }
+            helper = record["internal_helper"]
+            if helper is not None:
+                helper_name = Path(helper["path"]).name
+                entrypoint["internal_helper_path"] = f"installers/{helper_name}"
+                entrypoint["internal_helper_sha256"] = helper["sha256"]
+                entrypoint["observed_core_request_path"] = helper["request_path"]
+            target_entrypoints.append(entrypoint)
 
     payload = {
         "schema": RECEIPT_SCHEMA,
@@ -660,8 +748,8 @@ def merge_evidence(
         "platforms": platform_rows,
         "entrypoints": target_entrypoints,
         "verified_coverage": {
-            "frozen_bundle": BUNDLE_ASSERTIONS,
-            "installer_transaction": DERIVED_INSTALLER_CASES,
+            "frozen_bundle": sorted(set.intersection(*bundle_coverage)),
+            "installer_transaction": sorted(set.intersection(*installer_coverage)),
         },
     }
     _exclusive_write(

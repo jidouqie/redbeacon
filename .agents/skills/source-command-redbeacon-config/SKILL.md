@@ -36,10 +36,10 @@ metadata:
 | 登录 / 重新登录平台 | `redbeacon login`（device flow，见 A 段）→ `redbeacon checkin` 看剩余算力点 |
 | 查算力点 / 是否登录 | `redbeacon checkin`（拉剩余算力点）｜`redbeacon login status`（只看是否登录） |
 | 退出平台登录 | `redbeacon login logout` |
-| 改 / 加代理 | `config set proxy_api_url <x>` → `config test-proxy` |
+| 改 / 加代理 | 转 `/source-command-redbeacon-accounts`，按账号保存固定代理并验证 |
 | 调发布节奏 | `config set publish_min_interval/publish_max_interval/publish_account_stagger <秒>`（防限流，号多调大） |
 | 看某项配置 / 列全部 | `config get <key>` ／ `config list`（加密项已设的回 `__SET__`） |
-| **删掉某项配置**（不是设空、是删行） | `config unset <key>`（如清掉代理链接 `config unset proxy_api_url`） |
+| **删掉某项配置**（不是设空、是删行） | `config unset <key>`（账号代理请在账号管理中关闭或清除） |
 
 > 单项修改做完即结束，不要顺手把其他项也重问一遍。
 > **`config unset` vs `config set key ""`**：unset 是删掉整行配置、彻底不存在；set 空值是留个空字符串。用户说「把代理删了/清掉这个配置」用 unset。
@@ -59,7 +59,7 @@ redbeacon config list
 | 顺序 | 检测项 | 看哪里 | 必需性 |
 |---|---|---|---|
 | ① | 平台登录（设备令牌）| `login status` → `logged_in=true` ／ readiness `checks.platform_ok` | **必需** |
-| ② | 代理 API 链接 | `config list` → `proxy_api_url` | **可选，可跳过** |
+| ② | 账号专属代理 | 建号后在账号管理设置，或 `accounts proxy --account-id {ID}` 查看 | **可选，可跳过** |
 
 > readiness `stage1` = ①平台登录没齐。「配置完成」= ①平台已登录（②代理无论配没配都不阻塞）。
 
@@ -107,28 +107,11 @@ redbeacon checkin
 
 ---
 
-## C 段：代理配置（可选，可跳过）
+## C 段：账号专属代理（可选）
 
-**先问用户，给编号选项**（代理=多账号防关联、每次发布换 IP，单账号一般用不上）：
+代理已移到「账号管理」每个账号的卡片。用户已经提供代理时，按 `/source-command-redbeacon-accounts` 的统一入口填写协议、IP / 域名、端口、用户名和密码，并启用到用户指定的账号；用户未指定账号时只补问要应用到哪个账号。
 
-> 要配代理吗？回个数字：
-> 1. 不用（**推荐**，单账号/不做矩阵就不需要，跳过不影响后面）
-> 2. 要配，我有巨量的 `getips` 链接 —— 发我
-> 3. 要配，但还没代理账号 —— 我给你开注册页
-
-- **回 1 / 不需要** → 不配，跳过。
-- **回 3 / 没账号** → 打开注册页：`open "https://www.juliangip.com/user/reg?inviteCode=1001359"`，注册后在巨量后台「提取代理 → API 提取」生成 `getips` 链接贴过来。
-
-拿到后三条一起配（**第二条不开，代理等于白配**）：
-
-```bash
-redbeacon config set proxy_api_url "<巨量 getips 链接>"
-redbeacon config set proxy_auto_rotate true    # ★必须开：发布时才会真的换 IP
-redbeacon config set proxy_speed_test true     # 默认开：用当前账号 Cookie 浏览器打开小红书首页验证
-redbeacon config test-proxy
-```
-
-`test-proxy` 只确认 API 能取回格式有效的候选 IP；真正发布前会把候选 IP 挂到对应账号浏览器上打开小红书首页，打不开就换下一条。连续 5 条都不可用时停止本次发布，不会改用直连。失败时核对 trade_no / sign / 套餐余额。
+不再设置全局代理，不调用取 IP 链接，不自动轮换。同一条代理不能同时启用到多个账号。检测必须使用对应账号的登录状态；通过普通请求只能说明线路可达，不能宣告小红书账号已验证。用户不需要代理时直接跳过。
 
 ---
 

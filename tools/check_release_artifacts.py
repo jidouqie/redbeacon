@@ -17,6 +17,9 @@ from write_channel_isolation_receipt import (
     BUNDLE_ASSERTIONS,
     DERIVED_INSTALLER_CASES,
     FROZEN_IDENTITY_SCHEMA,
+    EvidenceError,
+    verify_bundle_report,
+    verify_installer_report,
 )
 
 
@@ -106,8 +109,6 @@ def main() -> None:
         f"installers/uninstall{suffix}.ps1",
     }
     internal_installers = {
-        "installers/install-core.sh",
-        "installers/install-core.ps1",
         "installers/uninstall-core.sh",
         "installers/uninstall-core.ps1",
     }
@@ -217,18 +218,18 @@ def main() -> None:
     )
     actual_entrypoints: set[tuple[object, object, object]] = set()
     for entry in identity.get("entrypoints", []):
-        if not isinstance(entry, dict) or set(entry) != {
+        expected_keys = {
             "operation", "platform", "path", "sha256", "canonical_manifest_url",
             "fixed_channel_argument", "observed_manifest_request_path",
             "internal_helper_path", "internal_helper_sha256",
             "observed_core_request_path", "observed_effective_core_channel",
-        }:
+        }
+        if not isinstance(entry, dict) or set(entry) != expected_keys:
             fail("channel identity public entrypoint declaration is invalid")
         operation = entry.get("operation")
         platform_name = entry.get("platform")
         relative = entry.get("path")
         extension = "ps1" if platform_name == "windows" else "sh"
-        helper = f"installers/{operation}-core.{extension}"
         if not isinstance(relative, str) or relative not in public_installers:
             fail("channel identity declares a non-current public entrypoint")
         if entry.get("sha256") != sha256_file(root / relative):
@@ -237,14 +238,31 @@ def main() -> None:
             entry.get("canonical_manifest_url") != canonical
             or entry.get("fixed_channel_argument") != args.channel
             or entry.get("observed_manifest_request_path") != f"/projects/redbeacon/{args.channel}/latest.json"
-            or entry.get("internal_helper_path") != helper
-            or entry.get("internal_helper_sha256") != sha256_file(root / helper)
             or entry.get("observed_effective_core_channel") != args.channel
-            or not isinstance(entry.get("observed_core_request_path"), str)
-            or not entry["observed_core_request_path"].startswith(f"/projects/redbeacon/{args.channel}/releases/")
-            or not entry["observed_core_request_path"].endswith(f"/installers/{operation}-core.{extension}")
         ):
             fail(f"channel identity observation is not exact: {relative}")
+        if operation == "install":
+            if (
+                entry.get("internal_helper_path") is not None
+                or entry.get("internal_helper_sha256") is not None
+                or entry.get("observed_core_request_path") is not None
+            ):
+                fail(f"public installer is not proven single-stage: {relative}")
+        elif operation == "uninstall":
+            helper = f"installers/uninstall-core.{extension}"
+            helper_request_suffix = f"/installers/uninstall-core.{extension}"
+            if (
+                entry.get("internal_helper_path") != helper
+                or entry.get("internal_helper_sha256") != sha256_file(root / helper)
+                or not isinstance(entry.get("observed_core_request_path"), str)
+                or not entry["observed_core_request_path"].startswith(
+                    f"/projects/redbeacon/{args.channel}/releases/"
+                )
+                or not entry["observed_core_request_path"].endswith(helper_request_suffix)
+            ):
+                fail(f"public uninstaller helper observation is invalid: {relative}")
+        else:
+            fail(f"unknown public entrypoint operation: {relative}")
         actual_entrypoints.add((operation, platform_name, relative))
         text = (root / relative).read_text(encoding="utf-8")
         lines = text.splitlines()
@@ -256,8 +274,44 @@ def main() -> None:
             fail(f"public entrypoint lacks the exact canonical marker: {relative}")
         if lines.count(f"# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: {args.channel}") != 1:
             fail(f"public entrypoint lacks the exact fixed-channel marker: {relative}")
-        leaked = [name for name in FORBIDDEN_AMBIENT_INPUTS if name in text.upper()]
-        if leaked or "--redbeacon-" in text:
+        opposite = "test" if args.channel == "stable" else "stable"
+        opposite_canonical = (
+            "https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/"
+            f"projects/redbeacon/{opposite}/latest.json"
+        )
+        if opposite_canonical in text:
+            fail(f"public entrypoint contains the opposite-channel canonical: {relative}")
+        if operation == "install":
+            lower_text = text.lower()
+            fixed_channel_line = (
+                f'CHANNEL="{args.channel}"'
+                if platform_name == "macos" else f'$Channel = "{args.channel}"'
+            )
+            fixed_manifest_line = (
+                f'MANIFEST_URL="{canonical}"'
+                if platform_name == "macos"
+                else f'$script:CanonicalManifestUrl = "{canonical}"'
+            )
+            if lines.count(fixed_channel_line) != 1 or lines.count(fixed_manifest_line) != 1:
+                fail(f"public installer fixed identity assignment is not exact: {relative}")
+            if "install-core" in lower_text:
+                fail(f"public installer still delegates to install-core: {relative}")
+            if platform_name == "windows" and (
+                "powershellexe" in lower_text
+                or re.search(
+                    r"(?im)^\s*(?:&\s*)?(?:['\"]?[^\s'\"]*[\\/])?"
+                    r"(?:powershell|pwsh)(?:\.exe)?['\"]?(?:\s|$)",
+                    lower_text,
+                )
+            ):
+                fail(f"public Windows installer starts or locates a second PowerShell: {relative}")
+            if platform_name == "macos" and re.search(r"(?:^|[;&|])\s*/bin/bash(?:\s|$)", text, re.MULTILINE):
+                fail(f"public macOS installer starts a second Bash process: {relative}")
+        else:
+            leaked = [name for name in FORBIDDEN_AMBIENT_INPUTS if name in text.upper()]
+            if leaked:
+                fail(f"public uninstaller exposes ambient identity: {relative}")
+        if "--redbeacon-" in text:
             fail(f"public entrypoint exposes ambient identity: {relative}")
     if actual_entrypoints != expected_entrypoints:
         fail("channel identity public entrypoint inventory is incomplete")
@@ -361,6 +415,24 @@ def main() -> None:
             or payload.get("commit", payload.get("root_commit")) != evidence.get("contract_commit")
         ):
             fail(f"raw smoke report coordinates are invalid: {relative}")
+        coordinates = dict(
+            build_run_id=evidence["build_run_id"], root_commit=evidence["contract_commit"],
+            cli_commit=evidence["cli_commit"], version=args.version,
+            channel=args.channel, platform=str(platform_name),
+        )
+        try:
+            if kind == "installer-transaction":
+                verify_installer_report(
+                    root / relative, installer_source=Path(__file__).resolve().parent.parent / "install",
+                    artifact_root=root, **coordinates,
+                )
+            elif kind == "frozen-bundle":
+                verify_bundle_report(
+                    root / relative, package=root / expected_package_paths[str(platform_name)],
+                    **coordinates,
+                )
+        except (EvidenceError, OSError) as exc:
+            fail(f"raw smoke report verification failed: {relative}: {exc}")
         raw_by_platform[str(platform_name)].append({
             "kind": str(kind), "path": relative, "sha256": str(item["sha256"]),
         })

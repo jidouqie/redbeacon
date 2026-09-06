@@ -136,8 +136,6 @@ def _channel_identity(
     if receipt.get("schema") != CHANNEL_SMOKE_RECEIPT_SCHEMA:
         raise RuntimeError("channel isolation merger returned an unsupported receipt")
     helpers = [
-        "installers/install-core.ps1",
-        "installers/install-core.sh",
         "installers/uninstall-core.ps1",
         "installers/uninstall-core.sh",
     ]
@@ -361,8 +359,6 @@ def main() -> None:
         f"install{suffix}.ps1",
         f"uninstall{suffix}.sh",
         f"uninstall{suffix}.ps1",
-        "install-core.sh",
-        "install-core.ps1",
         "uninstall-core.sh",
         "uninstall-core.ps1",
     ):
