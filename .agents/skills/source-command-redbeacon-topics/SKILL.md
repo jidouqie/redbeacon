@@ -3,6 +3,7 @@ name: source-command-redbeacon-topics
 description: "选题规划会 — 不知道写什么就托管给 AI：按账号定位联网找当下真实热点/痛点/事件 → 针对性推荐选题 → 你拍板入库；也可自己抛想法我顺着展开。首铺/补题/重铺选题都走这"
 metadata:
   short-description: "选题规划会"
+  redbeacon-channel: stable
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。

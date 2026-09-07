@@ -3,6 +3,7 @@ name: source-command-redbeacon-locate
 description: "账号定位 — 对话梳理赛道/受众/差异化/变现 → 写本机账号档案 → 生成种子选题入选题库"
 metadata:
   short-description: "账号定位"
+  redbeacon-channel: stable
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。

@@ -29,3 +29,5 @@ jobs:
       - run: python -m unittest discover -s tools/tests -p test_channel_skills.py
       - run: python tools/check_entrypoint_drift.py
       - run: python -m unittest discover -s tools/tests -p test_entrypoint_drift.py
+      - run: python tools/sync-codex-skills.py --check
+      - run: python -m unittest discover -s tools/tests -p test_repository_artifacts.py

@@ -3,6 +3,7 @@ name: source-command-redbeacon-note-style
 description: "用户贴一篇小红书笔记链接并说“照这篇做、仿写这篇、想做成这样的笔记”时，学习该笔记的文案节奏和封面画面结构，预览后沉淀为当前账号的内容方案"
 metadata:
   short-description: "用户贴一篇小红书笔记链接并说“照这篇做、仿写这篇、想做成这样的笔记”时，学习该笔记的文案节奏和封面画面结构，预览后沉淀为"
+  redbeacon-channel: stable
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。

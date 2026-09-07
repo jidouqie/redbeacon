@@ -18,4 +18,6 @@
 
 在仓库根目录运行 `python tools/build_channel_skills.py --channel test --out-dir <生成目录>` 生成测试版；正式版选择 `stable`。输出完整校验通过后才替换旧输出。`python tools/sync-codex-skills.py --workspace-only` 会先渲染 stable，再派生仓库工作台副本，不修改已安装的用户 skill。
 
+仓库工作台副本继续入库，公开 CI 用 `python tools/sync-codex-skills.py --check` 逐字校验。该检查不依赖私有 CLI，且不会改写文件；取舍与回执保留规则见 [仓库产物规则](repository-artifact-policy.md)。
+
 本契约不改变官网安装 URL、安装脚本或客户端 updater。

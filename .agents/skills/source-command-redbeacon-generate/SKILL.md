@@ -3,6 +3,7 @@ name: source-command-redbeacon-generate
 description: "生成内容 — 按 AI 客户端实际能力优先使用宿主文案与生图；缺失或失败时自动由 RedBeacon 平台与本机文字卡兜底"
 metadata:
   short-description: "生成内容"
+  redbeacon-channel: stable
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取当前系统的 `installers/install.ps1` 或 `installers/install.sh` URL 并执行；不得猜版本、包名、节点地址或直接解压客户端。

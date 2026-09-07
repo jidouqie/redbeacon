@@ -3,6 +3,7 @@ name: source-command-redbeacon-strategy
 description: "策略微调 — 单点调整账号定位 / 文案预设 / 图片预设，改哪项只动哪项"
 metadata:
   short-description: "策略微调"
+  redbeacon-channel: stable
 ---
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
