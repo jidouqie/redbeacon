@@ -110,11 +110,11 @@ SCP_OPTIONS=(
 )
 WINDOWS_CMD='C:\Windows\System32\cmd.exe'
 WINDOWS_POWERSHELL='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
-WINDOWS_BUILD_PATH='C:\RedBeaconBuildTools;C:\Windows\System32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0'
+WINDOWS_BUILD_PATH='C:\RedBeaconBuildTools;C:\Program Files\Git\cmd;C:\Windows\System32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0'
 
 echo "==> Checking Windows build VM: $WINDOWS_HOST"
 ssh "${SSH_OPTIONS[@]}" "$WINDOWS_HOST" \
-  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&where uv.exe&&uv --version\""
+  "$WINDOWS_CMD /d /c \"set PATH=$WINDOWS_BUILD_PATH&&where uv.exe&&uv --version&&where git.exe&&git --version\""
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT

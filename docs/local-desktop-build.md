@@ -36,6 +36,7 @@ Windows 11 on Arm 支持运行 x86/x64 用户态程序，因此 ARM64 虚拟机�
 1. `cli/` 必须先提交且工作区干净。
 2. 编排器只创建一次 `git archive HEAD`；Mac 本机与 Windows VM 必须使用这一个归档。
 3. 工具链版本来自 `cli/packaging/build-versions.env`，两端都不能临时升级。
+   Windows 构建机还需安装 Git for Windows，命令位于 `C:\Program Files\Git\cmd\git.exe`；编排器会在 Mac 打包前检查 Git 和 uv。Git 供源码质量检查与回归测试使用，不随客户端分发。
 4. Mac 和 Windows 各自跑全量测试、PyInstaller、浏览器预热、真实卡片渲染和桌面启动 smoke。
 5. Windows 还要确认 GUI、CLI、渲染器三个 PE 都是 `0x8664 (AMD64)`，并运行 PowerShell 安装事务 smoke。
 6. 两端全部成功后才组装完整 `release-artifacts/` 并写 `metadata/build-evidence.json`。构建过程不读取 OSS 凭据、不上传、不切 canonical manifest。
