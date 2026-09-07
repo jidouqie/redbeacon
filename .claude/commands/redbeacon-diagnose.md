@@ -143,7 +143,7 @@ redbeacon topics list --account-id {ID} --stage 选题  # 看库存选题是不�
 
 - **定位字段** → 把 `{"字段":"新值"}` 写入 `strategy.json`，再执行 `redbeacon strategy patch --account-id {ID} --data-file strategy.json`（只传要改的）
 - **文案风格** → 改全局「文案指南」`copy_guide`：把 `{"copy_guide":"一句人话写法指引"}` 写入 `strategy.json`，再执行 `redbeacon strategy patch --account-id {ID} --data-file strategy.json`（别写 JSON/占位符，程序会自动拼；按内容类型分别设写作要求已退役、统一收进 copy_guide）
-- **图片预设** → `redbeacon strategy image-set --account-id {ID} --data-file image.json`。AI 封面是「**大字报**」（标题大字直接画进图）：用户说封面哪不对（「太暗」「字太小」「想要性冷淡风」「想放我本人」），你把视觉风格写进 `prompt_template`；可只写一句人话风格，程序会补标题大字和竖版比例，强控制时再写结构化提示词（写法见 `/redbeacon-strategy` C 段）；想**放真人**就让用户发照片、`strategy image-ref-add` 存为参考图走图生图；换配色改 `card_theme`，换配图方式改 `mode`（cards/both/ai）
+- **图片预设** → `redbeacon strategy image-set --account-id {ID} --data-file image.json`。AI 封面是「**大字报**」（标题大字直接画进图）：用户说封面哪不对（「太暗」「字太小」「想要性冷淡风」「想放我本人」），你把视觉风格写进 `prompt_template`；可只写一句人话风格，程序会补标题大字和竖版比例，强控制时再写结构化提示词（写法见 `/redbeacon-strategy` C 段）；想**放真人**就让用户发照片，用 `plans list` 选定实际生成方案，再用 `plans material --account-id {ID} --plan-id {PLAN_ID} --file "<本地图片路径>"` 挂入参考图，生成时选择同一方案；换配色改 `card_theme`，换配图方式改 `mode`（cards/both/ai）
 - **选题** → 删旧补新：按 record_id `redbeacon topics delete` 删掉跑偏的，再重新 `redbeacon topics batch`/`topics add`；选题方向不对时连带回查 `pain_points`
 
 > 复杂改动可直接引导到 `/redbeacon-strategy`（它有每类的完整操作），诊断负责"定位问题 + 给方向"，策略负责"执行修改"。两者配合。

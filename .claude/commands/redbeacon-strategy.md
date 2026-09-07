@@ -124,9 +124,10 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 
 > ⚠️ 视觉配置都在本机账号档案（`image-set` 一条命令照常传，底层各归各位）：
 > - **默认配图方式（mode）+ 视觉风格那句人话（prompt_template）**：看现状用 `strategy get` 的 `default_image_mode`/`visual_theme`。
-> - **卡片配色(card_theme) / 参考图 / AI 图模板**：看现状用 `image-get`。
+> - **卡片配色(card_theme)**：看现状用 `image-get`。
+> - **参考图和整套视觉模板**：属于实际生成时选择的内容方案，用 `plans get` / `plans material` / `plans save` 管理。
 
-看本地那半（卡片配色 + 参考图 + 图片模板列表）：
+看本地卡片配色：
 
 ```bash
 redbeacon strategy image-get --account-id {ID}
@@ -159,18 +160,23 @@ redbeacon strategy image-set --account-id {ID} --data-file image.json
 **参考图（图生图）**——用户想用自己的照片/某张风格图当封面素材：
 
 ```bash
-redbeacon strategy image-ref-add    --account-id {ID} --file "<本地图片路径>"   # 存进数据目录、登记
-redbeacon strategy image-ref-list   --account-id {ID}                          # 看已存参考图（带序号）
-redbeacon strategy image-ref-remove --account-id {ID} --index 0                # 删单张（按 image-ref-list 的序号，或 --file 路径）
-redbeacon strategy image-ref-clear  --account-id {ID}                          # 清空全部
+redbeacon plans list --account-id {ID}
+redbeacon plans get --account-id {ID} --plan-id {PLAN_ID}
+redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --file "<本地图片路径>"
+redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --remove "<方案 reference_images 中的路径>"
+redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --clear
 ```
 
-> **🗑️ `image-ref-remove` / `image-ref-clear` 默认连磁盘文件一起删**（加 `--keep-files` 只删登记留文件）；删前跟用户确认一句。删单张用序号最省事（先 `image-ref-list` 把带序号的列给用户看，他说删第几张，你按 `--index` 删）。
+> **先选实际使用的方案，再挂图**。有用户指定方案就用它，否则从 `plans list` 读取当前默认方案；内置模板先通过 `plans save` 另存为自己的方案。图片校验、清除元数据并保存为 PNG 后才登记进方案；添加时加 `--replace` 可在保存成功后替换旧图。生成时必须选择同一个方案；需要今后默认用它时运行 `plans set-default --account-id {ID} --plan-id {PLAN_ID}`。
 
-> **有参考图 = 自动图生图**（程序自动补"用参考图这个人/风格"的指令，**不用手写**），**没有 = 文生图**。
-> ⚠️ **图生图保脸的模型由平台侧定、你不用选**——做人物封面只要把本人形象照 `image-ref-add` 存为参考图，生成时自动走图生图保脸。
+> `--remove` / `--clear` 在方案保存成功后，只删除本号素材目录内、且没有其他方案引用的旧图片；外部原图、别号素材和共享图片保留文件。用户已明确要求删除指定图或清空时直接执行；未指定目标时先用 `plans get` 核对。挂图完成后通过 `redbeacon ui app --detach --page 方案 --account-id {ID}` 展示成果。
 
-**用参考封面图抽取风格**（多模态）：让用户把喜欢的封面图发进聊天窗，你看图反推出视觉风格描述，写进 `prompt_template`（带 `{标题}`）。若用户想直接复刻这张图的风格/构图，就把它 `image-ref-add` 存为参考图走图生图。
+> 旧账号级参考图命令已退役，`image-set` 只接受 `mode` / `prompt_template` / `card_theme`。不要再传 `reference_images` / `ai_model` / `template_mode`；旧登记不会用于生成，需把原图通过 `plans material` 挂到实际方案。
+
+> **所选方案有参考图 = 自动图生图**（程序自动补参考图指令，**不用手写**），**没有 = 文生图**。
+> ⚠️ **图生图模型由平台侧定、你不用选**——做人物封面时通过 `plans material` 把本人形象照加入人物方案，生成时选择该方案；参考图能约束人物形象，不能承诺每张结果完全一致。
+
+**用参考封面图抽取风格**（多模态）：让用户把喜欢的封面图发进聊天窗，你看图反推出视觉风格描述，写进 `prompt_template`（带 `{标题}`）。若用户想参考这张图的风格/构图，就通过 `plans material` 加入所选方案走图生图。
 
 > 选 `ai` / `both` 前确认**已登录平台 + 有算力点**（生图的前提；模型平台侧定，用户不选）。否则生图自动降级——只出文字卡、笔记照样进审核表，不会报错卡住。
 
