@@ -2,6 +2,9 @@
 # 客户端与 CLI 只以封装后的 Windows/macOS 发布制品分发，源码不开源。
 /cli/
 
+# Local cloud credential export; never include it in the public repository.
+/redbeacon传图.csv
+
 # ── 杂项 ────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
