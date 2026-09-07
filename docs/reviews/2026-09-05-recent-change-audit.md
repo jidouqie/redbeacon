@@ -13,7 +13,7 @@
 
 **1. P1：未确认发布成功，仍会结算并移入归档**
 
-位置：[发布适配器第 280 行](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/infra/xhs_publisher.py:280)、[发布用例第 394 行](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/core/usecases/publish.py:394)。
+位置：[发布适配器第 280 行](../../cli/src/redbeacon/infra/xhs_publisher.py:280)、[发布用例第 394 行](../../cli/src/redbeacon/core/usecases/publish.py:394)。
 
 点击发布后，如果 45 秒内既未识别成功信号，也未识别明确错误，浏览器层会返回 confirmed=False。适配器没有把这一状态传给业务层，而是返回可能为空的链接。业务层将“函数正常返回”当成成功，随后调用 billing.complete、archive_create 和 review_delete。
 
@@ -21,13 +21,13 @@
 
 影响：没有完成发布的笔记也可能被显示为已发布、结算点数并从待发/审稿流程移走。稿件仍在归档中，不能将此描述成正文被彻底删除。
 
-归因：结果未知未传入业务层的问题至少可追溯到 f42efaa（7 月 9 日）。近期 ba25e66 又在[单篇发布收尾](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/adapters/ui_backend/app.py:420)中无条件关闭浏览器，使这类结果不明的单篇发布失去原来保留的人工核查窗口。
+归因：结果未知未传入业务层的问题至少可追溯到 f42efaa（7 月 9 日）。近期 ba25e66 又在[单篇发布收尾](../../cli/src/redbeacon/adapters/ui_backend/app.py:420)中无条件关闭浏览器，使这类结果不明的单篇发布失去原来保留的人工核查窗口。
 
 修复方向：显式区分成功、失败和结果未知。未知态应保留稿件与待核查记录，不直接成功结算/归档，也不能自动重发，以免已经成功的笔记被重复提交。
 
 **2. P1：macOS 备份失败时，清理过程会损坏旧客户端**
 
-位置：[正式安装入口第 576 行](/Users/diaojiawang/code/auto-redbook/redbeacon/install/install.sh:576)、[测试安装入口第 576 行](/Users/diaojiawang/code/auto-redbook/redbeacon/install/install-test.sh:576)。
+位置：[正式安装入口第 576 行](../../install/install.sh:576)、[测试安装入口第 576 行](../../install/install-test.sh:576)。
 
 FINAL_PATH 在旧应用成功移到备份位置之前就已赋值。旧应用备份 mv 失败后，EXIT trap 发现没有 BACKUP_PATH，直接对 FINAL_PATH 执行 rm -rf；这个位置此时仍然是旧客户端。
 
@@ -41,7 +41,7 @@ FINAL_PATH 在旧应用成功移到备份位置之前就已赋值。旧应用备
 
 **3. P1：Windows 中文用户目录会使 CLI/AI 助手入口失效**
 
-位置：[正式安装入口第 690 行](/Users/diaojiawang/code/auto-redbook/redbeacon/install/install.ps1:690)、[测试安装入口第 690 行](/Users/diaojiawang/code/auto-redbook/redbeacon/install/install-test.ps1:690)。
+位置：[正式安装入口第 690 行](../../install/install.ps1:690)、[测试安装入口第 690 行](../../install/install-test.ps1:690)。
 
 安装器先把 LOCALAPPDATA 展开成含真实用户名的绝对路径，再用 ASCII 写入 .cmd。例如用户名为“张三”，路径中的中文会变成问号。真实 Windows PowerShell 5.1 内存复现确认该编码替换。
 
@@ -53,7 +53,7 @@ FINAL_PATH 在旧应用成功移到备份位置之前就已赋值。旧应用备
 
 **4. P2：隐藏地址栏口令后，页面刷新直接失去访问权限**
 
-位置：[前端 core.js 第 33–39 行](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/adapters/ui_backend/static/js/core.js:33)、[后端访问校验第 827 行](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/adapters/ui_backend/app.py:827)。
+位置：[前端 core.js 第 33–39 行](../../cli/src/redbeacon/adapters/ui_backend/static/js/core.js:33)、[后端访问校验第 827 行](../../cli/src/redbeacon/adapters/ui_backend/app.py:827)。
 
 页面把 rb_token 从地址栏删除，口令只存在当前 JS 内存；后端对 HTML 根页面也要求口令，没有设置可供刷新使用的会话 Cookie。浏览器重新载入页面时既没有原 JS 内存，也没有 URL 口令。
 
@@ -65,7 +65,7 @@ FINAL_PATH 在旧应用成功移到备份位置之前就已赋值。旧应用备
 
 **5. P2：新增 RedNote 登录检测把旧 Cookie 当成实时登录成功**
 
-位置：[登录判断第 81 行](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/services/xhs/login.py:81)、[状态核验提前返回第 310 行](/Users/diaojiawang/code/auto-redbook/redbeacon/cli/src/redbeacon/services/xhs/login.py:310)。
+位置：[登录判断第 81 行](../../cli/src/redbeacon/services/xhs/login.py:81)、[状态核验提前返回第 310 行](../../cli/src/redbeacon/services/xhs/login.py:310)。
 
 外版分支仅凭非空 id_token 即可返回登录成功；调用方随后在检查 HTTP 响应、导航失败和安全验证正文之前返回，且强制设置 security_blocked=False、indeterminate=False。
 
@@ -79,7 +79,7 @@ FINAL_PATH 在旧应用成功移到备份位置之前就已赋值。旧应用备
 
 **6. P2 验证缺口：安装事务原始证据未写入回执，汇总仍声明全覆盖**
 
-位置：[事务 smoke 第 1316 行](/Users/diaojiawang/code/auto-redbook/redbeacon/tools/smoke_unix_install_transaction.py:1316)、[写报告第 1346 行](/Users/diaojiawang/code/auto-redbook/redbeacon/tools/smoke_unix_install_transaction.py:1346)、[回执校验第 525 行](/Users/diaojiawang/code/auto-redbook/redbeacon/tools/write_channel_isolation_receipt.py:525)、[覆盖声明第 705 行](/Users/diaojiawang/code/auto-redbook/redbeacon/tools/write_channel_isolation_receipt.py:705)。
+位置：[事务 smoke 第 1316 行](../../tools/smoke_unix_install_transaction.py:1316)、[写报告第 1346 行](../../tools/smoke_unix_install_transaction.py:1346)、[回执校验第 525 行](../../tools/write_channel_isolation_receipt.py:525)、[覆盖声明第 705 行](../../tools/write_channel_isolation_receipt.py:705)。
 
 Unix smoke 已生成 observed_evidence，包含回滚结果、跨通道目录快照、进程隔离、调用者环境等，但写报告时没有传入。Windows 报告同样没有携带这组证据。汇总器中对应验证函数没有被调用，严格 schema 也不接受这些数据，最终却按常量写出 verified_coverage。
 
