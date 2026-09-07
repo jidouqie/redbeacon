@@ -6,7 +6,7 @@
   "artifact_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon",
   "artifact_source_commit_authority": "git HEAD containing this contract",
   "cli_source_repository": "/Users/diaojiawang/code/auto-redbook/redbeacon/cli",
-  "cli_commit": "dcfd62fae448b3899e777f0f18b6bc6328e6034c",
+  "cli_commit": "75455454fee50391d409bcf79d004f475ee4e077",
   "build_entry": "tools/build_desktop_local.sh",
   "artifact_source_paths": {
     "test": "dist/local-build/test/release-artifacts",
