@@ -1,0 +1,286 @@
+{
+  "schema": 1,
+  "description": "Exact audited channel differences only. This file never generates or rewrites an entrypoint. Review every rule change with its affected behavior.",
+  "pairs": {
+    "install.sh": {
+      "test": "install-test.sh",
+      "rules": [
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# RedBeacon stable installer (macOS Apple Silicon). Run:\n",
+          "test": "# RedBeacon test installer (macOS Apple Silicon). Run:\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "#     curl -fsSL https://bytestaff.jiomig.com/redbeacon/install.sh | bash\n",
+          "test": "#     curl -fsSL https://bytestaff.jiomig.com/redbeacon-test/install.sh | bash\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CHANNEL_IDENTITY: stable\n",
+          "test": "# BYTESTAFF_CHANNEL_IDENTITY: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\n",
+          "test": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: stable\n",
+          "test": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "CHANNEL=\"stable\"\n",
+          "test": "CHANNEL=\"test\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "MANIFEST_URL=\"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\"\n",
+          "test": "MANIFEST_URL=\"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "TMP=\"$(/usr/bin/mktemp -d /private/tmp/redbeacon-stable-install.XXXXXX)\" \\\n",
+          "test": "TMP=\"$(/usr/bin/mktemp -d /private/tmp/redbeacon-test-install.XXXXXX)\" \\\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  || die \"Could not fetch the fixed RedBeacon stable release manifest.\"\n",
+          "test": "  || die \"Could not fetch the fixed RedBeacon test release manifest.\"\n"
+        }
+      ]
+    },
+    "install.ps1": {
+      "test": "install-test.ps1",
+      "rules": [
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# RedBeacon stable installer (Windows). Run in PowerShell:\n",
+          "test": "# RedBeacon test installer (Windows). Run in PowerShell:\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "#     irm 'https://bytestaff.jiomig.com/redbeacon/install.ps1' | iex\n",
+          "test": "#     irm 'https://bytestaff.jiomig.com/redbeacon-test/install.ps1' | iex\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CHANNEL_IDENTITY: stable\n",
+          "test": "# BYTESTAFF_CHANNEL_IDENTITY: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\n",
+          "test": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: stable\n",
+          "test": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  $env:REDBEACON_CHANNEL = \"stable\"\n",
+          "test": "  $env:REDBEACON_CHANNEL = \"test\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  $env:REDBEACON_BUILD_CHANNEL = \"stable\"\n",
+          "test": "  $env:REDBEACON_BUILD_CHANNEL = \"test\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "$Channel = \"stable\"\n",
+          "test": "$Channel = \"test\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "$script:CanonicalManifestUrl = \"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\"\n",
+          "test": "$script:CanonicalManifestUrl = \"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  catch { Die \"The fixed RedBeacon stable manifest is not valid UTF-8 JSON.\" }\n",
+          "test": "  catch { Die \"The fixed RedBeacon test manifest is not valid UTF-8 JSON.\" }\n"
+        }
+      ]
+    },
+    "uninstall.sh": {
+      "test": "uninstall-test.sh",
+      "rules": [
+        {
+          "reason": "Existing fixed-channel bootstrap comment",
+          "stable": "# Fixed stable-channel uninstaller bootstrap.\n",
+          "test": "# Fixed test-channel uninstaller bootstrap. It never delegates to the public\n# stable uninstaller name; both channels download uninstall-core.sh.\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CHANNEL_IDENTITY: stable\n",
+          "test": "# BYTESTAFF_CHANNEL_IDENTITY: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\n",
+          "test": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: stable\n",
+          "test": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "ENTRY_CHANNEL=\"stable\"\n",
+          "test": "ENTRY_CHANNEL=\"test\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "MANIFEST_URL=\"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\"\n",
+          "test": "MANIFEST_URL=\"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "TMP=\"$(/usr/bin/mktemp -d /private/tmp/redbeacon-stable-uninstall.XXXXXX)\" \\\n",
+          "test": "TMP=\"$(/usr/bin/mktemp -d /private/tmp/redbeacon-test-uninstall.XXXXXX)\" \\\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  || die \"Could not fetch the stable RedBeacon release manifest.\"\n",
+          "test": "  || die \"Could not fetch the test RedBeacon release manifest.\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  || die \"Release manifest does not match RedBeacon stable.\"\n",
+          "test": "  || die \"Release manifest does not match RedBeacon test.\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "expected_core_url=\"$CENTRAL_ORIGIN/projects/redbeacon/stable/releases/$manifest_version/$CORE_ARTIFACT\"\n",
+          "test": "expected_core_url=\"$CENTRAL_ORIGIN/projects/redbeacon/test/releases/$manifest_version/$CORE_ARTIFACT\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  || die \"Uninstaller core URL does not match the stable release.\"\n",
+          "test": "  || die \"Uninstaller core URL does not match the test release.\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "fetch_file \"$core_url\" \"$CORE_FILE\" 60 || die \"Could not fetch the stable uninstaller core.\"\n",
+          "test": "fetch_file \"$core_url\" \"$CORE_FILE\" 60 || die \"Could not fetch the test uninstaller core.\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "/bin/bash \"$CORE_FILE\" \"stable\" \"production\"\n",
+          "test": "/bin/bash \"$CORE_FILE\" \"test\" \"production\"\n"
+        }
+      ]
+    },
+    "uninstall.ps1": {
+      "test": "uninstall-test.ps1",
+      "rules": [
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# RedBeacon stable uninstaller bootstrap (Windows).\n",
+          "test": "# RedBeacon test uninstaller bootstrap (Windows).\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CHANNEL_IDENTITY: stable\n",
+          "test": "# BYTESTAFF_CHANNEL_IDENTITY: test\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\n",
+          "test": "# BYTESTAFF_CANONICAL_MANIFEST_URL: https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: stable\n",
+          "test": "# BYTESTAFF_FIXED_CHANNEL_ARGUMENT: test\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "function Assert-StableWrapperUrl([string]$Url, [string]$Label){\n",
+          "test": "function Assert-TestWrapperUrl([string]$Url, [string]$Label){\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "function Get-StableCoreArtifact($Manifest, [string]$Version, [string]$CoreName){\n",
+          "test": "function Get-TestCoreArtifact($Manifest, [string]$Version, [string]$CoreName){\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  if($matches.Count -ne 1){ throw \"RedBeacon stable $CoreName is missing from the central manifest.\" }\n",
+          "test": "  if($matches.Count -ne 1){ throw \"RedBeacon test $CoreName is missing from the central manifest.\" }\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "  $coreUri = Assert-StableWrapperUrl $url \"Uninstaller core\"\n",
+          "test": "  $coreUri = Assert-TestWrapperUrl $url \"Uninstaller core\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  $expectedUrl = \"$($script:ReleaseOrigin)/projects/redbeacon/stable/releases/$Version/installers/$CoreName\"\n",
+          "test": "  $expectedUrl = \"$($script:ReleaseOrigin)/projects/redbeacon/test/releases/$Version/installers/$CoreName\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  if($url -cne $expectedUrl){ throw \"Uninstaller core URL does not match the stable release.\" }\n",
+          "test": "  if($url -cne $expectedUrl){ throw \"Uninstaller core URL does not match the test release.\" }\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "function Read-VerifiedStableCore($Artifact, [string]$Path){\n",
+          "test": "function Read-VerifiedTestCore($Artifact, [string]$Path){\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "$manifestUrl = \"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json\"\n",
+          "test": "$manifestUrl = \"https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/test/latest.json\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  $tmp = [IO.Path]::Combine($trusted.TempRoot, \"rb_stable_uninstall_\" + [guid]::NewGuid().ToString(\"N\"))\n",
+          "test": "  $tmp = [IO.Path]::Combine($trusted.TempRoot, \"rb_test_uninstall_\" + [guid]::NewGuid().ToString(\"N\"))\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "  [void](Assert-StableWrapperUrl $manifestUrl \"Manifest\")\n",
+          "test": "  [void](Assert-TestWrapperUrl $manifestUrl \"Manifest\")\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  if(([string]$manifest.schema) -ne \"1\" -or ([string]$manifest.project) -ne \"redbeacon\" -or ([string]$manifest.channel) -ne \"stable\" -or $version -notmatch '^\\d+\\.\\d+\\.\\d+$'){\n",
+          "test": "  if(([string]$manifest.schema) -ne \"1\" -or ([string]$manifest.project) -ne \"redbeacon\" -or ([string]$manifest.channel) -ne \"test\" -or $version -notmatch '^\\d+\\.\\d+\\.\\d+$'){\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "    throw \"Release manifest does not match RedBeacon stable.\"\n",
+          "test": "    throw \"Release manifest does not match RedBeacon test.\"\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "  $artifact = Get-StableCoreArtifact $manifest $version \"uninstall-core.ps1\"\n",
+          "test": "  $artifact = Get-TestCoreArtifact $manifest $version \"uninstall-core.ps1\"\n"
+        },
+        {
+          "reason": "Existing channel-owned helper identifier; complete line is pinned",
+          "stable": "  [void](Read-VerifiedStableCore $artifact $coreFile)\n",
+          "test": "  [void](Read-VerifiedTestCore $artifact $coreFile)\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  & $trusted.PowerShellExe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $coreFile -RedBeaconUninstallerChannel \"stable\" -RedBeaconUninstallerExecutionMode \"production\"\n",
+          "test": "  & $trusted.PowerShellExe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $coreFile -RedBeaconUninstallerChannel \"test\" -RedBeaconUninstallerExecutionMode \"production\"\n"
+        },
+        {
+          "reason": "Fixed channel identity, URL, temporary name or message",
+          "stable": "  if($LASTEXITCODE -ne 0){ throw \"RedBeacon stable uninstaller core failed with exit code $LASTEXITCODE.\" }\n",
+          "test": "  if($LASTEXITCODE -ne 0){ throw \"RedBeacon test uninstaller core failed with exit code $LASTEXITCODE.\" }\n"
+        }
+      ]
+    }
+  }
+}

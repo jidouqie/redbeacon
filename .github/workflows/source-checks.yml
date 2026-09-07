@@ -27,3 +27,5 @@ jobs:
       # The local release build still runs the default, full provenance gate.
       - run: python tools/check_release_contracts.py --public-only
       - run: python -m unittest discover -s tools/tests -p test_channel_skills.py
+      - run: python tools/check_entrypoint_drift.py
+      - run: python -m unittest discover -s tools/tests -p test_entrypoint_drift.py

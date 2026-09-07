@@ -18,6 +18,7 @@ from build_channel_skills import (
     build as build_channel_skills,
     render_text,
 )
+from check_entrypoint_drift import check_all as check_entrypoint_drift
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -80,6 +81,7 @@ def literal_assignment(path: Path, name: str) -> object:
 
 
 def main(*, public_only: bool = False) -> None:
+    check_entrypoint_drift(ROOT)
     for path in REMOVED_ACTIVE_PATHS:
         if (ROOT / path).exists():
             fail(f"legacy project-local publication path is active: {path}")
