@@ -8,7 +8,7 @@ metadata:
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
-> 📦 **方案始终存本机**：方案（生成模板）是账号的生产配置，一直存本地，不随数据源变、也和飞书无关。
+> 📦 **方案始终存本机**：方案（生成模板）是账号的生产配置，一直存本地。
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵。
 > - **全程人话**：不出现 /source-command-redbeacon-* 或 redbeacon xxx 命令名/斜杠；用「我给你新建了一套带货方案」这种说法。

@@ -8,7 +8,7 @@ metadata:
 
 > **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
-> 📦 **数据都在本机**：从**本机审核表**读标「通过」的记录发布，发布成功移入本机归档。无需飞书。（飞书云端源现阶段搁置，不用管。）
+> 📦 **数据都在本机**：从**本机审核表**读标「通过」的记录发布，发布成功移入本机归档。
 
 > ⚡ **发布服务按成功计费**：每篇发布前由平台按后台当前费率幂等预留；小红书确认成功后结算。发布失败或中断自动退回，浏览器自动重试和同一 request_id 重放都不会重复扣点。平台费率设为 0 时本次发布免费。
 

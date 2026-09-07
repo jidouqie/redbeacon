@@ -188,7 +188,7 @@ redbeacon accounts delete --account-id {ID}
 redbeacon accounts get --account-id {ID}
 ```
 
-展示：`id` / `display_name` / `login_status` / `session_running` / `proxy` 等。（返回里可能还带 `feishu_*` 字段，飞书搁置期本机模式下为空，念给用户时忽略。）
+展示：`id` / `display_name` / `login_status` / `session_running` / `proxy` 等。返回只含本机账号字段，没有任何云端表绑定信息。
 
 ---
 
