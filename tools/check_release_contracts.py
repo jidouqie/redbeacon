@@ -2,6 +2,7 @@
 """Fail closed when RedBeacon drifts from the central publication contract."""
 from __future__ import annotations
 
+import argparse
 import ast
 import json
 import os
@@ -78,7 +79,7 @@ def literal_assignment(path: Path, name: str) -> object:
     fail(f"{path.relative_to(ROOT)} does not define literal {name}")
 
 
-def main() -> None:
+def main(*, public_only: bool = False) -> None:
     for path in REMOVED_ACTIVE_PATHS:
         if (ROOT / path).exists():
             fail(f"legacy project-local publication path is active: {path}")
@@ -113,19 +114,20 @@ def main() -> None:
         "opposite_channel_entrypoints_forbidden": True,
     }:
         fail("release contract channel identity policy is incomplete")
-    cli_version_text = (ROOT / "cli" / "src" / "redbeacon" / "__init__.py").read_text(encoding="utf-8")
-    version_match = re.search(r'__version__\s*=\s*"([^"]+)"', cli_version_text)
-    if version_match is None or release_contract.get("version") != version_match.group(1):
-        fail("release contract version does not match the CLI source version")
-    cli_head = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=ROOT / "cli",
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if release_contract.get("cli_commit") != cli_head:
-        fail("release contract CLI commit does not match the checked-out CLI HEAD")
+    if not public_only:
+        cli_version_text = (ROOT / "cli" / "src" / "redbeacon" / "__init__.py").read_text(encoding="utf-8")
+        version_match = re.search(r'__version__\s*=\s*"([^"]+)"', cli_version_text)
+        if version_match is None or release_contract.get("version") != version_match.group(1):
+            fail("release contract version does not match the CLI source version")
+        cli_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT / "cli",
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if release_contract.get("cli_commit") != cli_head:
+            fail("release contract CLI commit does not match the checked-out CLI HEAD")
 
     build_script = (ROOT / "tools" / "build_desktop_local.sh").read_text(encoding="utf-8")
     forbidden_build_terms = ("ossutil", "OSS_PROFILE", "OSS_BUCKET", "upload-batch")
@@ -192,22 +194,23 @@ def main() -> None:
     ):
         if marker not in receipt_writer:
             fail(f"the package channel-isolation receipt lost required proof: {marker}")
-    verifier_path = ROOT / "cli" / "packaging" / "verify_frozen_bundle_smoke_report.py"
-    if literal_assignment(receipt_writer_path, "BUNDLE_ASSERTIONS") != literal_assignment(
-        verifier_path, "ASSERTIONS"
-    ):
-        fail("the root evidence merger and CLI frozen smoke verifier disagree on assertions")
+    if not public_only:
+        verifier_path = ROOT / "cli" / "packaging" / "verify_frozen_bundle_smoke_report.py"
+        if literal_assignment(receipt_writer_path, "BUNDLE_ASSERTIONS") != literal_assignment(
+            verifier_path, "ASSERTIONS"
+        ):
+            fail("the root evidence merger and CLI frozen smoke verifier disagree on assertions")
 
-    build_meta = (ROOT / "cli" / "src" / "redbeacon" / "build_meta.py").read_text(encoding="utf-8")
-    downloader = (ROOT / "cli" / "src" / "redbeacon" / "services" / "release_download.py").read_text(encoding="utf-8")
-    browser = (ROOT / "cli" / "src" / "redbeacon" / "services" / "browser_engine.py").read_text(encoding="utf-8")
-    if CENTRAL_ORIGIN not in build_meta or CENTRAL_ORIGIN not in downloader:
-        fail("client canonical manifest does not use the fixed central origin")
-    if "Range\": \"bytes=0-" not in downloader or "settimeout(8.0)" not in downloader or "settimeout(15.0)" not in downloader:
-        fail("client node-first timeout/Range contract is incomplete")
-    legacy_origin = "bytestaff" + "-redbeacon.oss-cn-shanghai.aliyuncs.com"
-    if legacy_origin in build_meta or legacy_origin in downloader or legacy_origin in browser:
-        fail("runtime still points at the retired project bucket")
+        build_meta = (ROOT / "cli" / "src" / "redbeacon" / "build_meta.py").read_text(encoding="utf-8")
+        downloader = (ROOT / "cli" / "src" / "redbeacon" / "services" / "release_download.py").read_text(encoding="utf-8")
+        browser = (ROOT / "cli" / "src" / "redbeacon" / "services" / "browser_engine.py").read_text(encoding="utf-8")
+        if CENTRAL_ORIGIN not in build_meta or CENTRAL_ORIGIN not in downloader:
+            fail("client canonical manifest does not use the fixed central origin")
+        if "Range\": \"bytes=0-" not in downloader or "settimeout(8.0)" not in downloader or "settimeout(15.0)" not in downloader:
+            fail("client node-first timeout/Range contract is incomplete")
+        legacy_origin = "bytestaff" + "-redbeacon.oss-cn-shanghai.aliyuncs.com"
+        if legacy_origin in build_meta or legacy_origin in downloader or legacy_origin in browser:
+            fail("runtime still points at the retired project bucket")
 
     for path in (ROOT / "install").glob("*.ps1"):
         try:
@@ -308,17 +311,18 @@ def main() -> None:
                     if leaked:
                         fail(f"{name} still references ambient channel inputs: {', '.join(leaked)}")
 
-    updater = (ROOT / "cli" / "src" / "redbeacon" / "services" / "updater.py").read_text(
-        encoding="utf-8"
-    )
-    for marker in (
-        '_PUBLIC_INSTALL_ORIGIN = "https://bytestaff.jiomig.com"',
-        'product = "redbeacon-test" if build_meta.is_test() else "redbeacon"',
-        'return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command]',
-        'return ["/bin/sh", "-lc", f"curl -fsSL {shlex_quote(url)} | bash"]',
-    ):
-        if marker not in updater:
-            fail("the long-lived user-facing installer command or website route changed")
+    if not public_only:
+        updater = (ROOT / "cli" / "src" / "redbeacon" / "services" / "updater.py").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            '_PUBLIC_INSTALL_ORIGIN = "https://bytestaff.jiomig.com"',
+            'product = "redbeacon-test" if build_meta.is_test() else "redbeacon"',
+            'return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command]',
+            'return ["/bin/sh", "-lc", f"curl -fsSL {shlex_quote(url)} | bash"]',
+        ):
+            if marker not in updater:
+                fail("the long-lived user-facing installer command or website route changed")
 
     artifact_builder = (ROOT / "tools" / "prepare_release_artifacts.py").read_text(encoding="utf-8")
     if '"install-core.ps1"' in artifact_builder or '"install-core.sh"' in artifact_builder:
@@ -477,8 +481,14 @@ def main() -> None:
     if os.environ.get("CLOAKBROWSER_DOWNLOAD_URL"):
         fail("project build environment must not override the locked CloakBrowser release origin")
 
-    print("release contracts: central Skill boundary verified")
+    scope = "public source only (private CLI/provenance not checked)" if public_only else "full source and provenance"
+    print(f"release contracts: central Skill boundary verified; {scope}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--public-only", action="store_true",
+        help="Check public source without private CLI access; never a release approval.",
+    )
+    main(public_only=parser.parse_args().public_only)
