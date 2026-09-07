@@ -131,9 +131,9 @@ argument-hint: 无参数=发布当前账号标了「通过」的内容；多账�
 {{CLI}} publish --all-accounts --dry-run  # 先逐账号预览
 ```
 
-> 多账号模式下账号**之间自动错峰**（间隔随机，基准 `publish_account_stagger` 秒）防关联；掉线的账号自动跳过。返回 `{"ok":true,"published":总数,"results":[{account_id,published/error}]}`。仍**无后台定时**。
+> 多账号模式按账号依次连续发布，掉线的账号自动跳过。返回 `{"ok":true,"published":总数,"results":[{account_id,published/error}]}`。仍**无后台定时**。
 
-> **发布节奏可调**（`/{{CLI}}-config set` 或面板）：`publish_min_interval`/`publish_max_interval`（同账号连发间隔秒，默认 30–90）、`publish_account_stagger`（账号间错峰秒，默认 120）。号多、怕限流就调大。
+> **连续发布**：每篇完成后直接处理下一篇，切换账号时也不额外等待。手动批量发布和账号自动化均按此执行；自动化每天各批次仍按用户设置的计划时间开始。
 
 > **审稿改稿后卡片会自动跟上**：若你在审核里改了正文，且这篇是纯图文卡片，发布前 CLI 会按新正文**重渲卡片**（`publish_rerender_cards`，默认开）——不用手动重生成。AI 封面图不受影响、保持原样。
 

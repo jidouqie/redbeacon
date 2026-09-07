@@ -35,7 +35,6 @@ argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改�
 | 查算力点 / 是否登录 | `{{CLI}} checkin`（拉剩余算力点）｜`{{CLI}} login status`（只看是否登录） |
 | 退出平台登录 | `{{CLI}} login logout` |
 | 改 / 加代理 | 转 `/{{CLI}}-accounts`，按账号保存固定代理并验证 |
-| 调发布节奏 | `config set publish_min_interval/publish_max_interval/publish_account_stagger <秒>`（防限流，号多调大） |
 | 看某项配置 / 列全部 | `config get <key>` ／ `config list`（加密项已设的回 `__SET__`） |
 | **删掉某项配置**（不是设空、是删行） | `config unset <key>`（账号代理请在账号管理中关闭或清除） |
 
