@@ -3,12 +3,12 @@ description: 选题规划会 — 不知道写什么就托管给 AI：按账号�
 argument-hint: 无参数=开一场选题规划会（可"帮我想写什么"全托管，或直接抛想法如「讲讲为什么很多公司 AI 项目都失败了」）
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
-> 📦 **数据都在本机**：选题存本地库（`~/.redbeacon`），无需飞书。`topics` 命令读写这一份。（飞书云端源现阶段搁置，不用管。）
+> 📦 **数据都在本机**：选题存本地库（`{{DATA_DIR}}`），无需飞书。`topics` 命令读写这一份。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行，例如：
 >   ```
@@ -27,9 +27,9 @@ argument-hint: 无参数=开一场选题规划会（可"帮我想写什么"全�
 >
 > **选题库 = 单一真源**（本地库）。出题/列表/库存都读写这一份，本地读写恒可用、不会因为网络失败。
 >
-> **入库成功后必须让成果在 UI 亮相** → 一句话告诉他“选题已经进库，我把选题页打开给你核查”，然后执行 `redbeacon ui app --detach --page 选题 --account-id {ID}`。规划/联网发现留在对话（你的强项），核查、删改和继续操作交给 UI（它的强项）；用户切回对话后也能继续用自然语言让你操作同一批数据。
+> **入库成功后必须让成果在 UI 亮相** → 一句话告诉他“选题已经进库，我把选题页打开给你核查”，然后执行 `{{CLI}} ui app --detach --page 选题 --account-id {ID}`。规划/联网发现留在对话（你的强项），核查、删改和继续操作交给 UI（它的强项）；用户切回对话后也能继续用自然语言让你操作同一批数据。
 >
-> 什么时候来：定位定完铺第一批 / `/redbeacon-generate` 预警选题快用完 / 用户想重铺 / **用户说"帮我想想写什么""不知道发啥"**。**入库即可用**（不用人工二次确认转入），由 generate 消费，无本地审核。
+> 什么时候来：定位定完铺第一批 / `/{{CLI}}-generate` 预警选题快用完 / 用户想重铺 / **用户说"帮我想想写什么""不知道发啥"**。**入库即可用**（不用人工二次确认转入），由 generate 消费，无本地审核。
 
 ---
 
@@ -44,11 +44,11 @@ argument-hint: 无参数=开一场选题规划会（可"帮我想写什么"全�
 ## 第零步：选账号 + 摆盘面（先给数据，别上来就甩选题）
 
 ```bash
-redbeacon accounts list                                # 定 {ID}（1个自动用，多个让用户指明）
-redbeacon strategy get   --account-id {ID}             # 定位：赛道/受众/痛点/支柱/差异化 + 账号级关键词/选题边界
-redbeacon topics stats   --account-id {ID}             # 库存(可用条数) + by_domain（应用域覆盖盘面）
-redbeacon topics list    --account-id {ID} --stage 选题 # 现有选题（每条带 record_id / 应用域 / 问题类型）→ 别和库里已有的撞
-redbeacon content archive --account-id {ID}            # 已发布标题 → 查重基线，这些角度先避开别重复发
+{{CLI}} accounts list                                # 定 {ID}（1个自动用，多个让用户指明）
+{{CLI}} strategy get   --account-id {ID}             # 定位：赛道/受众/痛点/支柱/差异化 + 账号级关键词/选题边界
+{{CLI}} topics stats   --account-id {ID}             # 库存(可用条数) + by_domain（应用域覆盖盘面）
+{{CLI}} topics list    --account-id {ID} --stage 选题 # 现有选题（每条带 record_id / 应用域 / 问题类型）→ 别和库里已有的撞
+{{CLI}} content archive --account-id {ID}            # 已发布标题 → 查重基线，这些角度先避开别重复发
 ```
 
 把**选题库现状**摊给用户看，而不是直接出题。**应用域覆盖直接读 `topics stats` 的 `by_domain`（精确存档，不是猜）**：
@@ -136,7 +136,7 @@ redbeacon content archive --account-id {ID}            # 已发布标题 → 查
 > ⚠️ Windows/PowerShell 下不要用 heredoc。把确认后的数组保存成 UTF-8 文件（如 `topics.json`），再执行：
 
 ```bash
-redbeacon topics batch --account-id {ID} --json-file topics.json --require-complete
+{{CLI}} topics batch --account-id {ID} --json-file topics.json --require-complete
 ```
 
 ```json
@@ -152,18 +152,18 @@ redbeacon topics batch --account-id {ID} --json-file topics.json --require-compl
 
 > **入库后还能剪**：贴定位的大概率全留；用户报哪条不要，按 record_id 删（record_id 来自 `topics list`）：
 > ```bash
-> redbeacon topics delete --account-id {ID} --ids recXXXX,recYYYY
+> {{CLI}} topics delete --account-id {ID} --ids recXXXX,recYYYY
 > ```
 
 收尾核对并给小结：
 
 ```bash
-redbeacon topics stats --account-id {ID}
+{{CLI}} topics stats --account-id {ID}
 ```
 
 > ✓ 这批铺了 {N} 条，覆盖 {M} 个应用域；其中 {k} 条贴着我上网找到的当下热点/痛点（或"来自你的想法"）。够发一阵了，选题快见底我会再喊你开一场。
 
-随后立即执行 `redbeacon ui app --detach --page 选题 --account-id {ID}`，把客户端置前到选题页，请用户核查；不要只在聊天里报完成。
+随后立即执行 `{{CLI}} ui app --detach --page 选题 --account-id {ID}`，把客户端置前到选题页，请用户核查；不要只在聊天里报完成。
 
 ---
 
@@ -178,26 +178,26 @@ redbeacon topics stats --account-id {ID}
 流程（先跟用户说一句「这次让平台直接补一批，会花 ~1 点算力，行吗」，得到同意再跑）：
 
 ```bash
-redbeacon topics suggest --account-id {ID} --count 10 --idea "偏向职场副业"   # 平台补候选，不入库，返回 items 给人挑
+{{CLI}} topics suggest --account-id {ID} --count 10 --idea "偏向职场副业"   # 平台补候选，不入库，返回 items 给人挑
 ```
 
 把返回的候选编号列给用户过眼、剪掉不要的，确认后写库（`accept` 读 suggest 输出的 items 全字段落库，阶段=选题）：
 
 ```bash
-redbeacon topics suggest --account-id {ID} --count 10 > cand.json   # 先接住候选
+{{CLI}} topics suggest --account-id {ID} --count 10 > cand.json   # 先接住候选
 # 用户剪定后：
-redbeacon topics accept --account-id {ID} --json-file cand.json
+{{CLI}} topics accept --account-id {ID} --json-file cand.json
 ```
 
-平台候选同样受完整简报硬闸约束，缺任一字段不会入库；接受成功后也执行 `redbeacon ui app --detach --page 选题 --account-id {ID}`。两条路能力不同，但落在同一选题库、展示同一套完整字段。
+平台候选同样受完整简报硬闸约束，缺任一字段不会入库；接受成功后也执行 `{{CLI}} ui app --detach --page 选题 --account-id {ID}`。两条路能力不同，但落在同一选题库、展示同一套完整字段。
 
 **引导语模板（平台补题的"人格设定"，可调）**——平台补题时用的提示词骨架，用户可自定义（也是网页选题页「AI 补题」按钮用的同一份）：
 
 ```bash
-redbeacon topics suggest-template get --account-id {ID}                 # 看当前引导语（空=系统默认）+ 可插占位符
-redbeacon topics suggest-template set --account-id {ID} --text -        # 存自定义（stdin 传，占位符如 {赛道}{补题数量}）
-redbeacon topics suggest-template set --account-id {ID} --reset         # 清掉自定义、退回系统默认
-redbeacon topics suggest-preview --account-id {ID} --count 10           # 不扣点：拼出这次真会发给平台的完整提示词，供核对
+{{CLI}} topics suggest-template get --account-id {ID}                 # 看当前引导语（空=系统默认）+ 可插占位符
+{{CLI}} topics suggest-template set --account-id {ID} --text -        # 存自定义（stdin 传，占位符如 {赛道}{补题数量}）
+{{CLI}} topics suggest-template set --account-id {ID} --reset         # 清掉自定义、退回系统默认
+{{CLI}} topics suggest-preview --account-id {ID} --count 10           # 不扣点：拼出这次真会发给平台的完整提示词，供核对
 ```
 
 > 用户想「让 AI 补题更懂我的号」时，就是改这份引导语。改完先 `suggest-preview` 拼给用户看一眼实际提示词（不扣点），再 `suggest` 真补。
@@ -209,16 +209,16 @@ redbeacon topics suggest-preview --account-id {ID} --count 10           # 不扣
 先列出来让用户按编号指哪条（别让他背 record_id）：
 
 ```bash
-redbeacon topics list --account-id {ID} --limit 100   # 每条带 record_id / 内容 / 阶段 / 应用域 / 问题类型
+{{CLI}} topics list --account-id {ID} --limit 100   # 每条带 record_id / 内容 / 阶段 / 应用域 / 问题类型
 ```
 
 **改单条**（改文字 / 换归类 / 调阶段 / 调优先级，不用删了重加）：
 
 ```bash
-redbeacon topics edit --account-id {ID} --id recXXXX --content "改后的选题文本"   # 改文字
-redbeacon topics edit --account-id {ID} --id recXXXX --type "痛点解析"           # 改归类
-redbeacon topics edit --account-id {ID} --id recXXXX --priority 高               # 调优先级
-redbeacon topics edit --account-id {ID} --id recXXXX --stage 弃用                # 软删除、不进列表
+{{CLI}} topics edit --account-id {ID} --id recXXXX --content "改后的选题文本"   # 改文字
+{{CLI}} topics edit --account-id {ID} --id recXXXX --type "痛点解析"           # 改归类
+{{CLI}} topics edit --account-id {ID} --id recXXXX --priority 高               # 调优先级
+{{CLI}} topics edit --account-id {ID} --id recXXXX --stage 弃用                # 软删除、不进列表
 ```
 
 - 也能改 brief 字段：`--idea`(切入角度) / `--outline`(要点提纲) / `--domain`(应用域)。传空字符串=清空该字段。
@@ -226,8 +226,8 @@ redbeacon topics edit --account-id {ID} --id recXXXX --stage 弃用             
 **删选题**：
 
 ```bash
-redbeacon topics delete --account-id {ID} --ids recAAA,recBBB   # 删指定几条
-redbeacon topics delete --account-id {ID} --all                # 清空全部（防误删，必须显式 --all）
+{{CLI}} topics delete --account-id {ID} --ids recAAA,recBBB   # 删指定几条
+{{CLI}} topics delete --account-id {ID} --all                # 清空全部（防误删，必须显式 --all）
 ```
 
 > **🗑️ 删前跟用户确认**（尤其 `--all`）。「不要这几条」= 按编号删指定；「这批全推倒重来」= `--all` 清空再开一场规划会。软删除(`--stage 弃用`)比物理删更稳——留个痕、不进列表，用户反悔还能捞回来，拿不准就用它。
@@ -238,8 +238,8 @@ redbeacon topics delete --account-id {ID} --all                # 清空全部（
 
 | 场景 | 关系 |
 |---|---|
-| 刚定位完账号 | 从 `/redbeacon-locate` 过来开第一场规划会（locate 第四步已先铺了一批种子选题进本地选题库） |
-| generate 预警选题低 | `/redbeacon-generate` 会把你引到这儿补，而不是生产途中硬塞 |
+| 刚定位完账号 | 从 `/{{CLI}}-locate` 过来开第一场规划会（locate 第四步已先铺了一批种子选题进本地选题库） |
+| generate 预警选题低 | `/{{CLI}}-generate` 会把你引到这儿补，而不是生产途中硬塞 |
 | 生产中库空了 | generate 会临时按"还没覆盖的应用域"拟一篇、**发你确认**再生成兜底；但正经补还是回这儿开会 |
 | 选题跑偏想推倒重来 | 先 `topics delete … --all` 清空，再开一场重铺 |
 

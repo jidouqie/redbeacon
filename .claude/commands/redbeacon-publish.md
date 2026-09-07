@@ -3,14 +3,14 @@ description: 发布已通过内容 — 从本机审核表读取「通过」稿�
 argument-hint: 无参数=发布当前账号标了「通过」的内容；多账号时说清是哪个（如「发布账号2」）
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **数据都在本机**：从**本机审核表**读标「通过」的记录发布，发布成功移入本机归档。无需飞书。（飞书云端源现阶段搁置，不用管。）
 
 > ⚡ **发布服务按成功计费**：每篇发布前由平台按后台当前费率幂等预留；小红书确认成功后结算。发布失败或中断自动退回，浏览器自动重试和同一 request_id 重放都不会重复扣点。平台费率设为 0 时本次发布免费。
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行，例如：
 >   ```
@@ -26,7 +26,7 @@ argument-hint: 无参数=发布当前账号标了「通过」的内容；多账�
 > **【发布 skill】** 把审核表里**标了「通过」**的内容真正发到小红书：下载图片 → 浏览器自动化填标题/正文/标签 → 发布（或按记录里的定时设置定时发）。
 > 账号保存的是国版或外版身份：国版走小红书创作中心，外版走 RedNote Creator Center。登录复验、代理探活、发布页和归档链接必须全程跟随该身份，不能让用户在发布时再手工选第二遍。
 >
-> 上一步是审核改稿、标「通过」（`/redbeacon-review`；内容由 `/redbeacon-generate` 生成后自动进审核表）。本 Skill 处理用户此刻主动交代的发布；客户端账号级自动化也可在客户端运行期间调用同一套登录复验、稿件校验、计费、发布和归档用例，退出客户端后不会后台运行或补跑。
+> 上一步是审核改稿、标「通过」（`/{{CLI}}-review`；内容由 `/{{CLI}}-generate` 生成后自动进审核表）。本 Skill 处理用户此刻主动交代的发布；客户端账号级自动化也可在客户端运行期间调用同一套登录复验、稿件校验、计费、发布和归档用例，退出客户端后不会后台运行或补跑。
 
 ---
 
@@ -37,21 +37,21 @@ argument-hint: 无参数=发布当前账号标了「通过」的内容；多账�
 选账号：
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
-0 个 → `/redbeacon-accounts`；1 个 → 自动用，记 `{ID}`；多个 → 让用户指明（`$ARGUMENTS` 已说明就直接用）。
+0 个 → `/{{CLI}}-accounts`；1 个 → 自动用，记 `{ID}`；多个 → 让用户指明（`$ARGUMENTS` 已说明就直接用）。
 
 **发布前必须先实测登录态——这是每次发布的固定第一步，不可跳过**（掉线会被静默跳过、白跑一趟，用户还以为发成功了）：
 
 ```bash
-redbeacon xhs-login verify --account-id {ID}
+{{CLI}} xhs-login verify --account-id {ID}
 ```
 
-- `{"logged_in":false}` → **账号掉线了**。明确告诉用户「账号已掉线，先去 `/redbeacon-xhslogin` 重新扫码登录」，**就此停下，不要继续发布**，等重登成功再回来发。
+- `{"logged_in":false}` → **账号掉线了**。明确告诉用户「账号已掉线，先去 `/{{CLI}}-xhslogin` 重新扫码登录」，**就此停下，不要继续发布**，等重登成功再回来发。
 - `{"logged_in":true}` → 在线，继续。
 
-> 标「通过」走 `/redbeacon-review`（我直接帮你标）或操作台审稿页；没有标「通过」的记录就没东西可发，先去审。
+> 标「通过」走 `/{{CLI}}-review`（我直接帮你标）或操作台审稿页；没有标「通过」的记录就没东西可发，先去审。
 
 ---
 
@@ -59,10 +59,10 @@ redbeacon xhs-login verify --account-id {ID}
 
 登录态 OK 后，**先用 dry-run 拉一份"即将发布什么 + 用什么设置发"给用户过目**，不要直接 `publish`：
 
-> 💡 用户想**可视化地一条条看待发的、勾选着发**，可深链发布页交棒：`redbeacon ui app --detach --page 发布 --account-id {ID}`（网页支持勾选批量发、看图预览）。**要"就发吧"走命令更快，要挑挑拣拣走网页更直观**——按用户语气选。
+> 💡 用户想**可视化地一条条看待发的、勾选着发**，可深链发布页交棒：`{{CLI}} ui app --detach --page 发布 --account-id {ID}`（网页支持勾选批量发、看图预览）。**要"就发吧"走命令更快，要挑挑拣拣走网页更直观**——按用户语气选。
 
 ```bash
-redbeacon publish --account-id {ID} --dry-run
+{{CLI}} publish --account-id {ID} --dry-run
 ```
 
 返回 `{"count","items":[{title,body_preview,image_count,schedule}],"config":{...}}`，**纯预览不发布**。把它**用人话**摆给用户，请他确认后再发：
@@ -110,7 +110,7 @@ redbeacon publish --account-id {ID} --dry-run
 选 1（或用户直接说「发吧/发出去」）才执行：
 
 ```bash
-redbeacon publish --account-id {ID}
+{{CLI}} publish --account-id {ID}
 ```
 
 这是**前台阻塞**命令：它会从审核表拉所有「通过」记录，逐条下载图片、按平台当前费率预留点数、用浏览器自动化发布；成功后结算并移入归档，失败则退回预留点数。记录里若带了定时字段，会提交为定时发布。
@@ -118,22 +118,22 @@ redbeacon publish --account-id {ID}
 按返回讲给用户：
 
 - `{"ok":true,"published":N}`：
-  - **N > 0** → ✓ 成功发布/提交了 N 篇。立即执行 `redbeacon ui app --detach --page 归档 --account-id {ID}`，把客户端置前到归档页，让用户看到结果；也可去小红书核对。
+  - **N > 0** → ✓ 成功发布/提交了 N 篇。立即执行 `{{CLI}} ui app --detach --page 归档 --account-id {ID}`，把客户端置前到归档页，让用户看到结果；也可去小红书核对。
   - **N == 0** → 没东西可发。最可能两种原因，帮用户判断：
-    1. **还没有标「通过」**的记录 → 先去 `/redbeacon-review` 审核标通过。
-    2. 账号**掉线被跳过** → 回 `/redbeacon-xhslogin` 重登。
+    1. **还没有标「通过」**的记录 → 先去 `/{{CLI}}-review` 审核标通过。
+    2. 账号**掉线被跳过** → 回 `/{{CLI}}-xhslogin` 重登。
 - 其它 `{"error":...}` → 把原因给用户（图片下载失败、小红书页面变动、风控等；部分会自动重试 3 次后才报）。
 
 ### 多账号一起发
 
 ```bash
-redbeacon publish --all-accounts          # 依次发布所有账号
-redbeacon publish --all-accounts --dry-run  # 先逐账号预览
+{{CLI}} publish --all-accounts          # 依次发布所有账号
+{{CLI}} publish --all-accounts --dry-run  # 先逐账号预览
 ```
 
 > 多账号模式下账号**之间自动错峰**（间隔随机，基准 `publish_account_stagger` 秒）防关联；掉线的账号自动跳过。返回 `{"ok":true,"published":总数,"results":[{account_id,published/error}]}`。仍**无后台定时**。
 
-> **发布节奏可调**（`/redbeacon-config set` 或面板）：`publish_min_interval`/`publish_max_interval`（同账号连发间隔秒，默认 30–90）、`publish_account_stagger`（账号间错峰秒，默认 120）。号多、怕限流就调大。
+> **发布节奏可调**（`/{{CLI}}-config set` 或面板）：`publish_min_interval`/`publish_max_interval`（同账号连发间隔秒，默认 30–90）、`publish_account_stagger`（账号间错峰秒，默认 120）。号多、怕限流就调大。
 
 > **审稿改稿后卡片会自动跟上**：若你在审核里改了正文，且这篇是纯图文卡片，发布前 CLI 会按新正文**重渲卡片**（`publish_rerender_cards`，默认开）——不用手动重生成。AI 封面图不受影响、保持原样。
 
@@ -152,10 +152,10 @@ redbeacon publish --all-accounts --dry-run  # 先逐账号预览
 |---|---|
 | 发布已通过内容 | **本 skill** |
 | 查看/改/删已发布归档 | **本 skill**（见下「已发布归档」） |
-| 审稿 / 改标题正文标签 / 标「通过」 | `/redbeacon-review` |
-| 生成内容 | `/redbeacon-generate` |
-| 扫码登录 / 重登 | `/redbeacon-xhslogin` |
-| 配代理 / 验证代理 | `/redbeacon-config` |
+| 审稿 / 改标题正文标签 / 标「通过」 | `/{{CLI}}-review` |
+| 生成内容 | `/{{CLI}}-generate` |
+| 扫码登录 / 重登 | `/{{CLI}}-xhslogin` |
+| 配代理 / 验证代理 | `/{{CLI}}-config` |
 
 ---
 
@@ -164,9 +164,9 @@ redbeacon publish --all-accounts --dry-run  # 先逐账号预览
 发布成功的稿会移入**归档**（已发布内容的资产库、交底「最近发了哪些」用）：
 
 ```bash
-redbeacon content archive --account-id {ID}                                          # 列已发布归档
-redbeacon content archive-edit   --account-id {ID} --record-id {rid} --note-url "https://xhs/…"  # 补/改笔记链接、标题、正文、标签
-redbeacon content archive-delete --account-id {ID} --record-id {rid}                  # 删一条归档记录
+{{CLI}} content archive --account-id {ID}                                          # 列已发布归档
+{{CLI}} content archive-edit   --account-id {ID} --record-id {rid} --note-url "https://xhs/…"  # 补/改笔记链接、标题、正文、标签
+{{CLI}} content archive-delete --account-id {ID} --record-id {rid}                  # 删一条归档记录
 ```
 
 - **补笔记链接最常用**：发布后拿到小红书笔记链接，`archive-edit --note-url` 回填，方便日后复盘找回。也能改 `--title/--body/--tags`。

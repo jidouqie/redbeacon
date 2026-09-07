@@ -81,7 +81,7 @@ redbeacon creation batch-recover --batch-id <batch_id>
 redbeacon creation item-prepare --generation-id <generation_id>
 ```
 
-读取返回的 `work_file`。只把 `work.copy_task.system_prompt` 与 `work.copy_task.user_prompt` 用于当前这一篇，不自行重新拼定位、选题或方案。工作包里的路径由当前通道 CLI 分配，不能猜 `~/.redbeacon` 或 `~/.redbeacon_test`。
+读取返回的 `work_file`。只把 `work.copy_task.system_prompt` 与 `work.copy_task.user_prompt` 用于当前这一篇，不自行重新拼定位、选题或方案。工作包里的路径由当前通道 CLI 分配，不能猜当前通道的数据目录路径。
 
 ## 3. 当前 AI 宿主写文案并校验
 

@@ -3,10 +3,10 @@ description: 登录小红书国版或外版 RedNote — 扫码/手机号登录�
 argument-hint: 无参数=给当前账号扫码登录；多账号时说清是哪个（如「登录账号2」「账号2掉线了重登」）
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行，例如：
 >   ```
@@ -19,9 +19,9 @@ argument-hint: 无参数=给当前账号扫码登录；多账号时说清是哪�
 > - **把输入成本压到最小**：能给选项就别让用户打字，能一个数字就别让他写句子；该替他想的下一步你先想好、给推荐（标「推荐」）。
 > - 用户**熟了会直接自然语言**提要求（「写第3条」「发出去」「换个标题」）→ 照做，别硬塞编号流程。
 
-> **【小红书登录 skill / xhslogin】** 给账号挂上**小红书国版**或**外版 RedNote** 登录态（扫码或手机号验证码）。**注意区分**：这是小红书账号的登录，**不是**数字员工平台登录（平台登录 = `/redbeacon-login`，管会员/算力点）。发布（`/redbeacon-publish`）必须先有有效小红书登录态，掉线会被跳过。本 skill 负责选择入口、登录、查状态、退出重登。
+> **【小红书登录 skill / xhslogin】** 给账号挂上**小红书国版**或**外版 RedNote** 登录态（扫码或手机号验证码）。**注意区分**：这是小红书账号的登录，**不是**数字员工平台登录（平台登录 = `/{{CLI}}-login`，管会员/算力点）。发布（`/{{CLI}}-publish`）必须先有有效小红书登录态，掉线会被跳过。本 skill 负责选择入口、登录、查状态、退出重登。
 >
-> 上一步是建号（`/redbeacon-accounts`）。链路顺序是 登录（stage3）→ 定位（stage5）——建号后先扫码落地，登录成功后**下一步是给账号定位**（`/redbeacon-locate`）。登录用的浏览器会话**命令结束即停**，不是常驻服务。
+> 上一步是建号（`/{{CLI}}-accounts`）。链路顺序是 登录（stage3）→ 定位（stage5）——建号后先扫码落地，登录成功后**下一步是给账号定位**（`/{{CLI}}-locate`）。登录用的浏览器会话**命令结束即停**，不是常驻服务。
 >
 > **遵循主入口「自动推进原则」**：onboarding 阶段登录成功后直接进定位，别问"要不要定位"；用户主动来重登/查登录态的，做完即止。
 
@@ -30,17 +30,17 @@ argument-hint: 无参数=给当前账号扫码登录；多账号时说清是哪�
 ## 前置：选账号 + 先看现在登没登
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
-- **0 个账号** → 还没建号，先去 `/redbeacon-accounts`，本 skill 到此为止。
+- **0 个账号** → 还没建号，先去 `/{{CLI}}-accounts`，本 skill 到此为止。
 - **1 个账号** → 自动用它，记为 `{ID}`，不用问。
 - **多个账号** → 把列表给用户，让其指明给哪个账号登录（`$ARGUMENTS` 里已说明就直接用）。
 
 确定 `{ID}` 后，先查库里记录的登录态（快，不起浏览器）：
 
 ```bash
-redbeacon xhs-login status --account-id {ID}
+{{CLI}} xhs-login status --account-id {ID}
 ```
 
 - `login_status == "logged_in"` → 看着已登录。但库里的状态可能过期（cookie 掉线库里仍写着登录），用户若说"要发布 / 怀疑掉线"，进「确认是否真的还在线」用 `verify` 实测；否则可直接告知已登录、给下一步。
@@ -58,7 +58,7 @@ redbeacon xhs-login status --account-id {ID}
 `status` 只读库，`verify` 会**真起一个无头浏览器拿当前 cookie 去小红书验**，最准，用于"发布前确认 / 怀疑掉线"：
 
 ```bash
-redbeacon xhs-login verify --account-id {ID}
+{{CLI}} xhs-login verify --account-id {ID}
 ```
 
 - `{"logged_in": true, "nickname": "..."}` → 在线，把昵称报给用户，给下一步。
@@ -73,13 +73,13 @@ redbeacon xhs-login verify --account-id {ID}
 这是**阻塞命令**，会打开一个**有界面的浏览器**并自动弹出二维码图片，等你用手机扫，最多等 180 秒：
 
 ```bash
-redbeacon xhs-login start --account-id {ID}
+{{CLI}} xhs-login start --account-id {ID}
 ```
 
 上面是国版默认入口；外版必须显式使用：
 
 ```bash
-redbeacon xhs-login start --account-id {ID} --platform international
+{{CLI}} xhs-login start --account-id {ID} --platform international
 ```
 
 无论从哪个入口开始，RedBeacon 都会按登录完成后的最终官方域名复核：跳到 `rednote.com` 自动记为外版，留在 `xiaohongshu.com` 记为国版，后续打开浏览器、登录复验和发布都跟随这个持久化结果。
@@ -103,7 +103,7 @@ redbeacon xhs-login start --account-id {ID} --platform international
 退出登录 = 清掉本机保存的 cookie：
 
 ```bash
-redbeacon xhs-login delete --account-id {ID}
+{{CLI}} xhs-login delete --account-id {ID}
 ```
 
 **换一个小红书号登录同一个账号槽**：先 `delete` 清掉旧 cookie，再 `login start` 扫新号的码。直接重扫不 delete 通常也行，但怀疑串号/异常时先 delete 更干净。
@@ -115,16 +115,16 @@ redbeacon xhs-login delete --account-id {ID}
 **用 per-账号 readiness 看这个号还缺什么**（多账号必须带 id，否则全局 readiness 会被别的号"带成 ready"、漏掉本号）：
 
 ```bash
-redbeacon readiness --account-id {ID}
+{{CLI}} readiness --account-id {ID}
 ```
 
 判断这次登录是"onboarding 路上"还是"用户专门来重登的"：
 
-- **onboarding 路上**（这账号还没定位，readiness 会是 stage5）→ 别停别问，**直接交棒 `/redbeacon-locate`** 给账号定位：
+- **onboarding 路上**（这账号还没定位，readiness 会是 stage5）→ 别停别问，**直接交棒 `/{{CLI}}-locate`** 给账号定位：
   > ✓ 登录成功，账号「{nickname}」已落地。接下来给它定个位——聊清赛道/受众/差异化，我顺手铺一批选题，账号就能开始产内容了。这就开始。
 - **用户专门来重登 / 查登录态的**（账号早已配好）→ 按 readiness 给真正缺的下一步：
-  - 还没定位 → **`/redbeacon-locate`**
-  - 全就绪（readiness=ready）→ **`/redbeacon-generate`** 生成内容
+  - 还没定位 → **`/{{CLI}}-locate`**
+  - 全就绪（readiness=ready）→ **`/{{CLI}}-generate`** 生成内容
 
 ---
 
@@ -133,9 +133,9 @@ redbeacon readiness --account-id {ID}
 | 用户想干的 | 去哪个 skill |
 |---|---|
 | 扫码登录 / 查登录态 / 退出 / 重登 | **本 skill** |
-| 建号 / 改名 / 删号 | `/redbeacon-accounts` |
-| 给账号定位、生成选题 | `/redbeacon-locate` |
-| 生成内容 / 发布 | `/redbeacon-generate`、`/redbeacon-publish` |
+| 建号 / 改名 / 删号 | `/{{CLI}}-accounts` |
+| 给账号定位、生成选题 | `/{{CLI}}-locate` |
+| 生成内容 / 发布 | `/{{CLI}}-generate`、`/{{CLI}}-publish` |
 
 ---
 

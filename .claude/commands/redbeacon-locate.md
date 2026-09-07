@@ -3,12 +3,12 @@ description: 账号定位 — 对话梳理赛道/受众/差异化/变现 → 写
 argument-hint: 无参数=从零给账号定位；多账号时说清是哪个（如「给账号2定位」）
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
-> 📦 **数据都在本机**：账号定位档案、选题库都存本地，审核在 `redbeacon ui app` 操作台或对话里。无需飞书。（飞书云端源现阶段搁置，不用管。）
+> 📦 **数据都在本机**：账号定位档案、选题库都存本地，审核在 `{{CLI}} ui app` 操作台或对话里。无需飞书。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行，例如：
 >   ```
@@ -23,36 +23,36 @@ argument-hint: 无参数=从零给账号定位；多账号时说清是哪个（�
 
 > **【定位 skill】** 账号建好后给它"定性"。通过对话把账号方向定下来，写进策略，并生成一批选题灌进选题库——这是账号能产出内容的前提。
 >
-> 上一步是扫码登录小红书（`/redbeacon-xhslogin`，账号此时已登录），**下一步是请用户过一眼这次定位、确认/微调后进入正式运营**（见本 skill 最后一步）。后续想单独改某一项（定位/文案预设/图片预设）走 `/redbeacon-strategy`；觉得产出的文案/图不对劲走 `/redbeacon-diagnose`。
+> 上一步是扫码登录小红书（`/{{CLI}}-xhslogin`，账号此时已登录），**下一步是请用户过一眼这次定位、确认/微调后进入正式运营**（见本 skill 最后一步）。后续想单独改某一项（定位/文案预设/图片预设）走 `/{{CLI}}-strategy`；觉得产出的文案/图不对劲走 `/{{CLI}}-diagnose`。
 >
 > ⚠️ **账号资料真源 = 本机账号档案**。你写定位 = 写这份档案；用户日后要改账号资料，随口跟你说、你帮他改（`strategy patch`），或自己去操作台定位页改。
 >
-> 🔴 **想让用户可视化地过一眼/逐项核对定位页当前 21 项字段** → 深链把他送进操作台定位页：`redbeacon ui app --detach --page 定位 --account-id {ID}`。**梳理/起草留对话（你的强项，联网+引导替他想），逐项核对/微调交给网页（它一屏铺开更直观）**——这正是两个入口的分工。
+> 🔴 **想让用户可视化地过一眼/逐项核对定位页当前 21 项字段** → 深链把他送进操作台定位页：`{{CLI}} ui app --detach --page 定位 --account-id {ID}`。**梳理/起草留对话（你的强项，联网+引导替他想），逐项核对/微调交给网页（它一屏铺开更直观）**——这正是两个入口的分工。
 >
 > **遵循主入口「自动推进原则」**：定位本身就是和用户的对话（需要他给赛道/受众/想法），聊定+铺完种子选题后，**直接引导用户过目确认**，别问"要不要确认"。这是 onboarding 的最后一关。
 >
-> **选题这件事的"家"是 `/redbeacon-topics`**（你出想法 + AI 联网取真痛点 + 应用域网格规划 + 你拍板）。本 skill 第四步只铺一批"快速起步"的种子选题让账号能先跑起来；以后补题 / 想认真规划 / 重铺都走 `/redbeacon-topics`。
+> **选题这件事的"家"是 `/{{CLI}}-topics`**（你出想法 + AI 联网取真痛点 + 应用域网格规划 + 你拍板）。本 skill 第四步只铺一批"快速起步"的种子选题让账号能先跑起来；以后补题 / 想认真规划 / 重铺都走 `/{{CLI}}-topics`。
 
 ---
 
 ## 前置：选账号 + 看是不是已有定位
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
-- **0 个账号** → 还没建号，先去 `/redbeacon-accounts`，本 skill 到此为止。
+- **0 个账号** → 还没建号，先去 `/{{CLI}}-accounts`，本 skill 到此为止。
 - **1 个账号** → 自动用它，记为 `{ID}`，不用问。
 - **多个账号** → 把列表给用户，让其指明给哪个账号定位（`$ARGUMENTS` 里已说明就直接用）。
 
 确定 `{ID}` 后读现有策略：
 
 ```bash
-redbeacon strategy get --account-id {ID}
+{{CLI}} strategy get --account-id {ID}
 ```
 
 - 返回 `{}` 或 `data.niche` 为空 → 全新账号，进「第一步」。
-- 已有 `niche` → 告诉用户「检测到已有定位」，展示核心信息（niche / target_audience），问是**重新定位**还是**只改某部分**（只改某部分建议走 `/redbeacon-strategy`，不用重跑全程）。**重新定位**时旧选题多半与新方向不符，可在重建前用 `topics delete … --all` 清空旧库（见第四步末「选题维护」）。
+- 已有 `niche` → 告诉用户「检测到已有定位」，展示核心信息（niche / target_audience），问是**重新定位**还是**只改某部分**（只改某部分建议走 `/{{CLI}}-strategy`，不用重跑全程）。**重新定位**时旧选题多半与新方向不符，可在重建前用 `topics delete … --all` 清空旧库（见第四步末「选题维护」）。
 
 ---
 
@@ -84,7 +84,7 @@ redbeacon strategy get --account-id {ID}
 2. **目标受众**：内容给谁看？他们的共同痛点或欲望是什么？
 3. **差异化**：同赛道账号很多，你的独特角度 / 优势是什么？
 4. **目标 / 变现**：做这个账号想达成什么？（涨粉 / 卖货 / 私域引流 / 个人品牌 / 纯记录）
-5. **参考账号**（可选）：有没有想参考风格的小红书账号？用户给主页链接时转入 `/redbeacon-benchmark`，由事实隔离流程提取运营空壳；不要在本定位流程里凭印象抄对方事实。
+5. **参考账号**（可选）：有没有想参考风格的小红书账号？用户给主页链接时转入 `/{{CLI}}-benchmark`，由事实隔离流程提取运营空壳；不要在本定位流程里凭印象抄对方事实。
 
 > 这是"联动数据"的源头——赛道、受众、差异化、痛点任何一处变动，最终文案都会跟着变。聊透一点，后面少返工。
 
@@ -92,7 +92,7 @@ redbeacon strategy get --account-id {ID}
 
 你（运行此 skill 的客户端）能读图、能读长文案。趁定位对话，主动邀请用户把**喜欢的封面图**和**喜欢的笔记文案**直接发到聊天窗——这是把抽象偏好变具体的最快方式：
 
-- **用户发参考封面图** → 你看图，反推出**视觉风格的一句大白话描述**：主体 / 构图 / 色调 / 留白 / 质感（如「明亮清新、ins 简约、主体居中、上方留白」）。这段不写进定位档案；定位确认后交给 `/redbeacon-plans`，写入用户指定方案的视觉模板。只迁移风格骨架，不照抄截图里的具体文字、人物或业务事实。
+- **用户发参考封面图** → 你看图，反推出**视觉风格的一句大白话描述**：主体 / 构图 / 色调 / 留白 / 质感（如「明亮清新、ins 简约、主体居中、上方留白」）。这段不写进定位档案；定位确认后交给 `/{{CLI}}-plans`，写入用户指定方案的视觉模板。只迁移风格骨架，不照抄截图里的具体文字、人物或业务事实。
 - **用户发参考文案**（喜欢的博主笔记）→ 你抽象出风格：语气、句式长短、开场套路、分段方式、emoji 习惯、有无人设口头禅。把能映射到定位字段的填进去（`tone`/`opening_style`/`format_style`/`emoji_usage`）；更具体的"这个号怎么写"用一段人话浓缩进 `copy_guide`（全局文案指南，管所有内容——按内容类型分别设写作要求已下线，统一走这一段）。
 
 > 图片只在对话里被你读懂，不会进 CLI；CLI 里存的永远是你抽象出来的**文本提示词**。用户没有参考样例也没关系，跳过即可，靠问答把风格说清楚也行。
@@ -103,7 +103,7 @@ redbeacon strategy get --account-id {ID}
 
 > 🎯 **深度在"覆盖"不在"拷问"**：定位页有约 21 项核心字段。别抛一堆空问题让用户填——**你（AI）联网+据第一步对话，先把每个字段都替用户起草一版**，再**分块**亮给用户逐块确认/微调。用户主要"拍板和改"，不打字。
 > - **核心层先钉死**（赛道/受众/内容支柱）：这几项错了全盘错，先确认。
-> - **蓝图层先草拟再磨**（人设/对标账号/选题边界/账号阶段）：你先拟一版，用户后续慢慢调。用户要复刻对标主页时转交 `/redbeacon-benchmark`，由它做事实隔离并生成 10 条完整选题，不要在定位流程里自行搬运对方事实。
+> - **蓝图层先草拟再磨**（人设/对标账号/选题边界/账号阶段）：你先拟一版，用户后续慢慢调。用户要复刻对标主页时转交 `/{{CLI}}-benchmark`，由它做事实隔离并生成 10 条完整选题，不要在定位流程里自行搬运对方事实。
 > - **少数要用户给料**：对标账号的具体名字、变现意图——这些 AI 猜不准，要问。
 
 先把起草的方案**分块**展示（不要一次甩 21 行），如：
@@ -126,7 +126,7 @@ redbeacon strategy get --account-id {ID}
 > ⚠️ Windows/PowerShell 下长中文 JSON 不要塞进 `--data` 参数。把下面 JSON 保存成 UTF-8 文件（如 `strategy.json`），再用 `--data-file`：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data-file strategy.json
+{{CLI}} strategy patch --account-id {ID} --data-file strategy.json
 ```
 
 ```json
@@ -159,7 +159,7 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 
 > 写入成功后告知：✓ 账号定位已写进本机账号档案。
 >
-> **真正进文案生成的定位字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words / **copy_guide**（权重高）。其余作为账号上下文留存。这些全在**本机账号档案**里，用户随时可去操作台定位页改、或走 `/redbeacon-strategy` 让你改。
+> **真正进文案生成的定位字段**：niche / target_audience / tone / opening_style / format_style / emoji_usage / content_pillars / pain_points / forbidden_words / **copy_guide**（权重高）。其余作为账号上下文留存。这些全在**本机账号档案**里，用户随时可去操作台定位页改、或走 `/{{CLI}}-strategy` 让你改。
 >
 > ⚠️ **账号备注名/小红书昵称**这两项是账号身份（登录回填、只读），不在定位字段里改（改备注名走第四步半的 `accounts patch`）。
 
@@ -167,9 +167,9 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 
 ## 第二步之后：视觉配置统一交给「方案」
 
-定位只负责账号是谁、服务谁、说什么、怎么写。**不要再在定位流程里询问或写入视觉风格、默认配图方式、发布节奏**；封面风格、配图方式、人物/产品参考图都由 `/redbeacon-plans` 的具体方案管理。老账号档案中的视觉字段只作为历史兼容兜底，不主动展示、不继续维护。
+定位只负责账号是谁、服务谁、说什么、怎么写。**不要再在定位流程里询问或写入视觉风格、默认配图方式、发布节奏**；封面风格、配图方式、人物/产品参考图都由 `/{{CLI}}-plans` 的具体方案管理。老账号档案中的视觉字段只作为历史兼容兜底，不主动展示、不继续维护。
 
-用户明确要继续设置封面时，再转入 `/redbeacon-plans`，为他建立或修改一套方案；没有这个诉求就直接继续铺选题，不额外增加一轮选择。
+用户明确要继续设置封面时，再转入 `/{{CLI}}-plans`，为他建立或修改一套方案；没有这个诉求就直接继续铺选题，不额外增加一轮选择。
 
 ---
 
@@ -214,7 +214,7 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 把确认后的数组保存成 UTF-8 文件（如 `topics.json`），再执行：
 
 ```bash
-redbeacon topics batch --account-id {ID} --json-file topics.json --require-complete
+{{CLI}} topics batch --account-id {ID} --json-file topics.json --require-complete
 ```
 
 ```json
@@ -228,12 +228,12 @@ redbeacon topics batch --account-id {ID} --json-file topics.json --require-compl
 
 > 阶段默认落「选题」（可被 generate 取用的库存）。返回 `{"inserted":N,"total":M,"record_ids":[...]}`，库里重复文本自动跳过。
 
-写入成功后立即执行 `redbeacon ui app --detach --page 选题 --account-id {ID}`，让用户在客户端里核查刚铺好的选题；不要只在对话里报一个数量。
+写入成功后立即执行 `{{CLI}} ui app --detach --page 选题 --account-id {ID}`，让用户在客户端里核查刚铺好的选题；不要只在对话里报一个数量。
 
 写完核对数量：
 
 ```bash
-redbeacon topics stats --account-id {ID}
+{{CLI}} topics stats --account-id {ID}
 ```
 
 - `unused >= 10` → ✓ 告知已入库 N 条选题（unused = 阶段为「选题」的库存数）。
@@ -244,10 +244,10 @@ redbeacon topics stats --account-id {ID}
 > 选题库在本机，**没有"已用/未用"态**（写成文案=删行）；`reset` / `types*` 已退役。
 
 ```bash
-redbeacon topics list   --account-id {ID} --limit 100              # 先看 record_id
-redbeacon topics delete --account-id {ID} --ids recXXXX,recYYYY    # 删指定几条（record_id）
-redbeacon topics delete --account-id {ID} --type "干货科普"         # 删某一类
-redbeacon topics delete --account-id {ID} --all                   # 清空全部（防误删，必须显式 --all）
+{{CLI}} topics list   --account-id {ID} --limit 100              # 先看 record_id
+{{CLI}} topics delete --account-id {ID} --ids recXXXX,recYYYY    # 删指定几条（record_id）
+{{CLI}} topics delete --account-id {ID} --type "干货科普"         # 删某一类
+{{CLI}} topics delete --account-id {ID} --all                   # 清空全部（防误删，必须显式 --all）
 ```
 
 返回 `{"ok":true,"deleted":N}`。**重新定位 / 选题跑偏想推倒重来**：先 `topics delete … --all` 清空，再走本步重建。不传 `--ids/--type` 又不加 `--all` 会被拒绝（防手滑清库）。
@@ -257,12 +257,12 @@ redbeacon topics delete --account-id {ID} --all                   # 清空全部
 某条选题想改文字 / 换归类 / 调阶段，不必删了重加：
 
 ```bash
-redbeacon topics edit --account-id {ID} --id recXXXX --content "改后的选题文本"   # 改文案
-redbeacon topics edit --account-id {ID} --id recXXXX --type "痛点解析"           # 改归类
-redbeacon topics edit --account-id {ID} --id recXXXX --stage 弃用                # 软删除、不进列表
+{{CLI}} topics edit --account-id {ID} --id recXXXX --content "改后的选题文本"   # 改文案
+{{CLI}} topics edit --account-id {ID} --id recXXXX --type "痛点解析"           # 改归类
+{{CLI}} topics edit --account-id {ID} --id recXXXX --stage 弃用                # 软删除、不进列表
 ```
 
-> **内容类型不再单独管理**（types* 已退役）：要调内容类型，直接用 `topics edit --type` 改这条，或改账号定位「内容支柱」（`/redbeacon-strategy`）。
+> **内容类型不再单独管理**（types* 已退役）：要调内容类型，直接用 `topics edit --type` 改这条，或改账号定位「内容支柱」（`/{{CLI}}-strategy`）。
 
 ---
 
@@ -286,10 +286,10 @@ redbeacon topics edit --account-id {ID} --id recXXXX --stage 弃用             
 
 ## 第四步半：按赛道给账号起个备注名（没起过名才做）
 
-定位定下来了，账号的方向就清晰了——如果这个号还是**未命名**（备注是兜底的「{id}号小红书」或 `redbeacon-{id}`），**主动按赛道拟一个好记的备注名**，让用户在多账号矩阵里一眼能认出：
+定位定下来了，账号的方向就清晰了——如果这个号还是**未命名**（备注是兜底的「{id}号小红书」或 `{{CLI}}-{id}`），**主动按赛道拟一个好记的备注名**，让用户在多账号矩阵里一眼能认出：
 
 ```bash
-redbeacon accounts get --account-id {ID}    # 看 display_name 是不是还是兜底值
+{{CLI}} accounts get --account-id {ID}    # 看 display_name 是不是还是兜底值
 ```
 
 是兜底值就拟 1 个贴赛道的备注（如赛道「副业搞钱」→「副业搞钱手册」），发用户确认：
@@ -301,7 +301,7 @@ redbeacon accounts get --account-id {ID}    # 看 display_name 是不是还是�
 用户认可 / 给了自己的名字 → 落库：
 
 ```bash
-redbeacon accounts patch --account-id {ID} --data-file account.json
+{{CLI}} accounts patch --account-id {ID} --data-file account.json
 ```
 
 ```json
@@ -328,13 +328,13 @@ redbeacon accounts patch --account-id {ID} --data-file account.json
 用户要可视化核对就深链送过去：
 
 ```bash
-redbeacon ui app --detach --page 定位 --account-id {ID}
+{{CLI}} ui app --detach --page 定位 --account-id {ID}
 ```
 
 **② 用户要改 → 你在对话里改**（增量、改哪项传哪项，写本机账号档案）：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data-file strategy.json
+{{CLI}} strategy patch --account-id {ID} --data-file strategy.json
 ```
 
 ```json
@@ -346,11 +346,11 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 **③ 用户确认没问题** → 宣布配置完成、进入正式运营（多账号用 per-账号判断这个号自己 ready）：
 
 ```bash
-redbeacon readiness --account-id {ID}
+{{CLI}} readiness --account-id {ID}
 ```
 
 > ✓ 账号「{ID}号小红书 ·{备注名}」配置全部完成，进入正式运营 🎉
-> 以后可以随时 **`/redbeacon-generate`** 生成内容 → 自动进审核表（`/redbeacon-review` 审）→ 标「通过」后 **`/redbeacon-publish`** 发布；也可以在客户端“自动化”页为这个账号开启值守，让同一套流程在客户端运行期间按计划执行。
+> 以后可以随时 **`/{{CLI}}-generate`** 生成内容 → 自动进审核表（`/{{CLI}}-review` 审）→ 标「通过」后 **`/{{CLI}}-publish`** 发布；也可以在客户端“自动化”页为这个账号开启值守，让同一套流程在客户端运行期间按计划执行。
 
 > 收尾逻辑：登录给"账号落地"的实感、定位+选题给"内容方向"，**最后请用户亲眼过一遍并确认**——确认通过，账号才算真正配好、可以正式运营。账号档案在本机，用户日后随时让你改或去定位页改。
 
@@ -359,7 +359,7 @@ redbeacon readiness --account-id {ID}
 ## 注意
 
 - 不承诺操作系统后台常驻：账号级自动化只在客户端运行期间生效，开启时防止空闲休眠，退出客户端或错过时间点不补跑。单篇定时发布与账号级值守是两种不同设置，不要混为一谈。
-- 审核与改稿在本机（`/redbeacon-review` 或操作台审稿页），定位 skill 不涉及审核。
+- 审核与改稿在本机（`/{{CLI}}-review` 或操作台审稿页），定位 skill 不涉及审核。
 - 命令失败走 stderr `{"error","next"}`，把 error 给用户看，按 next 自愈，别静默吞。
-- `strategy patch` 是增量合并（只覆盖传入字段），所以单项调整可以只传那一个字段——这正是 `/redbeacon-strategy` 的工作方式。
-- **定位完可顺带提一句方案**：想让 AI 出图/文案更贴这个号，可以帮他调一套生成方案（走 `/redbeacon-plans`）——不是必需，用户有意愿再提，别硬塞。
+- `strategy patch` 是增量合并（只覆盖传入字段），所以单项调整可以只传那一个字段——这正是 `/{{CLI}}-strategy` 的工作方式。
+- **定位完可顺带提一句方案**：想让 AI 出图/文案更贴这个号，可以帮他调一套生成方案（走 `/{{CLI}}-plans`）——不是必需，用户有意愿再提，别硬塞。

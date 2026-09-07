@@ -3,12 +3,12 @@ description: 配置检测与设置 — 平台登录（必需）+ 代理（可选
 argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改哪一项（如「重新登录平台」「加代理」）
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **默认纯本机**：业务数据都在本地，**不需要配飞书**。配置只剩两件事：**平台登录（必需，管生图/计费）** + **代理（可选，多账号防关联）**。（飞书云端源现阶段搁置、配置入口已隐藏，以后线上模式再启。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的）；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的）；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行。
 > - **把输入成本压到最小**：能给选项就别让用户打字；该替他想的下一步你先想好、给推荐（标「推荐」）。
@@ -16,7 +16,7 @@ argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改�
 
 > **【配置 skill】** 入口触发时自动检测配置完整度。**只有平台登录是必需项**，代理可选、可跳过。配好平台登录就能进入下一步（建账号 / 定位）。
 >
-> 审核与改稿都在本机（`/redbeacon-review` 或操作台审稿页）。**文案/生图带令牌走平台扣点——客户端不需要任何 AI key / 中转站，也不需要配飞书。**
+> 审核与改稿都在本机（`/{{CLI}}-review` 或操作台审稿页）。**文案/生图带令牌走平台扣点——客户端不需要任何 AI key / 中转站，也不需要配飞书。**
 
 ---
 
@@ -31,10 +31,10 @@ argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改�
 
 | 用户意图 | 只执行 |
 |---|---|
-| 登录 / 重新登录平台 | `redbeacon login`（device flow，见 A 段）→ `redbeacon checkin` 看剩余算力点 |
-| 查算力点 / 是否登录 | `redbeacon checkin`（拉剩余算力点）｜`redbeacon login status`（只看是否登录） |
-| 退出平台登录 | `redbeacon login logout` |
-| 改 / 加代理 | 转 `/redbeacon-accounts`，按账号保存固定代理并验证 |
+| 登录 / 重新登录平台 | `{{CLI}} login`（device flow，见 A 段）→ `{{CLI}} checkin` 看剩余算力点 |
+| 查算力点 / 是否登录 | `{{CLI}} checkin`（拉剩余算力点）｜`{{CLI}} login status`（只看是否登录） |
+| 退出平台登录 | `{{CLI}} login logout` |
+| 改 / 加代理 | 转 `/{{CLI}}-accounts`，按账号保存固定代理并验证 |
 | 调发布节奏 | `config set publish_min_interval/publish_max_interval/publish_account_stagger <秒>`（防限流，号多调大） |
 | 看某项配置 / 列全部 | `config get <key>` ／ `config list`（加密项已设的回 `__SET__`） |
 | **删掉某项配置**（不是设空、是删行） | `config unset <key>`（账号代理请在账号管理中关闭或清除） |
@@ -47,9 +47,9 @@ argument-hint: 无参数=自动检测缺什么补什么；也可直接说要改�
 ## 第零步：检测缺什么
 
 ```bash
-redbeacon readiness
-redbeacon login status
-redbeacon config list
+{{CLI}} readiness
+{{CLI}} login status
+{{CLI}} config list
 ```
 
 按顺序逐项检测，缺哪段进哪段，已好的跳过：
@@ -65,14 +65,14 @@ redbeacon config list
 
 ## A 段：登录数字员工平台（必需，人人必登）
 
-> 🔗 平台登录也有**独立 skill** `/redbeacon-login`（专管平台登录/查会员/退出）。本段是 onboarding 一条龙里顺带做的平台登录；用户单独要「登录/重登/退出平台」时走 `/redbeacon-login` 即可，两边底层都是 `redbeacon login`。
+> 🔗 平台登录也有**独立 skill** `/{{CLI}}-login`（专管平台登录/查会员/退出）。本段是 onboarding 一条龙里顺带做的平台登录；用户单独要「登录/重登/退出平台」时走 `/{{CLI}}-login` 即可，两边底层都是 `{{CLI}} login`。
 
 > **为什么要登录**：RedBeacon 是「数字员工平台」上的员工。**生成内容（写文案 / 出图）会消耗算力点**、要带账号级令牌走平台，按实际用量结算（本地渲染文字卡这类不走平台的步骤不消耗）。**必须先登录一次**（首启轻打卡让平台看得见你、给你使用权）——这是 onboarding 的硬门槛，别做「按需登」。
 
 弹设备授权（device flow，**不让用户输账号密码**）：
 
 ```bash
-redbeacon login
+{{CLI}} login
 ```
 
 它会先打印一段授权信息（`user_code` + 授权短链），并自动打开浏览器到授权页。**用人话告诉用户**：
@@ -81,12 +81,12 @@ redbeacon login
 
 命令会按 `interval` 自动轮询直到授权成功（10 分钟内有效）：
 - 成功 → `{"logged_in":true,...}`。设备令牌已存本地（共享账号目录，**明文、不上传**）。
-- 超时 / 被拒 / 连不上 → 按返回的 `error` 给人话，重跑 `redbeacon login`。
+- 超时 / 被拒 / 连不上 → 按返回的 `error` 给人话，重跑 `{{CLI}} login`。
 
 登录成功后**顺手打一次卡，把剩余算力点念给用户**（近乎零成本、不调 AI）：
 
 ```bash
-redbeacon checkin
+{{CLI}} checkin
 ```
 
 读 `membership.points.remaining`（剩余算力点，**点数只看 `membership.points`**）。**账号不再分等级/档位**——别念 `tier_name`/免费版/Pro/Max，也别提会员到期。用人话给用户一句：
@@ -107,7 +107,7 @@ redbeacon checkin
 
 ## C 段：账号专属代理（可选）
 
-代理已移到「账号管理」每个账号的卡片。用户已经提供代理时，按 `/redbeacon-accounts` 的统一入口填写协议、IP / 域名、端口、用户名和密码，并启用到用户指定的账号；用户未指定账号时只补问要应用到哪个账号。
+代理已移到「账号管理」每个账号的卡片。用户已经提供代理时，按 `/{{CLI}}-accounts` 的统一入口填写协议、IP / 域名、端口、用户名和密码，并启用到用户指定的账号；用户未指定账号时只补问要应用到哪个账号。
 
 不再设置全局代理，不调用取 IP 链接，不自动轮换。同一条代理不能同时启用到多个账号。检测必须使用对应账号的登录状态；通过普通请求只能说明线路可达，不能宣告小红书账号已验证。用户不需要代理时直接跳过。
 
@@ -118,11 +118,11 @@ redbeacon checkin
 判定「配置完成」：平台已登录，代理已配或已明确跳过。
 
 ```bash
-redbeacon readiness
+{{CLI}} readiness
 ```
 
 - 仍 `stage1` → 平台没登录（回 A 段）。
-- 进到 `stage2` → 配置就绪。**按主入口「自动推进原则」，直接交棒 `/redbeacon-accounts` 建号**（建完会自动接扫码登录 → 定位，一路到 ready），别问「要不要建账号」。
+- 进到 `stage2` → 配置就绪。**按主入口「自动推进原则」，直接交棒 `/{{CLI}}-accounts` 建号**（建完会自动接扫码登录 → 定位，一路到 ready），别问「要不要建账号」。
 
 > 配置是 onboarding 第一关，配齐就直接往下走，别在每关之间反复征求同意。
 
@@ -130,4 +130,4 @@ redbeacon readiness
 
 ## 错误处理
 
-任何命令返回 `{"error": "...", "next": "..."}`：把 `error` 翻译给用户，自动跑 `next` 或提示用户该跑什么。平台类错误（登录失效 / 算力点不足）按 `error` 给人话——登录失效就重跑 `redbeacon login`。
+任何命令返回 `{"error": "...", "next": "..."}`：把 `error` 翻译给用户，自动跑 `next` 或提示用户该跑什么。平台类错误（登录失效 / 算力点不足）按 `error` 给人话——登录失效就重跑 `{{CLI}} login`。

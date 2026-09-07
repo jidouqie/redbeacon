@@ -1,14 +1,14 @@
 ---
 description: 策略微调 — 单点调整账号定位 / 文案预设 / 图片预设，改哪项只动哪项
-argument-hint: 说要改什么（如「改一下语气」「重写干货科普的文案提示词」「图片换成AI生图」）；不确定哪出问题用 /redbeacon-diagnose
+argument-hint: 说要改什么（如「改一下语气」「重写干货科普的文案提示词」「图片换成AI生图」）；不确定哪出问题用 /{{CLI}}-diagnose
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **数据都在本机**：定位/文案预设/视觉风格都存本地账号档案，无需飞书。`strategy get/patch/image-set` 读写这一份，本地读写恒可用。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行，例如：
 >   ```
@@ -25,19 +25,19 @@ argument-hint: 说要改什么（如「改一下语气」「重写干货科普�
 >
 > 🔴 **分工原则（重要，你是这里的导航员）**：
 > - **短字段、一句话能说清的 → 你在对话里直接改**（改语气、换赛道、加个禁词、换卡片配色、换配图方式…）——这是你的强项，`strategy patch`/`image-set` 一条命令落库，别支使用户去网页点。
-> - **整套「生成方案 / 文案提示词模板 / 视觉提示词模板」这种长模板 → 别在对话里硬拼，深链把用户送进网页方案页**（`redbeacon ui app --detach --page 方案 --account-id {ID}`）。理由：长模板要一屏铺开、边改边看占位符高亮和实时预览，网页信息密度甩对话几条街；你在聊天里一段段念模板，用户根本对不齐。**这正是"该交棒就交棒"**——见下「D 段」。
+> - **整套「生成方案 / 文案提示词模板 / 视觉提示词模板」这种长模板 → 别在对话里硬拼，深链把用户送进网页方案页**（`{{CLI}} ui app --detach --page 方案 --account-id {ID}`）。理由：长模板要一屏铺开、边改边看占位符高亮和实时预览，网页信息密度甩对话几条街；你在聊天里一段段念模板，用户根本对不齐。**这正是"该交棒就交棒"**——见下「D 段」。
 >
-> 不知道"文案不对劲"该改哪个旋钮 → 先走 `/redbeacon-diagnose`，它会反推问题节点再把你带回这里。
+> 不知道"文案不对劲"该改哪个旋钮 → 先走 `/{{CLI}}-diagnose`，它会反推问题节点再把你带回这里。
 
 ---
 
 ## 前置：选账号
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
-0 个 → 先 `/redbeacon-accounts`。1 个 → 自动用，记 `{ID}`。多个 → 让用户指明。
+0 个 → 先 `/{{CLI}}-accounts`。1 个 → 自动用，记 `{ID}`。多个 → 让用户指明。
 
 ---
 
@@ -72,7 +72,7 @@ redbeacon accounts list
 先看现状：
 
 ```bash
-redbeacon strategy get --account-id {ID}
+{{CLI}} strategy get --account-id {ID}
 ```
 
 `strategy get` 直接返回账号定位字段（从本机账号档案组装）。**真正进文案生成的**：`niche` `target_audience` `tone` `opening_style` `format_style` `emoji_usage` `content_length` `content_pillars` `competitive_advantage` `pain_points` `forbidden_words`；`visual_theme` 进配图；其余（人设/对标/选题边界/账号阶段…）为账号上下文。
@@ -80,16 +80,16 @@ redbeacon strategy get --account-id {ID}
 确认用户要改哪个字段后，**只传那一个（或几个）字段**（patch 是增量合并、写本机账号档案）：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data-file strategy.json
+{{CLI}} strategy patch --account-id {ID} --data-file strategy.json
 ```
 
 ```json
 {"tone":"更犀利、直给"}
 ```
 
-> 改完告知：✓ 已更新 [字段]。这会影响下次 `/redbeacon-generate` 的产出。
+> 改完告知：✓ 已更新 [字段]。这会影响下次 `/{{CLI}}-generate` 的产出。
 >
-> **改完顺手提一句**：「想看效果就让我生成一篇试试。」想直接看产出就 `/redbeacon-generate` 生成一篇对比；想在操作台核一眼可 `redbeacon ui app --detach --page 定位 --account-id {ID}`。
+> **改完顺手提一句**：「想看效果就让我生成一篇试试。」想直接看产出就 `/{{CLI}}-generate` 生成一篇对比；想在操作台核一眼可 `{{CLI}} ui app --detach --page 定位 --account-id {ID}`。
 
 ---
 
@@ -101,20 +101,20 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 看现状（`copy_guide` 字段）：
 
 ```bash
-redbeacon strategy get --account-id {ID}
+{{CLI}} strategy get --account-id {ID}
 ```
 
 改写——一段人话写作指引，从用户的话或他发的参考文案里提炼（结构/钩子/举证方式/口吻/差异化打法）：
 
 ```bash
-redbeacon strategy patch --account-id {ID} --data-file strategy.json
+{{CLI}} strategy patch --account-id {ID} --data-file strategy.json
 ```
 
 ```json
 {"copy_guide": "每篇用因果结构开头戳痛点；多用具体数字和真实案例，少讲大道理；结尾留钩子引导评论；聪明朋友口吻不堆术语"}
 ```
 
-> **定位时就该写上**（见 `/redbeacon-locate`）；用户反馈"还是空的 / 想改全局风格"就在这里写/改（写本机账号档案「文案指南」）。清空同样写进 `strategy.json`：`{"copy_guide": ""}`。
+> **定位时就该写上**（见 `/{{CLI}}-locate`）；用户反馈"还是空的 / 想改全局风格"就在这里写/改（写本机账号档案「文案指南」）。清空同样写进 `strategy.json`：`{"copy_guide": ""}`。
 > **用参考文案抽取**（多模态）：让用户把喜欢的笔记发进聊天窗，你读懂后把"这个号该怎么写"概括进 `copy_guide`。
 > ⚠️ 写**人话写作指引**（如「把知识点讲透、多用步骤清单」），**别塞 `输出JSON`、`{占位符}`、"你是一个博主…"** 这类程序术语——JSON 契约/占位符/骨架由程序自动拼，写进来是脏数据。
 
@@ -130,7 +130,7 @@ redbeacon strategy patch --account-id {ID} --data-file strategy.json
 看本地卡片配色：
 
 ```bash
-redbeacon strategy image-get --account-id {ID}
+{{CLI}} strategy image-get --account-id {ID}
 ```
 
 关键字段：
@@ -147,10 +147,10 @@ redbeacon strategy image-get --account-id {ID}
 
 ```bash
 # 换成 AI 封面 + 卡片，给一条视觉风格或结构化大字报封面提示词（模型平台侧定，不用传）
-redbeacon strategy image-set --account-id {ID} --data-file image.json
+{{CLI}} strategy image-set --account-id {ID} --data-file image.json
 
 # 只换卡片配色
-redbeacon strategy image-set --account-id {ID} --data-file image.json
+{{CLI}} strategy image-set --account-id {ID} --data-file image.json
 ```
 
 ```json
@@ -160,16 +160,16 @@ redbeacon strategy image-set --account-id {ID} --data-file image.json
 **参考图（图生图）**——用户想用自己的照片/某张风格图当封面素材：
 
 ```bash
-redbeacon plans list --account-id {ID}
-redbeacon plans get --account-id {ID} --plan-id {PLAN_ID}
-redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --file "<本地图片路径>"
-redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --remove "<方案 reference_images 中的路径>"
-redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --clear
+{{CLI}} plans list --account-id {ID}
+{{CLI}} plans get --account-id {ID} --plan-id {PLAN_ID}
+{{CLI}} plans material --account-id {ID} --plan-id {PLAN_ID} --file "<本地图片路径>"
+{{CLI}} plans material --account-id {ID} --plan-id {PLAN_ID} --remove "<方案 reference_images 中的路径>"
+{{CLI}} plans material --account-id {ID} --plan-id {PLAN_ID} --clear
 ```
 
 > **先选实际使用的方案，再挂图**。有用户指定方案就用它，否则从 `plans list` 读取当前默认方案；内置模板先通过 `plans save` 另存为自己的方案。图片校验、清除元数据并保存为 PNG 后才登记进方案；添加时加 `--replace` 可在保存成功后替换旧图。生成时必须选择同一个方案；需要今后默认用它时运行 `plans set-default --account-id {ID} --plan-id {PLAN_ID}`。
 
-> `--remove` / `--clear` 在方案保存成功后，只删除本号素材目录内、且没有其他方案引用的旧图片；外部原图、别号素材和共享图片保留文件。用户已明确要求删除指定图或清空时直接执行；未指定目标时先用 `plans get` 核对。挂图完成后通过 `redbeacon ui app --detach --page 方案 --account-id {ID}` 展示成果。
+> `--remove` / `--clear` 在方案保存成功后，只删除本号素材目录内、且没有其他方案引用的旧图片；外部原图、别号素材和共享图片保留文件。用户已明确要求删除指定图或清空时直接执行；未指定目标时先用 `plans get` 核对。挂图完成后通过 `{{CLI}} ui app --detach --page 方案 --account-id {ID}` 展示成果。
 
 > 旧账号级参考图命令已退役，`image-set` 只接受 `mode` / `prompt_template` / `card_theme`。不要再传 `reference_images` / `ai_model` / `template_mode`；旧登记不会用于生成，需把原图通过 `plans material` 挂到实际方案。
 
@@ -182,21 +182,21 @@ redbeacon plans material --account-id {ID} --plan-id {PLAN_ID} --clear
 
 ---
 
-## D 段：整套生成方案 / 提示词模板 → 交给 `/redbeacon-plans`
+## D 段：整套生成方案 / 提示词模板 → 交给 `/{{CLI}}-plans`
 
-用户想调的是**「每篇文案具体怎么写、封面具体怎么出」那套带 `{占位符}` 的长模板**（不是 A/B/C 那些短字段）时——**这不是策略微调的活，是「方案」的活，交给专门的 `/redbeacon-plans`**。
+用户想调的是**「每篇文案具体怎么写、封面具体怎么出」那套带 `{占位符}` 的长模板**（不是 A/B/C 那些短字段）时——**这不是策略微调的活，是「方案」的活，交给专门的 `/{{CLI}}-plans`**。
 
 - 那边能**看/建/改/删方案、设默认、传删产品图**（`plans save` 支持长模板走 stdin，能力都在 CLI）。
-- 但**长模板反复比对微调，网页方案页最顺手**——`/redbeacon-plans` 会在合适时一句话把用户深链送进 `redbeacon ui app --detach --page 方案 --account-id {ID}`：左边改模板、右边看这次真会发给 AI 的成品，改完保存回来接着生成。
+- 但**长模板反复比对微调，网页方案页最顺手**——`/{{CLI}}-plans` 会在合适时一句话把用户深链送进 `{{CLI}} ui app --detach --page 方案 --account-id {ID}`：左边改模板、右边看这次真会发给 AI 的成品，改完保存回来接着生成。
 
-> 简单收口：用户在策略里提到「想改整套文案/封面模板、想换默认方案、带货要传产品图」→ **一句「这些成套方案的事我用方案能力帮你弄」然后走 `/redbeacon-plans`**，别在策略这儿硬接长模板。
+> 简单收口：用户在策略里提到「想改整套文案/封面模板、想换默认方案、带货要传产品图」→ **一句「这些成套方案的事我用方案能力帮你弄」然后走 `/{{CLI}}-plans`**，别在策略这儿硬接长模板。
 
 ---
 
 ## 注意
 
-- **改哪项只动哪项**，别顺手重配其他两类。这是本 skill 与 `/redbeacon-locate` 的根本分工。
-- **短字段对话改、成套方案/长模板交给 `/redbeacon-plans`**（D 段）：别把整套提示词模板拉进对话一段段拼——那是「方案」能力的活，收口到 `/redbeacon-plans`。
-- 所有改动都不会触发生成，要看效果让用户去 `/redbeacon-generate` 重新生成一篇对比。
+- **改哪项只动哪项**，别顺手重配其他两类。这是本 skill 与 `/{{CLI}}-locate` 的根本分工。
+- **短字段对话改、成套方案/长模板交给 `/{{CLI}}-plans`**（D 段）：别把整套提示词模板拉进对话一段段拼——那是「方案」能力的活，收口到 `/{{CLI}}-plans`。
+- 所有改动都不会触发生成，要看效果让用户去 `/{{CLI}}-generate` 重新生成一篇对比。
 - 命令失败走 stderr `{"error","next"}`，把 error 给用户、按 next 自愈。
-- 不确定问题出在定位还是文案预设还是图片 → `/redbeacon-diagnose`。
+- 不确定问题出在定位还是文案预设还是图片 → `/{{CLI}}-diagnose`。

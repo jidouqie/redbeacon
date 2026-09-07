@@ -3,18 +3,18 @@ description: 登录数字员工平台 — 设备授权（device flow，不输账
 argument-hint: 无参数=发起平台登录授权；也可说「查算力点」「退出平台登录」
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的）；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的）；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行；能给选项就别让用户打字。
 
 > **【平台登录 skill / login】** 登录**数字员工平台**（bytestaff），拿到本机的账号级**设备令牌**。
 >
 > ⚠️ **和小红书登录是两回事，别搞混**：
-> - **本 skill（平台登录）** = 数字员工平台账号，管**算力点 / 生成计费**（账号不分等级，只看剩余算力点），每台机器登一次。命令 `redbeacon login`。
-> - **小红书登录** = 每个小红书账号扫码挂登录态，管**发布**，是另一个 skill：`/redbeacon-xhslogin`。
+> - **本 skill（平台登录）** = 数字员工平台账号，管**算力点 / 生成计费**（账号不分等级，只看剩余算力点），每台机器登一次。命令 `{{CLI}} login`。
+> - **小红书登录** = 每个小红书账号扫码挂登录态，管**发布**，是另一个 skill：`/{{CLI}}-xhslogin`。
 >
 > 🔴 **人人必登（硬门槛）**：RedBeacon 是数字员工平台上的员工。**生成内容（写文案 / 出图）会消耗算力点**、要带令牌走平台，按实际用量结算（本地渲染文字卡这类不走平台的步骤不消耗）。**必须先登录平台一次**（首启让平台看得见你、发使用权）——没登录平台**不能用生成/发布等执行功能**。别做「按需登」。
 >
@@ -25,7 +25,7 @@ argument-hint: 无参数=发起平台登录授权；也可说「查算力点」�
 ## 先看现在登没登
 
 ```bash
-redbeacon login status
+{{CLI}} login status
 ```
 
 - `logged_in == true` → 已登录。要看剩余算力点就跑 `checkin`（见下「查算力点」）；用户只是来确认的，报一句「平台已登录」即可。
@@ -36,12 +36,12 @@ redbeacon login status
 ## 发起登录授权（device flow，不让用户输账号密码）
 
 ```bash
-redbeacon login
+{{CLI}} login
 ```
 
 > 🔁 **`login` 是幂等的**：它会**先查本机有没有有效令牌**——已登录且令牌有效，**直接返回 `{"already_logged_in":true}`、不重走授权**（你只需告诉用户「已经登录着呢，不用重登」）。只有**没令牌 / 令牌已失效**时才真正发起下面的扫码授权。
 > - 返回带 `unverified:true` = 本机有令牌但平台暂时连不上没法复核 → 也按「已登录」处理，别强制重登。
-> - **想换平台账号 / 就是要重测一遍登录** → 用 `redbeacon login --force`（绕过幂等，强制重新授权）。
+> - **想换平台账号 / 就是要重测一遍登录** → 用 `{{CLI}} login --force`（绕过幂等，强制重新授权）。
 
 真正需要授权时（无令牌/失效/`--force`），它会打印授权信息（`user_code` + 授权短链）并自动打开浏览器到授权页，然后**按 `interval` 自动轮询直到授权成功**（约 10 分钟内有效）。**用人话告诉用户**：
 
@@ -53,23 +53,23 @@ redbeacon login
 | 打印 `user_code` + 授权链接 | 把授权码念给用户，让他去浏览器点「授权这台设备」 |
 | 轮询中 `status:"pending"` | 还在等你点授权…（别催，自动轮询） |
 | 最终 `status:"approved"` / 成功 | ✓ 平台已登录。顺手跑一次 `checkin` 把剩余算力点念给用户。 |
-| stderr `{"error":...}`（超时/被拒/连不上） | 按 error 给人话；给编号选项 `1. 再来一次（重跑登录，推荐）/ 2. 待会儿再说`，回 1 重跑 `redbeacon login`。 |
+| stderr `{"error":...}`（超时/被拒/连不上） | 按 error 给人话；给编号选项 `1. 再来一次（重跑登录，推荐）/ 2. 待会儿再说`，回 1 重跑 `{{CLI}} login`。 |
 
-> 授权成功后设备令牌落本机（加密、永不上传、不回显）。重测完整登录流程 = `redbeacon login --force`（不必先手动 logout，force 会自动处理）。
+> 授权成功后设备令牌落本机（加密、永不上传、不回显）。重测完整登录流程 = `{{CLI}} login --force`（不必先手动 logout，force 会自动处理）。
 
 ---
 
 ## 查算力点（checkin）
 
 ```bash
-redbeacon checkin
+{{CLI}} checkin
 ```
 
 读 `membership`：`points.remaining`（剩余算力点，**点数只看 `membership.points`**）。**账号不再分等级/档位**——只有「剩余算力点」这一个口径，别再念 `tier_name`/免费版/Pro/Max，也别提会员到期。
 
 > ✓ 平台已登录，剩余算力点 **{remaining}**。生成内容（写文案 / 出图）会消耗算力点，按实际用量结算——**别给用户报"一篇几点""一张几点"这种固定数字**，平台按 token 实时换算，说不准也别说死。
 
-- 返回 `{"error":...,"next":"redbeacon login"}`（未登录） → 回上面「发起登录授权」。
+- 返回 `{"error":...,"next":"{{CLI}} login"}`（未登录） → 回上面「发起登录授权」。
 - 平台连不上 → 不阻塞，告知「平台暂时连不上，稍后再试；不影响本地的账号/选题/内容」。
 
 ---
@@ -77,7 +77,7 @@ redbeacon checkin
 ## 退出平台登录（logout）
 
 ```bash
-redbeacon login logout
+{{CLI}} login logout
 ```
 
 清掉本机设备令牌——之后用 AI 生图需要重新登录授权。**账号、选题、内容数据都在本机，不受影响**。这是低频操作，用户明确要登出/换平台账号时才做，做完即止。
@@ -89,12 +89,12 @@ redbeacon login logout
 平台登录是 onboarding 第一关（readiness `stage1` 的平台部分）。登录成功后重跑 readiness 看下一步：
 
 ```bash
-redbeacon readiness
+{{CLI}} readiness
 ```
 
-- 还没建号 → `/redbeacon-accounts`
-- 账号没登录小红书 → `/redbeacon-xhslogin`
-- 账号没定位 → `/redbeacon-locate`
+- 还没建号 → `/{{CLI}}-accounts`
+- 账号没登录小红书 → `/{{CLI}}-xhslogin`
+- 账号没定位 → `/{{CLI}}-locate`
 
 ---
 
@@ -103,9 +103,9 @@ redbeacon readiness
 | 用户想干的 | 去哪个 skill |
 |---|---|
 | 登录平台 / 查算力点 / 退出平台 | **本 skill** |
-| 扫码登录**小红书** / 查登录态 / 重登 | `/redbeacon-xhslogin` |
-| 配代理 | `/redbeacon-config` |
-| 建号 / 改名 / 删号 | `/redbeacon-accounts` |
+| 扫码登录**小红书** / 查登录态 / 重登 | `/{{CLI}}-xhslogin` |
+| 配代理 | `/{{CLI}}-config` |
+| 建号 / 改名 / 删号 | `/{{CLI}}-accounts` |
 
 ---
 

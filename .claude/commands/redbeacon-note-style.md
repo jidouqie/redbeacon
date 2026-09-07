@@ -3,13 +3,13 @@ description: 用户贴一篇小红书笔记链接并说“照这篇做、仿写�
 argument-hint: 小红书单篇笔记链接或手机端完整分享文字；可补充“给哪个账号”
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > **【单篇笔记学习】** 当用户贴出一篇小红书图文笔记，并表达“照这篇做”“仿写这篇”“做成这种笔记”“学习这个封面”“把这篇沉淀成方案”等意图时，直接进入本能力。RedBeacon 会读取这篇笔记的标题、正文和封面，用当前账号自己的定位约束文案迁移，并以用户指定的这一张封面为主要视觉依据，提炼成一套可复用方案。分析只生成预览；用户明确确认后才加入方案库。
 
 ## 先区分主页与单篇笔记
 
-- `/user/profile/...` 主页、手机端“查看 Ta 的主页”分享文字，且用户要“对标这个账号 / 复刻这个账号” → 去 `/redbeacon-benchmark`。
+- `/user/profile/...` 主页、手机端“查看 Ta 的主页”分享文字，且用户要“对标这个账号 / 复刻这个账号” → 去 `/{{CLI}}-benchmark`。
 - `/explore/...`、`/discovery/item/...`、具体笔记分享文字，且用户要“照这篇做 / 仿写这篇” → 留在本能力。
 - `xhslink.cn` / `xhslink.com` 短链可直接传给软件，由浏览器核验最终落点。不得根据短链外观猜测页面类型。
 - 用户只贴链接、没有说明是模仿账号还是模仿单篇时，只问一个问题：“你想学习整个账号，还是只学习这篇笔记？”
@@ -29,7 +29,7 @@ argument-hint: 小红书单篇笔记链接或手机端完整分享文字；可�
 先执行：
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
 - 只有一个账号就直接使用。
@@ -38,7 +38,7 @@ redbeacon accounts list
 ## 第二步：学习并展示预览
 
 ```bash
-redbeacon note-style analyze --account-id {ID} --url "{用户提供的笔记链接或完整分享文字}"
+{{CLI}} note-style analyze --account-id {ID} --url "{用户提供的笔记链接或完整分享文字}"
 ```
 
 可见浏览器启动后，RedBeacon 会把已打开的客户端重新置前，并说明这是正在学习参考笔记的工作窗口。明确告诉用户不要关闭、点击、移动或切换该浏览器页面；学习成功或失败后浏览器都会自动关闭。
@@ -65,19 +65,19 @@ redbeacon note-style analyze --account-id {ID} --url "{用户提供的笔记链�
 - 选择 1：
 
 ```bash
-redbeacon note-style apply --account-id {ID} --job-id {JOB_ID}
+{{CLI}} note-style apply --account-id {ID} --job-id {JOB_ID}
 ```
 
 - 选择 2：
 
 ```bash
-redbeacon note-style apply --account-id {ID} --job-id {JOB_ID} --make-default
+{{CLI}} note-style apply --account-id {ID} --job-id {JOB_ID} --make-default
 ```
 
 保存成功后非阻塞打开方案页，让用户亲眼核查：
 
 ```bash
-redbeacon ui app --detach --page 方案 --account-id {ID}
+{{CLI}} ui app --detach --page 方案 --account-id {ID}
 ```
 
 告诉用户：已经把这一篇的文案节奏和封面结构沉淀为可复用方案；原笔记的事实和原图没有进入方案库。

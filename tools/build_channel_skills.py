@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Build RedBeacon skill files for a release channel.
 
-Stable publishes the source commands as-is. Test publishes a separately named
-skill set that calls the test CLI, so it cannot drive the stable installation by
-accident.
+Both channels render the same named-placeholder sources. Channel-owned literals
+in source prose are rejected, so new paths cannot silently escape substitution.
 """
 from __future__ import annotations
 
@@ -44,25 +43,68 @@ def skill_names(channel: str) -> list[str]:
     return [p.name for p in files]
 
 
-def transform_test_text(text: str) -> str:
-    # The product slug is shared by both channels. Protect the canonical URL
-    # while command names and channel-owned local paths are rewritten below.
-    manifest_token = "__REDBEACON_TEST_CANONICAL_MANIFEST__"
-    text = text.replace(STABLE_MANIFEST_URL, manifest_token)
-    text = re.sub(r"(?<![\w/-])/redbeacon(?!-test)(-[A-Za-z0-9]+)?",
-                  lambda m: "/redbeacon-test" + (m.group(1) or ""), text)
-    text = re.sub(r"(?<![A-Za-z0-9_.-])redbeacon(?![A-Za-z0-9_.-])",
-                  "redbeacon-test", text)
-    text = text.replace("~/.redbeacon", "~/.redbeacon_test")
-    text = text.replace("~/.bytestaff", "~/.bytestaff_test")
-    text = text.replace("/stable/latest.json", "/test/latest.json")
-    # Test release manifests expose only their test-owned, suffixed public
-    # entrypoints.  Keep those coordinates distinct from the stable wrapper
-    # names as well as selecting the test canonical above.
-    text = text.replace("/install.ps1", "/install-test.ps1")
-    text = text.replace("/install.sh", "/install-test.sh")
-    text = text.replace(manifest_token, TEST_MANIFEST_URL)
-    return text
+def channel_variables(channel: str) -> dict[str, str]:
+    if channel not in {"stable", "test"}:
+        raise ValueError(f"unsupported skill channel: {channel}")
+    test = channel == "test"
+    cli = "redbeacon-test" if test else "redbeacon"
+    suffix = "-test" if test else ""
+    return {
+        "CLI": cli,
+        "DATA_DIR": "~/.redbeacon_test" if test else "~/.redbeacon",
+        "TOKEN_DIR": "~/.bytestaff_test" if test else "~/.bytestaff",
+        "MANIFEST_URL": TEST_MANIFEST_URL if test else STABLE_MANIFEST_URL,
+        "INSTALL_URL": f"https://bytestaff.jiomig.com/{cli}/install",
+        "INSTALL_PS1_KEY": f"installers/install{suffix}.ps1",
+        "INSTALL_SH_KEY": f"installers/install{suffix}.sh",
+        "APP_NAME": "RedBeacon_test" if test else "RedBeacon",
+        "COPY_CONTRACT": "redbeacon_copy_v1",
+    }
+
+
+_PLACEHOLDER = re.compile(r"\{\{([A-Z][A-Z0-9_]*)\}\}")
+_SOURCE_LITERAL = re.compile(
+    r"redbeacon|\.bytestaff|installers/install|/(?:stable|test)/latest\.json"
+    r"|RedBeacon[_-](?:test|<plat>)"
+)
+
+
+def validate_rendered(text: str, channel: str) -> None:
+    variables = channel_variables(channel)
+    if "{{" in text or re.search(r"\b[A-Z][A-Z0-9_]*}}", text):
+        raise ValueError("unresolved skill placeholder")
+    # The central manifest's product slug is deliberately shared. Exempt only
+    # the exact current-channel URL, never arbitrary paths containing the slug.
+    checked = text.replace(variables["MANIFEST_URL"], "").replace(variables["COPY_CONTRACT"], "")
+    other = channel_variables("stable" if channel == "test" else "test")
+    forbidden = [other[key] for key in ("MANIFEST_URL", "INSTALL_URL", "INSTALL_PS1_KEY", "INSTALL_SH_KEY")]
+    if any(value in checked for value in forbidden):
+        raise ValueError(f"{channel} skill contains another channel's download coordinates")
+    if channel == "test":
+        pattern = (r"(?<![A-Za-z0-9_.-])redbeacon(?!-test(?:$|[^A-Za-z0-9_]))"
+                   r"|\.redbeacon(?!_test(?:$|[^A-Za-z0-9_]))"
+                   r"|\.bytestaff(?!_test(?:$|[^A-Za-z0-9_]))")
+    else:
+        pattern = r"redbeacon-test|\.redbeacon_test|\.bytestaff_test|RedBeacon_test"
+    if re.search(pattern, checked):
+        raise ValueError(f"{channel} skill contains another channel's command or directory")
+
+
+def render_text(text: str, channel: str) -> str:
+    variables = channel_variables(channel)
+    literal = _SOURCE_LITERAL.search(text)
+    if literal:
+        raise ValueError(f"channel literal must use a named placeholder: {literal.group()}")
+
+    def replace(match: re.Match) -> str:
+        name = match.group(1)
+        if name not in variables:
+            raise ValueError(f"unknown skill placeholder: {name}")
+        return variables[name]
+
+    rendered = _PLACEHOLDER.sub(replace, text)
+    validate_rendered(rendered, channel)
+    return rendered
 
 
 def portable_skill_text(stem: str, text: str) -> str:
@@ -101,6 +143,11 @@ def portable_skill_text(stem: str, text: str) -> str:
 
 
 def build(channel: str, out_dir: Path) -> list[Path]:
+    files = sorted(SRC_DIR.glob("redbeacon*.md"), key=lambda p: (p.name != "redbeacon.md", p.name))
+    if not files:
+        raise ValueError(f"no skill sources in {SRC_DIR}")
+    # Validate the complete input before replacing any existing output tree.
+    rendered = [(src, render_text(src.read_text(encoding="utf-8"), channel)) for src in files]
     commands_dir = out_dir / ".claude" / "commands"
     portable_dir = out_dir / "agent-skills"
     for directory in (commands_dir, portable_dir):
@@ -110,13 +157,8 @@ def build(channel: str, out_dir: Path) -> list[Path]:
     portable_dir.mkdir(parents=True, exist_ok=True)
 
     written: list[Path] = []
-    files = sorted(p for p in SRC_DIR.glob("redbeacon*.md"))
-    files.sort(key=lambda p: (p.name != "redbeacon.md", p.name))
-    for src in files:
+    for src, text in rendered:
         name = test_skill_name(src.stem) + ".md" if channel == "test" else src.name
-        text = src.read_text(encoding="utf-8")
-        if channel == "test":
-            text = transform_test_text(text)
         dest = commands_dir / name
         dest.write_text(text, encoding="utf-8")
         skill_name = Path(name).stem

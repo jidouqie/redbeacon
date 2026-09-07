@@ -3,7 +3,7 @@ description: 生成内容 — 按 AI 客户端实际能力优先使用宿主文�
 argument-hint: 无参数=自动为当前账号写一篇；可指定账号、篇数、选题、方案、落地要求或配图方式
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取当前系统的 `installers/install.ps1` 或 `installers/install.sh` URL 并执行；不得猜版本、包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取当前系统的 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` URL 并执行；不得猜版本、包名、节点地址或直接解压客户端。
 
 # 目标
 
@@ -19,18 +19,18 @@ argument-hint: 无参数=自动为当前账号写一篇；可指定账号、篇�
 
 # 入口判断
 
-1. 执行 `redbeacon accounts list`。
+1. 执行 `{{CLI}} accounts list`。
 2. 没有账号：转账号管理。
 3. 只有一个账号：直接使用。
 4. 多个账号：若用户已明确账号就使用；否则只问一次账号选择，不能猜。
 5. 用户未指定篇数时按 1 篇；允许 1～20 篇，超过 20 明确拒绝。
 6. 用户未指定选题、方案或图片模式时不要逐项追问，交给 `creation batch-prepare` 自动选择最高优先级未预留选题、默认方案和账号默认图片方式。
 
-运行 `redbeacon plans check --account-id {ID}`。发现疑似占位符只用一句话提醒，不能中止已经要求的创作。选题不足时转选题规划补充，不要静默减少篇数。
+运行 `{{CLI}} plans check --account-id {ID}`。发现疑似占位符只用一句话提醒，不能中止已经要求的创作。选题不足时转选题规划补充，不要静默减少篇数。
 
 ## 仅在用户明确要求时调整接力策略
 
-平台接力默认自动开启，不主动介绍或询问。只有用户明确说“这个账号以后不要用平台文案/图片”或“恢复自动兜底”时，才用 UTF-8 JSON 文件执行 `redbeacon creation policy set --account-id <ID> --json-file <策略文件>`：对应字段使用 `deny` 或 `allow`。文案与图片分别设置；不要写 `ask`，不要把这个内部策略搬回账号管理 UI。
+平台接力默认自动开启，不主动介绍或询问。只有用户明确说“这个账号以后不要用平台文案/图片”或“恢复自动兜底”时，才用 UTF-8 JSON 文件执行 `{{CLI}} creation policy set --account-id <ID> --json-file <策略文件>`：对应字段使用 `deny` 或 `allow`。文案与图片分别设置；不要写 `ask`，不要把这个内部策略搬回账号管理 UI。
 
 # 路线 A：AI 宿主能力创作（默认推荐）
 
@@ -54,13 +54,13 @@ Codex 默认走本路线。其它受支持 AI 客户端只要能可靠读取工�
 执行：
 
 ```text
-redbeacon creation batch-prepare --json-file <批次请求文件>
+{{CLI}} creation batch-prepare --json-file <批次请求文件>
 ```
 
 批次创建或幂等复用后，立刻读取耐久恢复计划：
 
 ```text
-redbeacon creation batch-recover --batch-id <batch_id>
+{{CLI}} creation batch-recover --batch-id <batch_id>
 ```
 
 按 `actions[].sequence` 严格串行处理；一篇完整成功、明确失败或取消后才开始下一篇，不能并发。恢复计划里的动作按下列规则执行：
@@ -70,27 +70,27 @@ redbeacon creation batch-recover --batch-id <batch_id>
 - `copy-fallback` / `image-fallback`：直接执行自动接力，不询问用户，也不重复已经成功的文案或图片工作。
 - `image-prepare`：取得或复用原图片任务。
 - `commit`：使用 `paths.result_file` 继续幂等提交，不重新写文案、不重新生图、不再次调用可能扣点的平台能力。
-- `retry`：只在崩溃恢复后的新一轮、或用户明确要求重试时执行 `redbeacon creation retry --generation-id <generation_id>`，再按返回的 `action` 继续；同一轮已经明确失败的任务不能立刻无限重试。
+- `retry`：只在崩溃恢复后的新一轮、或用户明确要求重试时执行 `{{CLI}} creation retry --generation-id <generation_id>`，再按返回的 `action` 继续；同一轮已经明确失败的任务不能立刻无限重试。
 - `done` / `cancelled`：跳过，不重做。
 
 ## 2. 为单篇取得工作包
 
 ```text
-redbeacon creation item-prepare --generation-id <generation_id>
+{{CLI}} creation item-prepare --generation-id <generation_id>
 ```
 
-读取返回的 `work_file`。只把 `work.copy_task.system_prompt` 与 `work.copy_task.user_prompt` 用于当前这一篇，不自行重新拼定位、选题或方案。工作包里的路径由当前通道 CLI 分配，不能猜 `~/.redbeacon` 或 `~/.redbeacon_test`。
+读取返回的 `work_file`。只把 `work.copy_task.system_prompt` 与 `work.copy_task.user_prompt` 用于当前这一篇，不自行重新拼定位、选题或方案。工作包里的路径由当前通道 CLI 分配，不能猜当前通道的数据目录路径。
 
 ## 3. 当前 AI 宿主写文案并校验
 
-按工作包提示词生成严格符合 `redbeacon_copy_v1` 的 JSON 文案。用当前宿主的 JSON 序列化能力把结果写到 `work.paths.result_file`，结构为：
+按工作包提示词生成严格符合 `{{COPY_CONTRACT}}` 的 JSON 文案。用当前宿主的 JSON 序列化能力把结果写到 `work.paths.result_file`，结构为：
 
 ```json
 {
-  "schema": "redbeacon-host-result/v1",
+  "schema": "{{CLI}}-host-result/v1",
   "generation_id": "当前 generation_id",
   "host": {"id": "当前真实宿主标识", "capabilities": ["copy"]},
-  "copy": {"attempt": 1, "raw_output": "这里是序列化后的 redbeacon_copy_v1 JSON 字符串"},
+  "copy": {"attempt": 1, "raw_output": "这里是序列化后的 {{COPY_CONTRACT}} JSON 字符串"},
   "images": []
 }
 ```
@@ -98,20 +98,20 @@ redbeacon creation item-prepare --generation-id <generation_id>
 执行：
 
 ```text
-redbeacon creation copy-validate --generation-id <generation_id> --json-file <result_file>
+{{CLI}} creation copy-validate --generation-id <generation_id> --json-file <result_file>
 ```
 
 - `ok=true`：继续图片阶段。
 - `can_repair=true`：只自动修复一次。把上一版原始输出、返回的 `repair_prompt` 和原工作包提示词交给当前宿主；不改变选题和核心意思。把 `attempt` 改为 2、覆写同一个结果文件，再校验一次。
 - 第二次仍不合格且 `needs_fix=true`：用户此前已通过 Skill 明确禁用平台文案，保留待修稿并直接继续图片阶段。
-- 第二次仍不合格且 `needs_fix=false`：执行 `redbeacon creation copy-fallback --generation-id <generation_id>`；默认会自动取得平台文案并继续，不再询问用户。
+- 第二次仍不合格且 `needs_fix=false`：执行 `{{CLI}} creation copy-fallback --generation-id <generation_id>`；默认会自动取得平台文案并继续，不再询问用户。
 
 不得无限让宿主重写，也不要为了调用平台兜底再插入确认问题。如果当前宿主连可靠文案输出或本机 JSON 交接都无法完成，直接改走路线 B 的完整平台生成。
 
 ## 4. 当前 AI 宿主生图或安全回退
 
 ```text
-redbeacon creation image-prepare --generation-id <generation_id>
+{{CLI}} creation image-prepare --generation-id <generation_id>
 ```
 
 - `image_plan.tasks` 为空：不调用任何生图工具，直接进入提交；RedBeacon 会生成本机文字卡。
@@ -124,7 +124,7 @@ redbeacon creation image-prepare --generation-id <generation_id>
 
 ```json
 {
-  "schema": "redbeacon-host-image-import/v1",
+  "schema": "{{CLI}}-host-image-import/v1",
   "generation_id": "当前 generation_id",
   "images": [
     {"task_id": "工作包 task_id", "path": "生图工具返回的本机绝对路径", "kind": "generated"}
@@ -135,12 +135,12 @@ redbeacon creation image-prepare --generation-id <generation_id>
 执行：
 
 ```text
-redbeacon creation image-import --generation-id <generation_id> --json-file <图片交接文件>
+{{CLI}} creation image-import --generation-id <generation_id> --json-file <图片交接文件>
 ```
 
   - 只有 `ok=true` 才算图片接管成功。把命令返回的 `images` 数组原样写进同一个宿主结果文件，不能继续使用原始图片路径。
   - 把 `host.capabilities` 加上实际完成的 `image_generate` 或 `image_edit`。参考图编辑任务仍按工作包返回的 `task_id` 和 `kind` 交接。
-- 生图工具不存在、任务失败、没有本机路径或图片接管失败：执行 `redbeacon creation image-fallback --generation-id <generation_id>`。
+- 生图工具不存在、任务失败、没有本机路径或图片接管失败：执行 `{{CLI}} creation image-fallback --generation-id <generation_id>`。
   - 默认直接使用平台图片，不询问用户。
   - 平台图片仍不可用时继续用本机文字卡把成稿做完；文字卡也失败才登记本篇失败。
   - 只有用户此前明确通过 Skill 禁用了平台图片，才跳过平台并直接使用本机文字卡。
@@ -150,7 +150,7 @@ redbeacon creation image-import --generation-id <generation_id> --json-file <图
 ## 5. 幂等提交
 
 ```text
-redbeacon creation commit --generation-id <generation_id> --json-file <result_file>
+{{CLI}} creation commit --generation-id <generation_id> --json-file <result_file>
 ```
 
 同一 `generation_id` 重复提交会返回同一审稿记录，不得另建一篇。提交失败若明确是宿主图片不可接管，先走图片回退再重提；其它错误记录后继续下一篇，不要把已成功的篇目重做。
@@ -169,7 +169,7 @@ redbeacon creation commit --generation-id <generation_id> --json-file <result_fi
 然后执行：
 
 ```text
-redbeacon creation fail --generation-id <generation_id> --json-file <失败文件>
+{{CLI}} creation fail --generation-id <generation_id> --json-file <失败文件>
 ```
 
 登记成功后继续下一篇。不能因为第 3 篇失败就停止第 4、5 篇，也不能假装失败篇已经入审。平台是否收费、平台调用次数、已完成的文案/图片和失败前阶段都会保留在原任务里；后续仍使用同一个 `generation_id` 恢复。
@@ -177,31 +177,31 @@ redbeacon creation fail --generation-id <generation_id> --json-file <失败文�
 用户明确放弃一篇时执行：
 
 ```text
-redbeacon creation cancel --generation-id <generation_id>
+{{CLI}} creation cancel --generation-id <generation_id>
 ```
 
 用户明确取消整个批次时执行：
 
 ```text
-redbeacon creation batch-cancel --batch-id <batch_id>
+{{CLI}} creation batch-cancel --batch-id <batch_id>
 ```
 
 取消只释放未完成任务和选题预留，已经进入审稿台的成稿不删除。若返回正在确认入审结果，先执行批次恢复，不能强行取消一个提交结果未知的任务。
 
 # 路线 B：宿主无法执行工作包协议
 
-只有当前 AI 客户端无法可靠读取工作包、生成合约文案或用本机文件交接结果时，才整篇走 RedBeacon 平台。不要仅以“不是 Codex”为理由进入本路线。先执行 `redbeacon checkin`；未登录平台时转平台登录，成功后再继续。
+只有当前 AI 客户端无法可靠读取工作包、生成合约文案或用本机文件交接结果时，才整篇走 RedBeacon 平台。不要仅以“不是 Codex”为理由进入本路线。先执行 `{{CLI}} checkin`；未登录平台时转平台登录，成功后再继续。
 
 自动读取库存并按用户要求挑选不同选题：
 
 ```text
-redbeacon topics list --account-id <ID> --stage 选题 --limit 20
+{{CLI}} topics list --account-id <ID> --stage 选题 --limit 20
 ```
 
 逐篇、严格串行执行现有平台生成入口；每篇都传自己的选题记录 ID 和实际字段，未指定方案时不传方案 ID：
 
 ```text
-redbeacon generate --account-id <ID> --topic-record-id <record_id> --topic <选题> --content-type <内容类型> --app-domain <应用域> --problem-type <问题类型> --angle <切入角度> --outline <要点提纲> --idea <本篇要求> --image-mode <本篇覆盖值>
+{{CLI}} generate --account-id <ID> --topic-record-id <record_id> --topic <选题> --content-type <内容类型> --app-domain <应用域> --problem-type <问题类型> --angle <切入角度> --outline <要点提纲> --idea <本篇要求> --image-mode <本篇覆盖值>
 ```
 
 平台路径按实际用量消耗算力点。失败时把 `error` 转成人话并按 `next` 自愈，不得用宿主随手写一段冒充平台结果。用户临时指定的题没有库存记录时，不传 `--topic-record-id`。
@@ -211,18 +211,18 @@ redbeacon generate --account-id <ID> --topic-record-id <record_id> --topic <选�
 每篇成功、失败或取消后执行：
 
 ```text
-redbeacon creation batch-status --batch-id <batch_id>
+{{CLI}} creation batch-status --batch-id <batch_id>
 ```
 
 这条只适用于路线 A。即使某篇失败，也继续处理状态仍未终结的下一篇。整批处理完后按 `items[]` 汇总成功、需要修正、失败和取消篇数；只有出现新成稿时才执行一次：
 
 ```text
-redbeacon ui app --detach --page 审稿 --account-id <ID>
+{{CLI}} ui app --detach --page 审稿 --account-id <ID>
 ```
 
 告诉用户 RedBeacon 已把成稿放进审稿台，可以在客户端核查，也可以回到对话继续改稿。不要自动标通过或进入发布。
 
-最后执行 `redbeacon topics stats --account-id <ID>`；`unused < 5` 时只提醒一句选题快见底，不打断已完成结果。
+最后执行 `{{CLI}} topics stats --account-id <ID>`；`unused < 5` 时只提醒一句选题快见底，不打断已完成结果。
 
 # 不可突破的边界
 

@@ -16,7 +16,7 @@ from build_channel_skills import (
     SUPPORTED_ASSISTANTS,
     TEST_MANIFEST_URL,
     build as build_channel_skills,
-    transform_test_text,
+    render_text,
 )
 
 
@@ -362,17 +362,17 @@ def main(*, public_only: bool = False) -> None:
         if marker not in artifact_checker:
             fail(f"artifact checker lost the channel identity gate: {marker}")
 
-    locate_source = (ROOT / ".claude" / "commands" / "redbeacon-locate.md").read_text(encoding="utf-8")
+    locate_source = render_text((ROOT / ".claude" / "commands" / "redbeacon-locate.md").read_text(encoding="utf-8"), "stable")
     for marker in ("我先简述整体想法", "你逐题带我梳理", "不得把他已经说过的内容换个说法再问一次"):
         if marker not in locate_source:
             fail(f"locate skill lost the whole-picture-first onboarding rule: {marker}")
 
-    main_skill = (ROOT / ".claude" / "commands" / "redbeacon.md").read_text(encoding="utf-8")
-    accounts_skill = (ROOT / ".claude" / "commands" / "redbeacon-accounts.md").read_text(encoding="utf-8")
-    benchmark_skill = (ROOT / ".claude" / "commands" / "redbeacon-benchmark.md").read_text(encoding="utf-8")
-    note_style_skill = (ROOT / ".claude" / "commands" / "redbeacon-note-style.md").read_text(encoding="utf-8")
-    topics_skill = (ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8")
-    generate_skill = (ROOT / ".claude" / "commands" / "redbeacon-generate.md").read_text(encoding="utf-8")
+    main_skill = render_text((ROOT / ".claude" / "commands" / "redbeacon.md").read_text(encoding="utf-8"), "stable")
+    accounts_skill = render_text((ROOT / ".claude" / "commands" / "redbeacon-accounts.md").read_text(encoding="utf-8"), "stable")
+    benchmark_skill = render_text((ROOT / ".claude" / "commands" / "redbeacon-benchmark.md").read_text(encoding="utf-8"), "stable")
+    note_style_skill = render_text((ROOT / ".claude" / "commands" / "redbeacon-note-style.md").read_text(encoding="utf-8"), "stable")
+    topics_skill = render_text((ROOT / ".claude" / "commands" / "redbeacon-topics.md").read_text(encoding="utf-8"), "stable")
+    generate_skill = render_text((ROOT / ".claude" / "commands" / "redbeacon-generate.md").read_text(encoding="utf-8"), "stable")
     if "ui app --detach --page" not in main_skill:
         fail("main skill no longer makes UI milestones visible with a non-blocking deep link")
     for marker in (
@@ -465,8 +465,9 @@ def main(*, public_only: bool = False) -> None:
         fail("assistant support matrix changed without updating the release contract")
 
     for source in sorted((ROOT / ".claude" / "commands").glob("redbeacon*.md")):
-        stable_text = source.read_text(encoding="utf-8")
-        test_text = transform_test_text(stable_text)
+        template = source.read_text(encoding="utf-8")
+        stable_text = render_text(template, "stable")
+        test_text = render_text(template, "test")
         if STABLE_MANIFEST_URL in stable_text and TEST_MANIFEST_URL not in test_text:
             fail(f"test skill lost the central test manifest: {source.name}")
         if "/projects/redbeacon-test/" in test_text:

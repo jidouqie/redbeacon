@@ -3,7 +3,7 @@ description: 用户贴小红书账号主页并说“对标、复刻或模仿这�
 argument-hint: 小红书账号主页链接或手机端完整分享文字；可补充“给哪个账号”
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > **【对标账号空壳】** 用户可以给电脑端账号主页链接，也可以直接粘贴手机端“查看 Ta 的主页”完整分享文字与 `xhslink.cn` / `xhslink.com` 短链。RedBeacon 用自己的账号级浏览器跟随短链，并在最终落点再次确认是小红书账号主页；笔记分享链接和站外落点必须拒绝。确认主页后取得四项分析依据：①账号名称；②账号简介；③主页头部截图与本次真正读完正文的最新 10 篇封面联系图，编号和文本样本一一对应；④通过主页鼠标点击逐篇读取同一批最新 10 篇图文的标题与正文，不得提取笔记链接直接导航。采集成功或中途失败后都必须关闭本次采集浏览器，不留下详情、404 或安全验证窗口。平台分析分段进行：多模态阶段只看四项证据，先按共同视觉系统聚类和统计覆盖频次，再凝练行业依据与最多 2 套真实代表风格；纯文本定位阶段继承已验真的依据；选题阶段一次生成 10 条并避开重复标题。失败只重跑对应阶段，每段最多尝试 3 次。不得改成按点赞量选择历史爆文，也不得把纯文字结果冒充为视觉综合分析。
 
@@ -34,7 +34,7 @@ argument-hint: 小红书账号主页链接或手机端完整分享文字；可�
 先执行：
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
 - 只有一个账号就直接使用。
@@ -43,7 +43,7 @@ redbeacon accounts list
 ## 第二步：分析并给用户看预览
 
 ```bash
-redbeacon benchmark analyze --account-id {ID} --url "{用户提供的主页链接或完整分享文字}"
+{{CLI}} benchmark analyze --account-id {ID} --url "{用户提供的主页链接或完整分享文字}"
 ```
 
 可见浏览器启动后，RedBeacon 会把已打开的客户端重新置前，并说明这是正在学习对标账号的工作窗口。明确告诉用户不要关闭、点击、移动或切换该浏览器页面；学习成功或失败后浏览器都会自动关闭。
@@ -76,7 +76,7 @@ redbeacon benchmark analyze --account-id {ID} --url "{用户提供的主页链�
 若用户选择取消，执行：
 
 ```bash
-redbeacon benchmark discard --account-id {ID} --job-id {JOB_ID}
+{{CLI}} benchmark discard --account-id {ID} --job-id {JOB_ID}
 ```
 
 若用户选择加入方案，再单独确认：
@@ -92,7 +92,7 @@ redbeacon benchmark discard --account-id {ID} --job-id {JOB_ID}
 - 全部确认：
 
 ```bash
-redbeacon benchmark apply --account-id {ID} --job-id {JOB_ID}
+{{CLI}} benchmark apply --account-id {ID} --job-id {JOB_ID}
 ```
 
 - 只写定位：追加 `--skip-plans`。
@@ -106,7 +106,7 @@ redbeacon benchmark apply --account-id {ID} --job-id {JOB_ID}
 关键结果写入后，非阻塞打开选题页，让用户亲眼核查：
 
 ```bash
-redbeacon ui app --detach --page 选题 --account-id {ID}
+{{CLI}} ui app --detach --page 选题 --account-id {ID}
 ```
 
 告诉用户：对标只提供结构；案例、资质、价格、服务和经营事实仍需由他填写自己的真实内容。

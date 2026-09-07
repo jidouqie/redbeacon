@@ -14,6 +14,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from build_channel_skills import render_text
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / ".claude" / "commands"
 
@@ -40,7 +42,7 @@ def _sync_workspace_skills(files: list[Path]) -> tuple[list[tuple[str, str]], li
     workspace_dir.mkdir(parents=True, exist_ok=True)
     written: list[tuple[str, str]] = []
     for f in files:
-        name, skill_md = _workspace_skill(f.stem, f.read_text(encoding="utf-8"))
+        name, skill_md = _workspace_skill(f.stem, render_text(f.read_text(encoding="utf-8"), "stable"))
         folder = workspace_dir / name
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "SKILL.md").write_text(skill_md, encoding="utf-8")
@@ -82,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     written = []
     for f in files:
         stem = f.stem  # 去 .md
-        md = f.read_text(encoding="utf-8")
+        md = render_text(f.read_text(encoding="utf-8"), "stable")
         name, skill_md = updater.claude_md_to_codex_skill(stem, md)
         folder = codex_dir / name
         folder.mkdir(parents=True, exist_ok=True)

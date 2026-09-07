@@ -3,20 +3,20 @@ description: 审稿与自主成稿入审 — 把用户自备标题、正文和�
 argument-hint: 可直说「把这篇成稿和图片放进审稿台」「把这几篇都通过」「第2篇太啰嗦让AI改改」「这篇不要了」
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
-> 📦 **数据都在本机**：待审/通过/驳回的稿都在本机审核表，`review` 命令读写这一份。审核改稿也能在 `redbeacon ui app --detach --page 审稿` 操作台可视化地做。（飞书云端源现阶段搁置，不用管。）
+> 📦 **数据都在本机**：待审/通过/驳回的稿都在本机审核表，`review` 命令读写这一份。审核改稿也能在 `{{CLI}} ui app --detach --page 审稿` 操作台可视化地做。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵。
-> - **全程人话**：不出现 /redbeacon-* 或 redbeacon xxx 命令名/斜杠（那是你后台执行的），用「我把这篇标通过了」这种说法。
+> - **全程人话**：不出现 /{{CLI}}-* 或 {{CLI}} xxx 命令名/斜杠（那是你后台执行的），用「我把这篇标通过了」这种说法。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行**，让用户回一个数字就行。
 > - **把输入成本压到最小**：能给选项就别让用户打字；该替他想的下一步先想好、给推荐（标「推荐」）。
 > - 用户熟了会直接自然语言提要求（「都通过」「第2篇让AI改」「这篇删了」）→ 照做，别硬塞编号流程。
 
-> **【审稿 skill】** 既能处理 RedBeacon 生成的待审稿，也能把用户已经做好的标题、正文、标签和图片直接放进审核表。**审完标「通过」才会被 `/redbeacon-publish` 取用发布**。这一步是「人提供判断」的关口——你（AI）帮用户入审、把稿摆出来并执行他的判断（通过/改/退/删），但**要不要发、发成什么样，是用户拍板**。
+> **【审稿 skill】** 既能处理 RedBeacon 生成的待审稿，也能把用户已经做好的标题、正文、标签和图片直接放进审核表。**审完标「通过」才会被 `/{{CLI}}-publish` 取用发布**。这一步是「人提供判断」的关口——你（AI）帮用户入审、把稿摆出来并执行他的判断（通过/改/退/删），但**要不要发、发成什么样，是用户拍板**。
 >
-> 上一步是生成（`/redbeacon-generate`），下一步是发布（`/redbeacon-publish`）。审核表只三态：**未审核 / 通过 / 驳回**（发布失败会单独标）。
+> 上一步是生成（`/{{CLI}}-generate`），下一步是发布（`/{{CLI}}-publish`）。审核表只三态：**未审核 / 通过 / 驳回**（发布失败会单独标）。
 
 ---
 
@@ -24,7 +24,7 @@ argument-hint: 可直说「把这篇成稿和图片放进审稿台」「把这�
 
 用户说“把这篇放进审稿台 / 我已经做好图和文案了 / 只用发布功能”，且标题、正文和至少一张本机图片已经齐全时，直接走本入口，不调平台 AI、不消耗算力点，也不要求先建选题或生成方案。
 
-先执行 `redbeacon accounts list` 确认账号。只有一个账号就直接用；多个账号而用户没有说清时，只问操作哪个账号。
+先执行 `{{CLI}} accounts list` 确认账号。只有一个账号就直接用；多个账号而用户没有说清时，只问操作哪个账号。
 
 用当前 AI 客户端原生的 JSON 序列化和文件写入能力创建 UTF-8 文件，不要把中文、多行正文或嵌套 JSON 写成命令行内联参数。结构固定为：
 
@@ -38,19 +38,19 @@ argument-hint: 可直说「把这篇成稿和图片放进审稿台」「把这�
 ```
 
 - `image_paths` 必须是当前机器可读的绝对路径；用户附件或用户自己做好的图可直接使用其本机路径。
-- 这是“用户自备成稿”入口。若文案或图片是当前 AI 客户端新生成的，改走 `/redbeacon-generate` 的宿主创作协议，保留 Codex/其它宿主来源与 AI 声明，不能冒充用户手工稿。
+- 这是“用户自备成稿”入口。若文案或图片是当前 AI 客户端新生成的，改走 `/{{CLI}}-generate` 的宿主创作协议，保留 Codex/其它宿主来源与 AI 声明，不能冒充用户手工稿。
 - 缺标题、正文或图片时，只问当前缺的那一项；不要替用户静默生成缺失内容。
 
 文件准备好后执行：
 
 ```text
-redbeacon review create --account-id <ID> --data-file <UTF-8 JSON 文件路径>
+{{CLI}} review create --account-id <ID> --data-file <UTF-8 JSON 文件路径>
 ```
 
 RedBeacon 会导入图片、清除图片容器元数据并转存到当前通道数据目录，再执行同一套预审：标题不超过 20 字、正文不超过 888 字、至少一张图片。成功后立即执行：
 
 ```text
-redbeacon ui app --detach --page 审稿 --account-id <ID>
+{{CLI}} ui app --detach --page 审稿 --account-id <ID>
 ```
 
 告诉用户“已经放进审稿台”，不要自动标通过或发布。命令失败就按错误修正输入；不能绕过预审、直接写数据库或把外部临时图片路径塞进审核表。
@@ -60,8 +60,8 @@ redbeacon ui app --detach --page 审稿 --account-id <ID>
 ## 第一步：把待审的稿摆出来
 
 ```bash
-redbeacon accounts list                       # 定 {ID}（1个自动用，多个让用户指明）
-redbeacon review list --account-id {ID}       # 列待审：每条带 record_id / 标题 / 正文 / 标签
+{{CLI}} accounts list                       # 定 {ID}（1个自动用，多个让用户指明）
+{{CLI}} review list --account-id {ID}       # 列待审：每条带 record_id / 标题 / 正文 / 标签
 ```
 
 把待审几篇用**人话 + 编号**摆出来（别甩 record_id 给用户看，record_id 你自己记着调命令用）：
@@ -79,8 +79,8 @@ redbeacon review list --account-id {ID}       # 列待审：每条带 record_id 
 > 4. 想逐条大改标题正文 → 我给你打开网页审稿页
 
 - **给判断、给推荐**：扫完内容后主动说「哪篇最稳、哪篇有点小问题」，把「1. 全通过」标推荐（除非你真看出问题）——让用户在你的判断上点头，而不是从零决定。
-- **没有待审**（`review list` 空）→ 一句「现在没有待审的稿，我先帮你写一篇？」引到 `/redbeacon-generate`，别空转。
-- 用户想**逐条改标题/正文/标签、边改边看**（信息量大）→ 一句「逐篇细改的话网页上更顺手，我给你打开」+ 交棒 `redbeacon ui app --detach --page 审稿 --account-id {ID}`（网页上通过/改写/退回选题/驳回按钮都有）。改完回来接着走发布。
+- **没有待审**（`review list` 空）→ 一句「现在没有待审的稿，我先帮你写一篇？」引到 `/{{CLI}}-generate`，别空转。
+- 用户想**逐条改标题/正文/标签、边改边看**（信息量大）→ 一句「逐篇细改的话网页上更顺手，我给你打开」+ 交棒 `{{CLI}} ui app --detach --page 审稿 --account-id {ID}`（网页上通过/改写/退回选题/驳回按钮都有）。改完回来接着走发布。
 
 ---
 
@@ -89,7 +89,7 @@ redbeacon review list --account-id {ID}       # 列待审：每条带 record_id 
 ### ✅ 标通过（过一眼觉得行 → 直接发得了）
 
 ```bash
-redbeacon review submit --account-id {ID} --record-id {rid} --decision approve
+{{CLI}} review submit --account-id {ID} --record-id {rid} --decision approve
 ```
 
 - 不改内容就**不用传**标题/正文/标签，自动沿用原值。
@@ -100,7 +100,7 @@ redbeacon review submit --account-id {ID} --record-id {rid} --decision approve
 ### ✍️ 让平台 AI 按意见重写（⚡扣点）
 
 ```bash
-redbeacon review rewrite --account-id {ID} --record-id {rid} --feedback "太啰嗦，开头改成提问式，删掉第2段"
+{{CLI}} review rewrite --account-id {ID} --record-id {rid} --feedback "太啰嗦，开头改成提问式，删掉第2段"
 ```
 
 - 平台按**当前稿 + 用户意见**重写，扣约 1 点，改完仍在**未审核**让用户再看；卡片发布时自动按新正文重渲。
@@ -110,7 +110,7 @@ redbeacon review rewrite --account-id {ID} --record-id {rid} --feedback "太啰�
 ### ↩️ 退回选题库（这篇不要了，但选题想留着以后重写，不扣点）
 
 ```bash
-redbeacon review reject-to-topic --account-id {ID} --record-id {rid}
+{{CLI}} review reject-to-topic --account-id {ID} --record-id {rid}
 ```
 
 - 从这条稿的快照**重建一条选题**放回选题库 + 删掉这条审稿行。适合「稿写砸了但题是好题」。
@@ -118,8 +118,8 @@ redbeacon review reject-to-topic --account-id {ID} --record-id {rid}
 ### 🗑️ 驳回 / 彻底删稿（删前必须确认）
 
 ```bash
-redbeacon review submit --account-id {ID} --record-id {rid} --decision reject   # 标记驳回，记录还留着
-redbeacon review delete --account-id {ID} --record-id {rid}                     # 彻底从审核表删行，不可恢复
+{{CLI}} review submit --account-id {ID} --record-id {rid} --decision reject   # 标记驳回，记录还留着
+{{CLI}} review delete --account-id {ID} --record-id {rid}                     # 彻底从审核表删行，不可恢复
 ```
 
 - **`--decision reject`** = 标记为驳回态，记录仍在表里（想留个痕）。
@@ -129,7 +129,7 @@ redbeacon review delete --account-id {ID} --record-id {rid}                     
 ### ⏪ 撤回已通过的稿重审
 
 ```bash
-redbeacon review send-back --account-id {ID} --record-id {rid}
+{{CLI}} review send-back --account-id {ID} --record-id {rid}
 ```
 
 - 把一条**已通过、还没发**的稿打回「未审核」再改（当前必须是「通过」态）。用户说「刚通过那篇我想再改改」用这个。
@@ -142,9 +142,9 @@ redbeacon review send-back --account-id {ID} --record-id {rid}
 
 > ✓ 处理完了：{X} 篇通过、{Y} 篇让 AI 在改、{Z} 篇退回/删掉。通过的这几篇随时能发——我把发布页打开给你核对；你也可以切回来直接跟我说“发布”。
 
-只要本轮出现已通过稿，就执行 `redbeacon ui app --detach --page 发布 --account-id {ID}`，让下一步在客户端里可见。
+只要本轮出现已通过稿，就执行 `{{CLI}} ui app --detach --page 发布 --account-id {ID}`，让下一步在客户端里可见。
 
-用户要发 → `/redbeacon-publish`。
+用户要发 → `/{{CLI}}-publish`。
 
 ---
 
@@ -154,10 +154,10 @@ redbeacon review send-back --account-id {ID} --record-id {rid}
 |---|---|
 | 用户已有标题、正文和图片，要直接放进审稿台 | **本 skill** 的“用户自备成稿”入口 |
 | 审稿 / 标通过 / 改稿 / 退回 / 删稿 | **本 skill** |
-| 逐条改标题正文、边改边看实时效果 | 交棒 `redbeacon ui app --detach --page 审稿 --account-id {ID}` |
-| 写一篇新的 | `/redbeacon-generate` |
-| 发布已通过内容 | `/redbeacon-publish` |
-| 「文案总是不对劲」找根因 | `/redbeacon-diagnose` |
+| 逐条改标题正文、边改边看实时效果 | 交棒 `{{CLI}} ui app --detach --page 审稿 --account-id {ID}` |
+| 写一篇新的 | `/{{CLI}}-generate` |
+| 发布已通过内容 | `/{{CLI}}-publish` |
+| 「文案总是不对劲」找根因 | `/{{CLI}}-diagnose` |
 
 ---
 

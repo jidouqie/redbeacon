@@ -3,12 +3,12 @@ description: 诊断 — 两类毛病都管：①内容不行（反推定位/选�
 argument-hint: 直接说哪里不对（如「文案太硬了」「图很丑」「发不出去」「登录不上平台」「一直报错」）；也可指定某条内容
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **数据都在本机**：诊断要读的账号定位/选题/内容都在本地，命令直接读。无需飞书。（飞书云端源现阶段搁置，不用管。）
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵；用户没熟之前你来引导，熟了就让他自然语言直说。
-> - **全程人话**：给用户的回复不出现 /redbeacon-* 或 redbeacon xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
+> - **全程人话**：给用户的回复不出现 /{{CLI}}-* 或 {{CLI}} xxx 这类命令名/斜杠（那是你后台执行的），用「我来帮你生成一篇」这种说法；除非用户主动要命令，否则别提、别列。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行排版**，让用户回一个数字就行，例如：
 >   ```
@@ -32,16 +32,16 @@ argument-hint: 直接说哪里不对（如「文案太硬了」「图很丑」�
 ## 第一步：选账号 + 拉全账号画像
 
 ```bash
-redbeacon accounts list
+{{CLI}} accounts list
 ```
 
 确定 `{ID}`（1 个自动用，多个让用户指明）。然后**并行拉全这个账号的运作链路全貌**：
 
 ```bash
-redbeacon strategy get --account-id {ID}            # 定位 + 文案指南 copy_guide + 视觉风格（本机账号档案）
-redbeacon strategy image-get --account-id {ID}      # 图片素材半（卡片配色/参考图/模板）；配图方式/视觉风格看 strategy get
-redbeacon topics stats --account-id {ID}            # 选题库（库存=阶段为选题 / by_domain）
-redbeacon content list --account-id {ID} --limit 5  # 最近产出几条，定位"不行"的那条
+{{CLI}} strategy get --account-id {ID}            # 定位 + 文案指南 copy_guide + 视觉风格（本机账号档案）
+{{CLI}} strategy image-get --account-id {ID}      # 图片素材半（卡片配色/参考图/模板）；配图方式/视觉风格看 strategy get
+{{CLI}} topics stats --account-id {ID}            # 选题库（库存=阶段为选题 / by_domain）
+{{CLI}} content list --account-id {ID} --limit 5  # 最近产出几条，定位"不行"的那条
 ```
 
 > 这一步是给使用者"理清账号是怎么运作的"——先把这条链路（定位→选题→文案预设→图片→产出）摊开给他看，再谈哪里出问题。
@@ -49,7 +49,7 @@ redbeacon content list --account-id {ID} --limit 5  # 最近产出几条，定�
 如果用户指向某条具体内容，读它的实际产出对照输入：
 
 ```bash
-redbeacon content get --account-id {ID} --id <内容ID>
+{{CLI}} content get --account-id {ID} --id <内容ID>
 ```
 
 ---
@@ -121,14 +121,14 @@ redbeacon content get --account-id {ID} --id <内容ID>
 "每篇看着都差不多、像在反复讲同一件事"是高频且不易自察的病。先把最近几篇摊开找证据：
 
 ```bash
-redbeacon content list --account-id {ID} --limit 8   # 看一串标题
-redbeacon topics list --account-id {ID} --stage 选题  # 看库存选题是不是也都一个角度
+{{CLI}} content list --account-id {ID} --limit 8   # 看一串标题
+{{CLI}} topics list --account-id {ID} --stage 选题  # 看库存选题是不是也都一个角度
 ```
 
 把这些标题/开头并排看，问自己一句：**它们是在从不同侧面打同一个定位，还是把同一个观点换着说法讲了好几遍？** 后者就是同质化。根因通常是这两个，对症下药：
 
 1. **选题应用域撞车**——选题全挤在同一个切入面（同一类场景/对象/环节/问题类型）。
-   - 修：重做一批选题，**刻意铺开不同应用域**（换场景、换对象、换关系、换环节）×**不同问题类型**（识别 / 盲区 / 决策 / 替代 / 反例 / 后果），让每篇长出自己的观点和方法，而不是同一个结论讲三遍。带用户去 `/redbeacon-locate` 重铺选题（它的选题生成已内置"应用域自检"）。
+   - 修：重做一批选题，**刻意铺开不同应用域**（换场景、换对象、换关系、换环节）×**不同问题类型**（识别 / 盲区 / 决策 / 替代 / 反例 / 后果），让每篇长出自己的观点和方法，而不是同一个结论讲三遍。带用户去 `/{{CLI}}-locate` 重铺选题（它的选题生成已内置"应用域自检"）。
 2. **把定位当主题**——文案预设里把账号的核心定位写成了"每篇都必须正面复述 XX"。
    - 关键区分：**定位是判断"底座"——用来判断一个选题对不对路的标准，不是每篇都要复述的主题**。底座当主题反复念，就成了换汤不换药。
    - 修：改全局「文案指南」`copy_guide`（把 `{"copy_guide":"..."}` 写入 `strategy.json` 后执行 `strategy patch --data-file strategy.json`），写成"紧扣定位去看待这个**具体选题**"，而不是"每篇都要讲定位本身"。
@@ -141,12 +141,12 @@ redbeacon topics list --account-id {ID} --stage 选题  # 看库存选题是不�
 
 确认节点后，调用对应能力改。每改一处都说清"改了什么、为什么、预期效果"：
 
-- **定位字段** → 把 `{"字段":"新值"}` 写入 `strategy.json`，再执行 `redbeacon strategy patch --account-id {ID} --data-file strategy.json`（只传要改的）
-- **文案风格** → 改全局「文案指南」`copy_guide`：把 `{"copy_guide":"一句人话写法指引"}` 写入 `strategy.json`，再执行 `redbeacon strategy patch --account-id {ID} --data-file strategy.json`（别写 JSON/占位符，程序会自动拼；按内容类型分别设写作要求已退役、统一收进 copy_guide）
-- **图片预设** → `redbeacon strategy image-set --account-id {ID} --data-file image.json`。AI 封面是「**大字报**」（标题大字直接画进图）：用户说封面哪不对（「太暗」「字太小」「想要性冷淡风」「想放我本人」），你把视觉风格写进 `prompt_template`；可只写一句人话风格，程序会补标题大字和竖版比例，强控制时再写结构化提示词（写法见 `/redbeacon-strategy` C 段）；想**放真人**就让用户发照片，用 `plans list` 选定实际生成方案，再用 `plans material --account-id {ID} --plan-id {PLAN_ID} --file "<本地图片路径>"` 挂入参考图，生成时选择同一方案；换配色改 `card_theme`，换配图方式改 `mode`（cards/both/ai）
-- **选题** → 删旧补新：按 record_id `redbeacon topics delete` 删掉跑偏的，再重新 `redbeacon topics batch`/`topics add`；选题方向不对时连带回查 `pain_points`
+- **定位字段** → 把 `{"字段":"新值"}` 写入 `strategy.json`，再执行 `{{CLI}} strategy patch --account-id {ID} --data-file strategy.json`（只传要改的）
+- **文案风格** → 改全局「文案指南」`copy_guide`：把 `{"copy_guide":"一句人话写法指引"}` 写入 `strategy.json`，再执行 `{{CLI}} strategy patch --account-id {ID} --data-file strategy.json`（别写 JSON/占位符，程序会自动拼；按内容类型分别设写作要求已退役、统一收进 copy_guide）
+- **图片预设** → `{{CLI}} strategy image-set --account-id {ID} --data-file image.json`。AI 封面是「**大字报**」（标题大字直接画进图）：用户说封面哪不对（「太暗」「字太小」「想要性冷淡风」「想放我本人」），你把视觉风格写进 `prompt_template`；可只写一句人话风格，程序会补标题大字和竖版比例，强控制时再写结构化提示词（写法见 `/{{CLI}}-strategy` C 段）；想**放真人**就让用户发照片，用 `plans list` 选定实际生成方案，再用 `plans material --account-id {ID} --plan-id {PLAN_ID} --file "<本地图片路径>"` 挂入参考图，生成时选择同一方案；换配色改 `card_theme`，换配图方式改 `mode`（cards/both/ai）
+- **选题** → 删旧补新：按 record_id `{{CLI}} topics delete` 删掉跑偏的，再重新 `{{CLI}} topics batch`/`topics add`；选题方向不对时连带回查 `pain_points`
 
-> 复杂改动可直接引导到 `/redbeacon-strategy`（它有每类的完整操作），诊断负责"定位问题 + 给方向"，策略负责"执行修改"。两者配合。
+> 复杂改动可直接引导到 `/{{CLI}}-strategy`（它有每类的完整操作），诊断负责"定位问题 + 给方向"，策略负责"执行修改"。两者配合。
 
 ---
 
@@ -159,7 +159,7 @@ redbeacon topics list --account-id {ID} --stage 选题  # 看库存选题是不�
 拿这句原文同题重生做 A/B（这条选题多半已经在生成那次被消费、从选题库删掉了，所以这里直接手填原文本、不传 `--topic-record-id` 即可，`generate` 一样接受）：
 
 ```bash
-redbeacon generate --account-id {ID} --topic "<上一步拿到的选题原文>" \
+{{CLI}} generate --account-id {ID} --topic "<上一步拿到的选题原文>" \
   --content-type "<原内容类型，记得就填>" --app-domain "<原应用域，记得就填>" \
   --idea "<这次要强调的调整点，可选>"
 ```
@@ -171,8 +171,8 @@ redbeacon generate --account-id {ID} --topic "<上一步拿到的选题原文>" 
 > 我把 [节点] 的 [字段] 从「旧」改成「新」了。**用同一个选题「{topic}」又生成了一篇**，你对比下前后这两篇——同题同条件，差别就是这次改动带来的。还不对味我们继续往别的节点查。
 
 **说清楚两件容易混的事**（对齐用户预期）：
-> 1. 这次改的是**今后这类内容的"预设"**，不是回头修好你正看着的那一篇——那篇要么用这次重生的新版替代，要么在审稿里改（`/redbeacon-review`：让 AI 按意见重写，或逐条改标题正文）。
-> 2. 想就单篇做"一次性小调整"（比如就这篇结尾加个钩子）→ 走 `/redbeacon-review` 的 `rewrite`（AI 按意见改）或操作台审稿页手改；改预设会影响之后每一篇。
+> 1. 这次改的是**今后这类内容的"预设"**，不是回头修好你正看着的那一篇——那篇要么用这次重生的新版替代，要么在审稿里改（`/{{CLI}}-review`：让 AI 按意见重写，或逐条改标题正文）。
+> 2. 想就单篇做"一次性小调整"（比如就这篇结尾加个钩子）→ 走 `/{{CLI}}-review` 的 `rewrite`（AI 按意见改）或操作台审稿页手改；改预设会影响之后每一篇。
 > 3. **这篇彻底不行、想清掉重来** → 我可以把这条稿删掉（`review delete`，删前跟你确认），再用改好的预设重新生成一篇干净的。
 
 诊断是迭代的：一轮不准就回第三步换节点、同题再重生，直到产出让用户满意。
@@ -186,7 +186,7 @@ redbeacon generate --account-id {ID} --topic "<上一步拿到的选题原文>" 
 ### ① 先跑平台自检 `doctor`（平台连不上 / 生图失败 / 提示未登录时第一步）
 
 ```bash
-redbeacon doctor
+{{CLI}} doctor
 ```
 
 返回 `{ok, platform, checks:[{name, ok, detail, fix}]}`，逐项查三关，哪项 `ok:false` 就照它的 `fix` 走：
@@ -194,15 +194,15 @@ redbeacon doctor
 | 检查项 | false 说明什么 | 怎么修 |
 |---|---|---|
 | **运行时** | Python/运行环境异常（少见） | 一般是安装损坏，重装 CLI |
-| **设备令牌** | 本机没登录平台 / 令牌被清 | 带用户去 `/redbeacon-login` 登录平台 |
-| **平台连通(checkin)** | 有令牌但连不上/令牌失效 | 照 `fix`：网络问题稍后重试；令牌失效重跑 `/redbeacon-login`；算力点不足去网站充值 |
+| **设备令牌** | 本机没登录平台 / 令牌被清 | 带用户去 `/{{CLI}}-login` 登录平台 |
+| **平台连通(checkin)** | 有令牌但连不上/令牌失效 | 照 `fix`：网络问题稍后重试；令牌失效重跑 `/{{CLI}}-login`；算力点不足去网站充值 |
 
 > 用人话把结论念给用户：「自检了一下——登录是好的，但平台暂时连不上，多半是网络，待会儿再试」；别把整段 JSON 甩给用户。
 
 ### ② 看日志 `logs`（命令"莫名失败"、想知道到底哪步崩了）
 
 ```bash
-redbeacon logs --tail 50
+{{CLI}} logs --tail 50
 ```
 
 读最近 N 行运行日志（默认全量、`--tail` 限行）。用于 doctor 全绿但某个动作仍失败时，扒最后的报错堆栈定位是哪一步、什么异常。把**关键报错行**翻成人话给用户，别整屏糊上去。
@@ -212,14 +212,14 @@ redbeacon logs --tail 50
 发布和扫码登录都靠 playwright 的 chromium 内核；**内核没装好或损坏**会表现为"扫码弹不出二维码""发布卡在起浏览器"。重装内核：
 
 ```bash
-redbeacon setup
+{{CLI}} setup
 ```
 
 会下载/校验 chromium（进度走 stderr，最后 stdout 给 JSON 结果；网络不稳可重跑）。装完再回去重试发布/扫码。
 
-> 典型分诊：**生图/会员/平台相关失败 → `doctor`**；**发布/扫码"浏览器起不来" → `setup`**；**说不清的崩溃 → `logs --tail` 看堆栈**。三者查完仍无解，照 stderr 的 `next` 提示，或建议用户重装（`/redbeacon-config` 也可重登平台）。
+> 典型分诊：**生图/会员/平台相关失败 → `doctor`**；**发布/扫码"浏览器起不来" → `setup`**；**说不清的崩溃 → `logs --tail` 看堆栈**。三者查完仍无解，照 stderr 的 `next` 提示，或建议用户重装（`/{{CLI}}-config` 也可重登平台）。
 >
-> 🆘 **反复自愈不了就别在对话里干瞪眼——弹 UI 兜底**：同一个动作试了两三次、doctor/logs/setup 也定位不到，就一句「这问题我在命令行这头一直没弄通，我把 UI 给你打开，你在里面直接试试对应操作、或看看它报什么」+ `redbeacon ui app --detach --page <相关页，如 发布/审稿/账号> --account-id {ID}`。有时候可视化界面能让用户一眼看出卡在哪（比如某字段空了、某按钮点不动），比在对话里来回猜快。
+> 🆘 **反复自愈不了就别在对话里干瞪眼——弹 UI 兜底**：同一个动作试了两三次、doctor/logs/setup 也定位不到，就一句「这问题我在命令行这头一直没弄通，我把 UI 给你打开，你在里面直接试试对应操作、或看看它报什么」+ `{{CLI}} ui app --detach --page <相关页，如 发布/审稿/账号> --account-id {ID}`。有时候可视化界面能让用户一眼看出卡在哪（比如某字段空了、某按钮点不动），比在对话里来回猜快。
 
 ---
 
@@ -228,5 +228,5 @@ redbeacon setup
 - **先分诊 A（内容）还是 B（技术）**：发不出去/报错/连不上是 B，走「技术排障」；文案图选题不满意才是 A。
 - **先诊断后动手**，节点没对齐前不要改数据。
 - 一次只改一个节点再验证，否则分不清是哪处改动起的作用。
-- 诊断只调"生产参数"、让下一次生成更准；单篇改稿/删稿走 `/redbeacon-review`。
+- 诊断只调"生产参数"、让下一次生成更准；单篇改稿/删稿走 `/{{CLI}}-review`。
 - 命令失败走 stderr `{"error","next"}`，照实告诉用户。

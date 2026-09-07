@@ -5,7 +5,7 @@ metadata:
   short-description: "用户贴一篇小红书笔记链接并说“照这篇做、仿写这篇、想做成这样的笔记”时，学习该笔记的文案节奏和封面画面结构，预览后沉淀为"
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从当前通道中央 manifest 精确读取安装器并执行；不得猜 zip 名、版本目录或下载地址。
+> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > **【单篇笔记学习】** 当用户贴出一篇小红书图文笔记，并表达“照这篇做”“仿写这篇”“做成这种笔记”“学习这个封面”“把这篇沉淀成方案”等意图时，直接进入本能力。RedBeacon 会读取这篇笔记的标题、正文和封面，用当前账号自己的定位约束文案迁移，并以用户指定的这一张封面为主要视觉依据，提炼成一套可复用方案。分析只生成预览；用户明确确认后才加入方案库。
 

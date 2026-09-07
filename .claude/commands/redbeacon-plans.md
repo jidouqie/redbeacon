@@ -3,12 +3,12 @@ description: 内容方案（生成模板）— 看/建/改/删账号的成套生
 argument-hint: 无参数=列当前账号的方案；也可直说「新建一套带货方案」「把日常版设成默认」「给带货方案传张产品图」
 ---
 
-> **运行前自检**：先执行 `redbeacon --version`。如果命令不存在，必须从中央 `https://bytestaff-download-releases.oss-cn-shanghai.aliyuncs.com/projects/redbeacon/stable/latest.json` 精确读取 `installers/install.ps1` 或 `installers/install.sh` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
+> **运行前自检**：先执行 `{{CLI}} --version`。如果命令不存在，必须从中央 `{{MANIFEST_URL}}` 精确读取 `{{INSTALL_PS1_KEY}}` 或 `{{INSTALL_SH_KEY}}` 的 `url` 并执行；不得猜测版本、zip 包名、节点地址或直接解压客户端。
 
 > 📦 **方案始终存本机**：方案（生成模板）是账号的生产配置，一直存本地，不随数据源变、也和飞书无关。
 
 > 🤝 **交互风格 = 像得力下属服务老板**：主动带领、别让用户懵。
-> - **全程人话**：不出现 /redbeacon-* 或 redbeacon xxx 命令名/斜杠；用「我给你新建了一套带货方案」这种说法。
+> - **全程人话**：不出现 /{{CLI}}-* 或 {{CLI}} xxx 命令名/斜杠；用「我给你新建了一套带货方案」这种说法。
 > - **一次只问一个问题，一次只推进一件事**：只要需要用户回应，就停在一个明确问题/动作上；给 2-3 个编号建议选项，推荐项标「推荐」，让用户回一个数字；不要把「选账号 + 选模式 + 填偏好」这类多题塞进同一轮。
 > - **给选择必须编号 + 换行**，让用户回一个数字就行。
 > - 用户熟了直接自然语言提要求 → 照做。
@@ -17,16 +17,16 @@ argument-hint: 无参数=列当前账号的方案；也可直说「新建一套�
 >
 > 🧠 **你在这个 skill 里的核心价值 = 提示词顾问**：多数用户只能说出「一种感觉」，尤其**封面**几乎没人说得清。你要懂这套提示词怎么编码（见下「📐 提示词是怎么编码的」），把用户的模糊感觉/一张喜欢的封面截图**反推**成真实提示词、落进方案（见下「🎨 顾问式落方案」）。这是本 skill 最该发力的地方，不是只当填表操作员。
 >
-> 🔴 **长模板的"反复比对微调看实时效果"是网页的主场**：模板往往很长、要在占位符和话术间来回磨——**这种精修网页「方案」页最顺手**（能力 CLI 全都有、下面都能调）。分工是：**"把感觉聊清、反推成提示词、写进方案"是你（对话）的强项；"对着成品一格格微调"交棒网页** `redbeacon ui app --detach --page 方案 --account-id {ID}`。对话里的短动作：看有哪些方案、设默认、新建骨架、传/删产品图、删方案。
+> 🔴 **长模板的"反复比对微调看实时效果"是网页的主场**：模板往往很长、要在占位符和话术间来回磨——**这种精修网页「方案」页最顺手**（能力 CLI 全都有、下面都能调）。分工是：**"把感觉聊清、反推成提示词、写进方案"是你（对话）的强项；"对着成品一格格微调"交棒网页** `{{CLI}} ui app --detach --page 方案 --account-id {ID}`。对话里的短动作：看有哪些方案、设默认、新建骨架、传/删产品图、删方案。
 
 ---
 
 ## 第一步：看账号有哪些方案
 
 ```bash
-redbeacon accounts list                        # 定 {ID}：0 个→先 /redbeacon-accounts；1 个→自动用；多个→让用户指明是哪个号（方案是按账号各自一套）
-redbeacon plans list --account-id {ID}         # 列方案（含默认标记，不甩长模板正文）
-redbeacon plans get  --account-id {ID} --plan-id {PID}   # 看某方案全文（含长模板）；🔒必带 account-id，跨号会被拒
+{{CLI}} accounts list                        # 定 {ID}：0 个→先 /{{CLI}}-accounts；1 个→自动用；多个→让用户指明是哪个号（方案是按账号各自一套）
+{{CLI}} plans list --account-id {ID}         # 列方案（含默认标记，不甩长模板正文）
+{{CLI}} plans get  --account-id {ID} --plan-id {PID}   # 看某方案全文（含长模板）；🔒必带 account-id，跨号会被拒
 ```
 
 > ⚠️ **方案是账号各自独立的**：每个小红书号有自己的一套方案，`--account-id` 一定要对应到用户说的那个号，别把 A 号的方案改到 B 号上。
@@ -51,7 +51,7 @@ redbeacon plans get  --account-id {ID} --plan-id {PID}   # 看某方案全文（
 ## 设默认方案（最常用的短动作）
 
 ```bash
-redbeacon plans set-default --account-id {ID} --plan-id {PID}
+{{CLI}} plans set-default --account-id {ID} --plan-id {PID}
 ```
 
 > 用户说「以后默认用干货那套写」→ 直接设，一句「好了，以后不特别说就用《干货长文》写」。
@@ -69,7 +69,7 @@ redbeacon plans set-default --account-id {ID} --plan-id {PID}
 4. **【这一篇怎么落】**：本类笔记的写作要求（开头怎么切、正文给什么、结尾怎么收）—— 这是 `copy_template` 里你真正在调的骨架。
 5. 末尾引擎**强制追加**发布安全线 + JSON 输出契约（`title/content/card_content/tags/cover_copy…`）——用户模板里看不到、也删不掉；标题最终不超过 18 字、正文最终不超过 888 字，即使旧方案写了更长要求也以这条安全线为准。
 
-→ **顾问要点**：这个号「整体怎么写」的全局风格（语气/因果结构/口吻/详略）住在**定位的 `copy_guide`**、自动注入每一篇；`copy_template` 调的是「**这一类笔记**的写法骨架」。所以用户说「文案整体不对味」大概率去改定位 `copy_guide`（`/redbeacon-strategy`）；说「带货那类笔记的写法要变」才是改这套方案的 `copy_template`。占位符只是可选的自动填充工具：用户可以不用、只用一部分，也可以整段自由写；不要为了凑齐变量改坏用户原意。**但只允许使用 `plans meta` 对应文案清单中真实存在的占位符，绝不能自己杜撰一个并声称系统会填。**
+→ **顾问要点**：这个号「整体怎么写」的全局风格（语气/因果结构/口吻/详略）住在**定位的 `copy_guide`**、自动注入每一篇；`copy_template` 调的是「**这一类笔记**的写法骨架」。所以用户说「文案整体不对味」大概率去改定位 `copy_guide`（`/{{CLI}}-strategy`）；说「带货那类笔记的写法要变」才是改这套方案的 `copy_template`。占位符只是可选的自动填充工具：用户可以不用、只用一部分，也可以整段自由写；不要为了凑齐变量改坏用户原意。**但只允许使用 `plans meta` 对应文案清单中真实存在的占位符，绝不能自己杜撰一个并声称系统会填。**
 
 > 🔴 **必须分清“自由提示词”和“假模板”**：完全自由写一段固定要求 ✅；从 `plans meta` 选官方 `{占位符}` 自动接入定位/选题 ✅；把 `[项目全称]`、`{截止日期}`、`{适配人群}` 当成会自动填充的变量 ❌。这些写法只会作为普通文字使用。检查用户已有方案时简短提醒即可，不阻止他保存或创作；但由你代写或修改方案时，绝不能产出这种假变量。
 
@@ -112,23 +112,23 @@ redbeacon plans set-default --account-id {ID} --plan-id {PID}
 
 ### 文案风格
 
-- 用户说「文案整体不对味 / 换个口吻」→ 大头在**定位 `copy_guide`**（全局、注入每篇），引导去 `/redbeacon-strategy` 改，或让用户发一篇喜欢的博主笔记、你抽象出语气/句式/开场套路填进 `copy_guide`。
+- 用户说「文案整体不对味 / 换个口吻」→ 大头在**定位 `copy_guide`**（全局、注入每篇），引导去 `/{{CLI}}-strategy` 改，或让用户发一篇喜欢的博主笔记、你抽象出语气/句式/开场套路填进 `copy_guide`。
 - 用户说「**这一类**笔记的写法要变」（如带货要更硬核、干货要更口语）→ 才是改这套方案的 `copy_template` 第 4 段（本篇怎么落）：问清这类笔记开头怎么切、正文给什么、结尾怎么收，按用户需要自由使用或不使用占位符，存进方案。
 
 ### 顾问式的落地命令（把想好的写进方案）
 
 ```bash
-redbeacon plans meta                                          # 必须先拿合法占位符表和 13 套风格词汇
-redbeacon plans get --account-id {ID} --plan-id {PID}         # 回看某方案现有全文，在它基础上改
-echo "<你反推/写好的风格段>" | redbeacon plans save --account-id {ID} --plan-id {PID} --image-template -   # 写进封面风格
-echo "<这类笔记的写法骨架>"   | redbeacon plans save --account-id {ID} --plan-id {PID} --copy-template  -   # 写进文案骨架
+{{CLI}} plans meta                                          # 必须先拿合法占位符表和 13 套风格词汇
+{{CLI}} plans get --account-id {ID} --plan-id {PID}         # 回看某方案现有全文，在它基础上改
+echo "<你反推/写好的风格段>" | {{CLI}} plans save --account-id {ID} --plan-id {PID} --image-template -   # 写进封面风格
+echo "<这类笔记的写法骨架>"   | {{CLI}} plans save --account-id {ID} --plan-id {PID} --copy-template  -   # 写进文案骨架
 ```
 
 > 写完念一句人话回执（「按你发的那几张，我把封面调成手账清新风了，下次生成就照这个出」），并提醒随时能再改 / 交棒网页看实时效果。
 >
 > 🔴 **每次由你代写或改写模板，都先以本次 `plans meta` 返回的 `placeholders.copy` / `placeholders.image` 为准逐项核对。** 不凭记忆造变量，不把相似名字当成同一个变量。`plans save` 即使发现无效变量也不会阻塞用户，所以你必须主动检查返回的 `needs_attention`：只要这是你刚写入的模板，就先修正再交付；用户明确要求保留为普通原文时除外。
 >
-> 保存后执行 `redbeacon plans check --account-id {ID} --plan-id {PID}`。如果这是用户原有模板且 `needs_attention=true`，简短说明“这些变量不会自动填充、仍按普通文字保留”即可，不替用户擅自重写，也不拦后续创作。
+> 保存后执行 `{{CLI}} plans check --account-id {ID} --plan-id {PID}`。如果这是用户原有模板且 `needs_attention=true`，简短说明“这些变量不会自动填充、仍按普通文字保留”即可，不替用户擅自重写，也不拦后续创作。
 
 ---
 
@@ -137,7 +137,7 @@ echo "<这类笔记的写法骨架>"   | redbeacon plans save --account-id {ID} 
 **建方案前先拿合法取值**（笔记类型、视觉风格库、占位符），照着填才不会踩空：
 
 ```bash
-redbeacon plans meta        # note_types（general/poster/persona/selling）+ visual_styles + placeholders + builtin_seeds
+{{CLI}} plans meta        # note_types（general/poster/persona/selling）+ visual_styles + placeholders + builtin_seeds
 ```
 
 - **笔记类型**：`general` 通用图文 / `poster` 大字报 / `persona` 人物形象 / `selling` 带货。
@@ -146,13 +146,13 @@ redbeacon plans meta        # note_types（general/poster/persona/selling）+ vi
 
 ```bash
 # 新建一套通用图文方案（文案模板从 stdin 传）
-echo "围绕《{选题}》写给{受众}，重点参考：{选题提纲}。创作日期：{当前时间}。" | redbeacon plans save --account-id {ID} --name "日常版" --note-type general --copy-template -
+echo "围绕《{选题}》写给{受众}，重点参考：{选题提纲}。创作日期：{当前时间}。" | {{CLI}} plans save --account-id {ID} --name "日常版" --note-type general --copy-template -
 
 # 编辑：只改名，不动模板（不传的字段保留原值，不会被清空）
-redbeacon plans save --account-id {ID} --plan-id {PID} --name "日常版v2"
+{{CLI}} plans save --account-id {ID} --plan-id {PID} --name "日常版v2"
 
 # 改配图方式
-redbeacon plans save --account-id {ID} --plan-id {PID} --image-mode both
+{{CLI}} plans save --account-id {ID} --plan-id {PID} --image-mode both
 ```
 
 - **`--copy-template` / `--image-template` 同一条命令里只能有一个走 stdin `-`**（stdin 只能读一次）；两个都要长文本就分两次 save。
@@ -164,7 +164,7 @@ redbeacon plans save --account-id {ID} --plan-id {PID} --image-mode both
 **带货方案专属参数**（`--note-type selling`）：
 
 ```bash
-redbeacon plans save --account-id {ID} --plan-id {PID} \
+{{CLI}} plans save --account-id {ID} --plan-id {PID} \
   --image-count 4 --style-tendency "极简ins风" --display-with-text
 ```
 
@@ -176,22 +176,22 @@ redbeacon plans save --account-id {ID} --plan-id {PID} \
 ## 产品图 / 参考图（带货方案传产品图、人物方案传形象图）
 
 ```bash
-redbeacon plans material --account-id {ID} --plan-id {PID} --file ~/Desktop/product.jpg   # 挂一张（拷贝入库，回写方案）
-redbeacon plans material --account-id {ID} --plan-id {PID} --file ~/Desktop/p2.jpg --replace # 先清空已有再加这张
-redbeacon plans material --account-id {ID} --plan-id {PID} --remove /库内/路径.jpg          # 删单张（连磁盘文件删）
-redbeacon plans material --account-id {ID} --plan-id {PID} --clear                          # 清空该方案所有参考图（连文件删）
+{{CLI}} plans material --account-id {ID} --plan-id {PID} --file ~/Desktop/product.jpg   # 挂一张（拷贝入库，回写方案）
+{{CLI}} plans material --account-id {ID} --plan-id {PID} --file ~/Desktop/p2.jpg --replace # 先清空已有再加这张
+{{CLI}} plans material --account-id {ID} --plan-id {PID} --remove /库内/路径.jpg          # 删单张（连磁盘文件删）
+{{CLI}} plans material --account-id {ID} --plan-id {PID} --clear                          # 清空该方案所有参考图（连文件删）
 ```
 
 - 图片 png/jpg/webp、≤12MB；挂进去后 `generate` 认出带货方案会自动读，不用在生成时再传。
 - **🗑️ `--clear` / `--remove` 会连磁盘文件一起删、不可恢复**：删前跟用户确认一句。
-- 用户手上有一批产品图要传/挑/换 → **可视化更顺手，交棒网页**：`redbeacon ui app --detach --page 方案 --account-id {ID}`。
+- 用户手上有一批产品图要传/挑/换 → **可视化更顺手，交棒网页**：`{{CLI}} ui app --detach --page 方案 --account-id {ID}`。
 
 ---
 
 ## 删方案
 
 ```bash
-redbeacon plans delete --account-id {ID} --plan-id {PID}
+{{CLI}} plans delete --account-id {ID} --plan-id {PID}
 ```
 
 - **🗑️ 删前跟用户确认**；内置模板删不掉（会报错，正常）。删默认方案后记得帮用户重设一个默认。
@@ -204,15 +204,15 @@ redbeacon plans delete --account-id {ID} --plan-id {PID}
 | 用户想干的 | 去哪 |
 |---|---|
 | 看/建/删方案、设默认、传产品图 | **本 skill** |
-| 长文案/视觉模板反复比对微调 | 交棒 `redbeacon ui app --detach --page 方案 --account-id {ID}` |
-| 改账号定位/全局文案预设 | `/redbeacon-strategy` |
-| 用某方案写一篇 | `/redbeacon-generate`（`--plan-id`） |
+| 长文案/视觉模板反复比对微调 | 交棒 `{{CLI}} ui app --detach --page 方案 --account-id {ID}` |
+| 改账号定位/全局文案预设 | `/{{CLI}}-strategy` |
+| 用某方案写一篇 | `/{{CLI}}-generate`（`--plan-id`） |
 
 ---
 
 ## 注意
 
-- 方案是**生成模板**，不是账号定位；定位（赛道/受众/语气）在 `/redbeacon-strategy`、`/redbeacon-locate`。视觉模板、配图方式与方案参考图统一由本方案管理；账号档案里残留的旧视觉字段只作历史兼容兜底。
+- 方案是**生成模板**，不是账号定位；定位（赛道/受众/语气）在 `/{{CLI}}-strategy`、`/{{CLI}}-locate`。视觉模板、配图方式与方案参考图统一由本方案管理；账号档案里残留的旧视觉字段只作历史兼容兜底。
 - 生成用哪套方案：默认走账号默认方案，`generate --plan-id` 临时指定。**别在生成时问用户方案**——平时用默认就好。
 - **长模板编辑优先交棒网页**：能力在 CLI，但信息密度高的活让网页做，别硬在对话里拼长字符串。
 - **🗑️ 删方案 / 清产品图不可恢复**：删前确认。
