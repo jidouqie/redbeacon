@@ -51,7 +51,19 @@ redbeacon plans get  --account-id {ID} --plan-id {PID}   # 看某方案全文（
 
 ---
 
-## 设默认方案（最常用的短动作）
+## AI封面＋同风格内页方案
+
+用户主动选择后，可将通用图文方案的 `image_mode` 设为 `shared_style`。先通过 `redbeacon creation styles` 查询可用编号和版本；只支持有对应本地模板的预设，不能承诺任意参考封面自动复刻。
+
+用宿主文件能力创建 UTF-8 风格设置 JSON，对象包含 `style_id`（如 `S01` 或 `random`）、`version`（当前返回版本）、`page_count`（0 自动，或 1–17 张内页）、`brand_text`（当前账号品牌文字或空串）。随后调用：
+
+```text
+redbeacon plans save --account-id {ID} --plan-id {PID} --image-mode shared_style --shared-style-file <风格设置文件>
+```
+
+账号间品牌和方案不得串用，不自动把既有账号的全部方案切换到新模式；只在用户要求时设默认。后续创作继承方案，每篇冻结一次风格，封面由 AI 生成，内页由软件按同一快照渲染。客户端方案页提供相同设置及 15 种本机内页样张。
+
+## 设默认方案
 
 ```bash
 redbeacon plans set-default --account-id {ID} --plan-id {PID}
