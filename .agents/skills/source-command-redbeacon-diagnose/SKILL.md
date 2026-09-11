@@ -212,13 +212,13 @@ redbeacon logs --tail 50
 
 ### ③ 修浏览器内核 `setup`（扫码登录/发布"浏览器起不来"、首次安装没装全）
 
-发布和扫码登录都靠 playwright 的 chromium 内核；**内核没装好或损坏**会表现为"扫码弹不出二维码""发布卡在起浏览器"。重装内核：
+发布、扫码登录和 HTML 文字卡片共用 CloakBrowser 内核；**内核没装好或损坏**会表现为"扫码弹不出二维码""发布卡在起浏览器"。重装内核：
 
 ```bash
 redbeacon setup
 ```
 
-会下载/校验 chromium（进度走 stderr，最后 stdout 给 JSON 结果；网络不稳可重跑）。装完再回去重试发布/扫码。
+会下载/校验当前平台的 CloakBrowser（进度走 stderr，最后 stdout 给 JSON 结果；网络不稳可重跑）。装完再回去重试发布/扫码。
 
 > 典型分诊：**生图/会员/平台相关失败 → `doctor`**；**发布/扫码"浏览器起不来" → `setup`**；**说不清的崩溃 → `logs --tail` 看堆栈**。三者查完仍无解，照 stderr 的 `next` 提示，或建议用户重装（`/source-command-redbeacon-config` 也可重登平台）。
 >

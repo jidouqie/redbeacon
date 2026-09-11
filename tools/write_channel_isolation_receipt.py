@@ -48,7 +48,7 @@ BUNDLE_ASSERTIONS = [
     "opposite-channel-probe",
     "opposite-channel-runtime-untouched",
     "opposite-channel-token-unchanged",
-    "playwright-chromium-launch-verified",
+    "stock-chromium-absent",
     "probe-output-strict-json",
     "renderer-real-png",
     "renderer-styles-readable",

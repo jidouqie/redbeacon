@@ -8,11 +8,9 @@ import hashlib
 import importlib.util
 import io
 import json
-import os
 import re
 import shutil
 import tarfile
-from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -20,7 +18,6 @@ from cloakbrowser.config import DOWNLOAD_BASE_URL, PLATFORM_CHROMIUM_VERSIONS
 
 from redbeacon import __version__
 from redbeacon.services.browser_downloads import DownloadSource, download_resumable
-from redbeacon.services.browser_engine import _playwright_archive_url
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,20 +49,6 @@ RAW_REPORT_FILENAMES = {
 }
 
 
-@contextmanager
-def _environment(name: str, value: str | None):
-    previous = os.environ.get(name)
-    if value is None:
-        os.environ.pop(name, None)
-    else:
-        os.environ[name] = value
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop(name, None)
-        else:
-            os.environ[name] = previous
 
 
 def _load_skill_builder():
@@ -279,31 +262,6 @@ def _cloakbrowser_archive_url(platform_tag: str) -> str:
 
 
 def _runtime_dependencies(output: Path, cache_root: Path) -> None:
-    for platform_override in (None, "win64"):
-        with _environment("PLAYWRIGHT_HOST_PLATFORM_OVERRIDE", platform_override):
-            official = _playwright_archive_url(None)
-        path = urlsplit(official).path.lstrip("/")
-        relative = f"dependencies/playwright/{path}"
-        sources = [
-            DownloadSource(
-                f"https://registry.npmmirror.com/-/binary/playwright/{path}",
-                "npmmirror-playwright-1",
-                trust_env=True,
-            ),
-            DownloadSource(
-                f"https://cdn.npmmirror.com/binaries/playwright/{path}",
-                "npmmirror-playwright-2",
-                trust_env=True,
-            ),
-            DownloadSource(official, "playwright-official", trust_env=True),
-        ]
-        _cached_download(
-            sources=sources,
-            relative=relative,
-            cache_root=cache_root,
-            output_root=output,
-        )
-
     for platform_tag in CLOAKBROWSER_ARCHIVE_SUFFIXES:
         url = _cloakbrowser_archive_url(platform_tag)
         path = urlsplit(url).path.lstrip("/")

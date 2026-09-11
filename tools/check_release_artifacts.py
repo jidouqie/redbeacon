@@ -75,6 +75,31 @@ def reject_self_asserted_result_keys(value: object, label: str) -> None:
             reject_self_asserted_result_keys(child, label)
 
 
+def check_runtime_archives(files: list[str]) -> None:
+    playwright = [path for path in files if path.startswith("dependencies/playwright/")]
+    cloak = [path for path in files if path.startswith("dependencies/cloakbrowser/")]
+    if playwright:
+        fail("release must not include the retired stock Playwright Chromium")
+    if len(cloak) != 2:
+        fail("release must contain exactly two shared CloakBrowser platform archives")
+    try:
+        expected_cloak = {
+            (
+                "dependencies/cloakbrowser/"
+                f"chromium-v{PLATFORM_CHROMIUM_VERSIONS[tag]}/"
+                f"cloakbrowser-{tag}{suffix}"
+            )
+            for tag, suffix in CLOAKBROWSER_ARCHIVE_SUFFIXES.items()
+        }
+    except KeyError as exc:
+        fail(f"locked CloakBrowser package has no version for {exc.args[0]}")
+    if set(cloak) != expected_cloak:
+        fail(
+            "CloakBrowser dependencies do not exactly match the locked per-platform versions: "
+            + ", ".join(sorted(expected_cloak))
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
@@ -143,28 +168,7 @@ def main() -> None:
             f"missing={sorted(expected_installers - installer_scripts)}"
         )
 
-    playwright = [path for path in files if path.startswith("dependencies/playwright/")]
-    cloak = [path for path in files if path.startswith("dependencies/cloakbrowser/")]
-    if len(playwright) != 2 or len(cloak) != 2:
-        fail("release must contain exactly two Playwright and two CloakBrowser platform archives")
-    if not any("win64" in path for path in playwright) or not any("mac-arm64" in path for path in playwright):
-        fail("Playwright dependencies do not cover Windows x64 and macOS arm64")
-    try:
-        expected_cloak = {
-            (
-                "dependencies/cloakbrowser/"
-                f"chromium-v{PLATFORM_CHROMIUM_VERSIONS[tag]}/"
-                f"cloakbrowser-{tag}{suffix}"
-            )
-            for tag, suffix in CLOAKBROWSER_ARCHIVE_SUFFIXES.items()
-        }
-    except KeyError as exc:
-        fail(f"locked CloakBrowser package has no version for {exc.args[0]}")
-    if set(cloak) != expected_cloak:
-        fail(
-            "CloakBrowser dependencies do not exactly match the locked per-platform versions: "
-            + ", ".join(sorted(expected_cloak))
-        )
+    check_runtime_archives(files)
 
     evidence = json.loads((root / "metadata" / "build-evidence.json").read_text(encoding="utf-8"))
     if set(evidence) != {
