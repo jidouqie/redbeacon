@@ -100,6 +100,15 @@ def check_runtime_archives(files: list[str]) -> None:
         )
 
 
+def coverage_matches_expected(coverage: object) -> bool:
+    # The merger emits a sorted intersection of independently verified reports.
+    # Individual raw reports retain their own exact inventory ordering.
+    return coverage == {
+        "frozen_bundle": sorted(BUNDLE_ASSERTIONS),
+        "installer_transaction": sorted(DERIVED_INSTALLER_CASES),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
@@ -459,10 +468,7 @@ def main() -> None:
         or receipt.get("version") != args.version
         or receipt.get("channel") != args.channel
         or receipt.get("entrypoints") != identity.get("entrypoints")
-        or receipt.get("verified_coverage") != {
-            "frozen_bundle": BUNDLE_ASSERTIONS,
-            "installer_transaction": DERIVED_INSTALLER_CASES,
-        }
+        or not coverage_matches_expected(receipt.get("verified_coverage"))
     ):
         fail("combined channel isolation receipt does not match the build")
     expected_platform_rows = []

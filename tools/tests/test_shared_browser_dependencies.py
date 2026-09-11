@@ -15,6 +15,21 @@ except ImportError:
 
 @unittest.skipIf(cloakbrowser is None, 'requires the locked CLI build environment')
 class SharedBrowserDependencies(unittest.TestCase):
+    def test_merged_coverage_uses_canonical_order_and_rejects_missing_or_legacy_guards(self):
+        import check_release_artifacts as check
+        coverage = {
+            'frozen_bundle': sorted(check.BUNDLE_ASSERTIONS),
+            'installer_transaction': sorted(check.DERIVED_INSTALLER_CASES),
+        }
+        self.assertTrue(check.coverage_matches_expected(coverage))
+        for replacement in (None, 'playwright-chromium-launch-verified'):
+            altered = {**coverage, 'frozen_bundle': list(coverage['frozen_bundle'])}
+            altered['frozen_bundle'].remove('stock-chromium-absent')
+            if replacement:
+                altered['frozen_bundle'].append(replacement)
+                altered['frozen_bundle'].sort()
+            self.assertFalse(check.coverage_matches_expected(altered))
+
     def test_collector_requests_only_two_cloak_archives(self):
         import prepare_release_artifacts as prepare
         requested = []
