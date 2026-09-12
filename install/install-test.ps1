@@ -30,7 +30,12 @@ foreach($key in $script:InstallerEnvironmentKeys){
 
 function Restore-CallerWindowsInstallerEnvironment(){
   foreach($key in $script:InstallerEnvironmentKeys){
-    [Environment]::SetEnvironmentVariable($key, $script:OriginalInstallerEnvironment[$key], "Process")
+    $value = $script:OriginalInstallerEnvironment[$key]
+    if($null -eq $value){
+      [Environment]::SetEnvironmentVariable($key, [NullString]::Value, "Process")
+    } else {
+      [Environment]::SetEnvironmentVariable($key, $value, "Process")
+    }
   }
 }
 
@@ -77,7 +82,9 @@ function Initialize-TrustedWindowsInstallerEnvironment(){
     "CLOAKBROWSER_CACHE_DIR", "CLOAKBROWSER_BINARY_PATH", "CLOAKBROWSER_VERSION",
     "CLOAKBROWSER_SKIP_CHECKSUM", "CLOAKBROWSER_AUTO_UPDATE"
   )){
-    [Environment]::SetEnvironmentVariable($key, $null, "Process")
+    # PowerShell 7.5+ converts $null to an empty string for this .NET API.
+    # A real null string removes the variable on both Windows PowerShell and pwsh.
+    [Environment]::SetEnvironmentVariable($key, [NullString]::Value, "Process")
   }
   $env:REDBEACON_CHANNEL = "test"
   $env:REDBEACON_BUILD_CHANNEL = "test"
@@ -284,7 +291,7 @@ function Run-BrowserSetup($CliPath){
   $env:REDBEACON_OUT = "compact"
   try {
     & $CliPath setup --manifest-file $script:ReleaseManifestFile
-    if($LASTEXITCODE -ne 0){ Die "Browser engine setup failed. Re-run the installer after checking network/proxy." }
+    if($LASTEXITCODE -ne 0){ Die "Browser engine setup failed. See the diagnostic details above." }
   } finally {
     if($null -eq $oldOut){ Remove-Item Env:\REDBEACON_OUT -ErrorAction SilentlyContinue } else { $env:REDBEACON_OUT = $oldOut }
     Pop-RuntimeEnvironment $runtimeEnv
@@ -507,14 +514,18 @@ function Push-RuntimeEnvironment(){
     "CLOAKBROWSER_BINARY_PATH", "CLOAKBROWSER_VERSION", "CLOAKBROWSER_SKIP_CHECKSUM",
     "REDBEACON_DESKTOP_SMOKE", "REDBEACON_DESKTOP_SMOKE_DATA_DIR"
   )){
-    [Environment]::SetEnvironmentVariable($key, $null, "Process")
+    [Environment]::SetEnvironmentVariable($key, [NullString]::Value, "Process")
   }
   return $old
 }
 
 function Pop-RuntimeEnvironment($Old){
   foreach($entry in $Old.GetEnumerator()){
-    [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+    if($null -eq $entry.Value){
+      [Environment]::SetEnvironmentVariable($entry.Key, [NullString]::Value, "Process")
+    } else {
+      [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+    }
   }
 }
 

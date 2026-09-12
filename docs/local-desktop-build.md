@@ -1,6 +1,6 @@
 # RedBeacon 本地双平台构建与 Windows 虚拟机部署
 
-最后核对：2026-08-15
+最后核对：2026-09-12
 
 ## 结论
 
@@ -39,10 +39,13 @@ Windows 11 on Arm 支持运行 x86/x64 用户态程序，因此 ARM64 虚拟机�
    Windows 构建机还需安装 Git for Windows，命令位于 `C:\Program Files\Git\cmd\git.exe`；编排器会在 Mac 打包前检查 Git 和 uv。Git 供源码质量检查与回归测试使用，不随客户端分发。
 4. Mac 和 Windows 各自跑全量测试、PyInstaller、浏览器预热、真实卡片渲染和桌面启动 smoke。
 5. Windows 还要确认 GUI、CLI、渲染器三个 PE 都是 `0x8664 (AMD64)`，并运行 PowerShell 安装事务 smoke。
+   同一构建还必须用 Windows PowerShell 5.1 和锁定的 PowerShell 7.6.0 执行两个安装入口的环境清理/恢复回归，并通过安装器的真实 `Run-BrowserSetup` 调用冻结客户端；覆盖不存在、空字符串、自定义路径、失败恢复和数据库不变。报告在构建目录的 `powershell-compatibility-51.json`、`powershell-compatibility-76.json`，绑定安装入口与本次 Windows 包 SHA-256。
 6. 两端全部成功后才组装完整 `release-artifacts/` 并写 `metadata/build-evidence.json`。构建过程不读取 OSS 凭据、不上传、不切 canonical manifest。
 7. 永远先构建和发布测试版；人工确认后，不改代码，再用同一套脚本构建正式版。
 
 ## Windows VM 一次性配置
+
+PowerShell 7 只供构建验收，不随客户端分发，也不修改用户默认终端。将微软官方 `PowerShell-7.6.0-win-x64.zip` 的便携版解压到构建机 `RedBeaconBuild\toolchains\powershell-7.6.0`；本次官方包 SHA-256 为 `9e725837af682b87bb212cd1efe3657c06c540404203810857ec2516ae2ca322`。版本由 `cli/packaging/build-versions.env` 锁定，缺失或版本不符会阻断构建。
 
 当前虚拟机：
 

@@ -84,6 +84,7 @@ RedBeacon 是一个小红书运营数字员工：以本机客户端为主入口�
 - Windows `.ps1/.cmd` 安装链路必须 ASCII-only；命令文件和通用 `SKILL.md` 必须 UTF-8，发布前检查不能出现 `�` 这类替换字符。
 - Windows bundle smoke 必须捕获桌面初始化里的 `Traceback` / `ModuleNotFoundError` / `ImportError`；如果日志里有隐藏崩溃，即使打包命令返回 0 也不准上传。PyInstaller spec 必须显式包含 `_sqlite3`，并把文字卡片所需的 `RedBeaconRenderer(.exe)` 作为独立可执行文件打进同一个包；Windows/macOS smoke 都要证明没有独立 Playwright Chromium 缓存，并用冻结 CLI 准备当前 CloakBrowser 版本，再让冻结渲染器真实产出封面和正文 PNG，不能只验证主客户端或 `--list-styles`。
 - PowerShell 5.1 在 `$ErrorActionPreference = "Stop"` 时会把原生程序写入 stderr 的普通 INFO 日志转换成 `NativeCommandError`。Windows smoke 捕获原生输出时必须临时使用非终止模式，最终只按真实退出码和 `Traceback` / ImportError 等错误特征判定，不能把“写过 stderr”直接当崩溃。
+- Windows 安装器必须兼容 Windows PowerShell 5.1 与 PowerShell 7.5+。调用 `[Environment]::SetEnvironmentVariable` 删除进程变量时使用 `[NullString]::Value`；新版 PowerShell 会把普通 `$null` 传成空字符串。环境保存/恢复必须保留“不存在、空字符串、非空字符串”的区别。构建必须在 5.1 和锁定的 7.6.0 中执行真实安装函数、冻结 CLI 浏览器准备及失败恢复回归，不能只用 5.1 验收后推断新版也兼容。
 - macOS `.app` 同时包含桌面主程序、CLI 和渲染器时，`CFBundleExecutable` 必须显式等于当前通道的应用名，不能让 PyInstaller 自动选中辅助程序。本机 Mac 构建必须读取 `Info.plist` 核对该字段并直接运行字段指向的 GUI 可执行文件完成桌面 smoke；安装器在替换前后也必须复验，字段错误时即使版本号和 CLI 正常也视为坏包并回滚。
 - 组合业务结果必须逐项验收：例如“AI 封面 + 文字卡片”要求两部分都成功，不能因为 AI 图存在就吞掉卡片渲染错误并保存半成品。渲染失败要阻止入库、记录完整日志，并给用户短而可操作的修复提示。
 

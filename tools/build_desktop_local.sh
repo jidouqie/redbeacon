@@ -187,6 +187,11 @@ scp "${SCP_OPTIONS[@]}" \
 scp "${SCP_OPTIONS[@]}" \
   "${WINDOWS_HOST}:${WINDOWS_OUT_REMOTE}/installer-transaction-smoke-windows.json" \
   "$WINDOWS_INSTALLER_REPORT"
+for powershell_host in 51 76; do
+  scp "${SCP_OPTIONS[@]}" \
+    "${WINDOWS_HOST}:${WINDOWS_OUT_REMOTE}/powershell-compatibility-${powershell_host}.json" \
+    "$LOCAL_OUT/powershell-compatibility-${powershell_host}.json"
+done
 
 MAC_PACKAGE="$LOCAL_OUT/${APP_NAME}-mac-arm64.zip"
 WINDOWS_PACKAGE="$LOCAL_OUT/${APP_NAME}-win-x64.zip"
