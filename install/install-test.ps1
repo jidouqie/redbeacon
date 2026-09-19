@@ -423,21 +423,33 @@ function Install-Skills($CliPath, $TempDir){
     }
   }
 }
+function Get-RunningRedBeacon(){
+  $rendererPath = [IO.Path]::GetFullPath((Join-Path $Dest "RedBeaconRenderer.exe"))
+  Get-Process -Name @($AppName, $CliName, "RedBeaconRenderer") -ErrorAction SilentlyContinue | Where-Object {
+    $_.Id -ne $PID -and ($_.ProcessName -ne "RedBeaconRenderer" -or
+      [string]::Equals($_.Path, $rendererPath, [StringComparison]::OrdinalIgnoreCase))
+  }
+}
+
 function Stop-RunningRedBeacon(){
   if($RedBeaconInstallerExecutionMode -eq "smoke"){ return }
   Say "Stopping running $AppName processes ..."
-  $names = @($AppName, $CliName)
   $deadline = (Get-Date).AddSeconds(15)
   while((Get-Date) -lt $deadline){
-    $procs = @(Get-Process -Name $names -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID })
+    $procs = @(Get-RunningRedBeacon)
     if($procs.Count -eq 0){ return }
     $procs | Stop-Process -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 700
   }
-  $procs = @(Get-Process -Name $names -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID })
+  $procs = @(Get-RunningRedBeacon)
   if($procs.Count -gt 0){
     $procs | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 800
+    $deadline = (Get-Date).AddSeconds(5)
+    do {
+      Start-Sleep -Milliseconds 200
+      if(@(Get-RunningRedBeacon).Count -eq 0){ return }
+    } while((Get-Date) -lt $deadline)
+    Die "$AppName processes did not exit; the database snapshot and client replacement were not started."
   }
 }
 

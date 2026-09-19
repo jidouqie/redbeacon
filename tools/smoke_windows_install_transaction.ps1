@@ -1340,14 +1340,17 @@ function Assert-InstallerProductionProcessIsolation([string]$Template) {
   $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $ProjectRoot "install\install.ps1"), [ref]$tokens, [ref]$errors
   )
-  $stopAst = $ast.Find({
-    param($node)
-    return ($node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-            $node.Name -eq "Stop-RunningRedBeacon")
-  }, $true)
-  if(-not $stopAst){ throw "install.ps1 has no Stop-RunningRedBeacon function" }
-  Invoke-Expression $stopAst.Extent.Text
+  foreach($functionName in @("Get-RunningRedBeacon", "Stop-RunningRedBeacon")){
+    $stopAst = $ast.Find({
+      param($node)
+      return ($node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+              $node.Name -eq $functionName)
+    }, $true)
+    if(-not $stopAst){ throw "install.ps1 has no $functionName function" }
+    Invoke-Expression $stopAst.Extent.Text
+  }
   function Say($m){ Write-Host "==> $m" -ForegroundColor Cyan }
+  function Die($m){ throw $m }
   $allNames = @("RbInstall", "rb-install-cli", "RbInstall_test", "rb-install-test-cli")
   foreach($channel in @("stable", "test")){
     $processes = Start-NamedProcessProbes $Template $allNames
@@ -1360,6 +1363,7 @@ function Assert-InstallerProductionProcessIsolation([string]$Template) {
         $AppName = "RbInstall_test"
         $CliName = "rb-install-test-cli"
       }
+      $Dest = Join-Path (Split-Path $Template) $AppName
       Stop-RunningRedBeacon
       Start-Sleep -Milliseconds 800
       if($channel -eq "stable"){

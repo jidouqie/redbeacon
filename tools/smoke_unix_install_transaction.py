@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -749,6 +750,14 @@ def _assert_exact_process_isolation(root: Path, home: Path) -> list[dict[str, ob
     shutil.copyfile("/bin/sleep", test_exe)
     stable_exe.chmod(0o755)
     test_exe.chmod(0o755)
+    # Relocated Apple platform binaries can be killed by macOS before the
+    # uninstaller runs. Sign only these disposable probes and check startup,
+    # otherwise a bad fixture masquerades as a channel-isolation failure.
+    for executable in (stable_exe, test_exe):
+        subprocess.run(
+            ["/usr/bin/codesign", "--force", "--sign", "-", str(executable)],
+            check=True, capture_output=True,
+        )
     stable_proc = subprocess.Popen([str(stable_exe), "30"])
     test_proc = subprocess.Popen([str(test_exe), "30"])
     core = (ROOT / "install/uninstall-core.sh").read_text(encoding="utf-8")
@@ -757,6 +766,8 @@ def _assert_exact_process_isolation(root: Path, home: Path) -> list[dict[str, ob
     core_path = root / "process-uninstall-core.sh"
     _write_executable(core_path, core)
     try:
+        time.sleep(0.1)
+        assert stable_proc.poll() is None and test_proc.poll() is None, "process isolation fixtures failed to start"
         subprocess.run(
             ["bash", str(core_path), "stable", "production"],
             env={**os.environ, "HOME": str(home), "REDBEACON_PURGE": "0"},

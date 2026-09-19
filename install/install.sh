@@ -26,6 +26,7 @@ case "$TRUSTED_HOME" in /*) ;; *) printf 'xx The trusted macOS home directory is
 [ -d "$TRUSTED_HOME" ] \
   || { printf 'xx The trusted macOS home directory does not exist.\n' >&2; exit 1; }
 HOME="$TRUSTED_HOME"
+INSTALLER_CALLER_PATH="${PATH-}"
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 LC_ALL="C"
 export HOME PATH LC_ALL
@@ -474,12 +475,48 @@ verify_macos_bundle_entry() {
     || die "The macOS icon target is not executable: $bundle_executable."
 }
 
+running_redbeacon_pids() {
+  local process_rows
+  process_rows="$(/bin/ps -ww -u "$(/usr/bin/id -u)" -o pid=,comm=)" || return 1
+  printf '%s\n' "$process_rows" | /usr/bin/awk -v app="$APP_NAME" -v cli="$CLI_NAME" -v installer="$$" '
+    {
+      pid=$1
+      sub(/^[[:space:]]*[0-9]+[[:space:]]+/, "")
+      executable=$0
+      name=executable
+      sub(/^.*\//, "", name)
+      renderer="/" app ".app/Contents/MacOS/RedBeaconRenderer"
+      if (pid != installer && (name == app || name == cli ||
+          (length(executable) >= length(renderer) &&
+           substr(executable, length(executable)-length(renderer)+1) == renderer))) print pid
+    }'
+}
+
 stop_running_redbeacon() {
   [ "$EXECUTION_MODE" = "production" ] || return 0
   say "Stopping running $APP_NAME processes ..."
-  /usr/bin/pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-  /usr/bin/pkill -x "$CLI_NAME" >/dev/null 2>&1 || true
-  sleep 1
+  local running_pids running_pid deadline
+  running_pids="$(running_redbeacon_pids)" || die "Could not inspect running $APP_NAME processes."
+  [ -n "$running_pids" ] || return 0
+  for running_pid in $running_pids; do
+    kill -TERM "$running_pid" 2>/dev/null || true
+  done
+  deadline=$((SECONDS + 15))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    running_pids="$(running_redbeacon_pids)" || die "Could not inspect running $APP_NAME processes."
+    [ -n "$running_pids" ] || return 0
+    sleep 0.2
+  done
+  for running_pid in $running_pids; do
+    kill -KILL "$running_pid" 2>/dev/null || true
+  done
+  deadline=$((SECONDS + 5))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    running_pids="$(running_redbeacon_pids)" || die "Could not inspect running $APP_NAME processes."
+    [ -n "$running_pids" ] || return 0
+    sleep 0.2
+  done
+  die "$APP_NAME processes did not exit; the database snapshot and client replacement were not started."
 }
 
 backup_business_database() {
@@ -760,7 +797,7 @@ echo
 say "$APP_NAME installed."
 echo "  - Double-click the app:  $OPEN_HINT"
 echo "  - Or drive it via CLI:   $CMD_NAME"
-case ":$PATH:" in
+case ":$INSTALLER_CALLER_PATH:" in
   *":$BINDIR:"*) ;;
   *) warn "Note: $BINDIR is not on your PATH yet. Add it (or reopen your terminal) to use the '$CMD_NAME' command."
      warn "  e.g.  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
