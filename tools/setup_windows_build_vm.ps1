@@ -6,7 +6,7 @@ param(
 
 # Run once in an elevated Windows PowerShell 5.1 window.
 $ErrorActionPreference = "Stop"
-$UvVersion = "0.8.15"
+$UvVersion = "0.13.6"
 $ToolsDir = "C:\RedBeaconBuildTools"
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()

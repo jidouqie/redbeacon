@@ -321,7 +321,10 @@ def main(*, public_only: bool = False) -> None:
             '_PUBLIC_INSTALL_ORIGIN = "https://bytestaff.jiomig.com"',
             'product = "redbeacon-test" if build_meta.is_test() else "redbeacon"',
             'return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command]',
-            'return ["/bin/sh", "-lc", f"curl -fsSL {shlex_quote(url)} | bash"]',
+            'return ["/bin/bash", "-o", "pipefail", "-c", _shell_installer_pipeline(url)]',
+            'f"curl -fsSL --connect-timeout 10 --max-time 60 {shlex_quote(url)} | {{ "',
+            '"$ErrorActionPreference = \'Stop\'; "',
+            '"if ([string]::IsNullOrWhiteSpace([string]$installerScript)) "',
         ):
             if marker not in updater:
                 fail("the long-lived user-facing installer command or website route changed")

@@ -1,6 +1,6 @@
 # RedBeacon 本地双平台构建与 Windows 虚拟机部署
 
-最后核对：2026-09-12
+最后核对：2026-10-28
 
 ## 结论
 
@@ -35,7 +35,7 @@ Windows 11 on Arm 支持运行 x86/x64 用户态程序，因此 ARM64 虚拟机�
 
 1. `cli/` 必须先提交且工作区干净。
 2. 编排器只创建一次 `git archive HEAD`；Mac 本机与 Windows VM 必须使用这一个归档。
-3. 工具链版本来自 `cli/packaging/build-versions.env`，两端都不能临时升级。
+3. 工具链版本来自 `cli/packaging/build-versions.env`，当前固定 uv 0.13.6 和 CPython 3.12.16，两端都不能临时升级。
    Windows 构建机还需安装 Git for Windows，命令位于 `C:\Program Files\Git\cmd\git.exe`；编排器会在 Mac 打包前检查 Git 和 uv。Git 供源码质量检查与回归测试使用，不随客户端分发。
 4. Mac 和 Windows 各自跑全量测试、PyInstaller、浏览器预热、真实卡片渲染和桌面启动 smoke。
 5. Windows 还要确认 GUI、CLI、渲染器三个 PE 都是 `0x8664 (AMD64)`，并运行 PowerShell 安装事务 smoke。
@@ -175,7 +175,7 @@ dist/local-build/<channel>/release-artifacts/
 
 ### Windows 构建显示 ARM64
 
-宿主系统和 Python 的 `platform.machine()` 显示 ARM64 都可能是正常的，因为它们可能报告原生系统架构。可靠门禁是读取 `python.exe` 的 PE 头：必须为 `0x8664`，同时 Python 指针宽度必须为 64 位。任何一项不符，都删除构建环境并让脚本按 `cpython-3.12.11-windows-x86_64-none` 重建，禁止继续打包。
+宿主系统和 Python 的 `platform.machine()` 显示 ARM64 都可能是正常的，因为它们可能报告原生系统架构。可靠门禁是读取 `python.exe` 的 PE 头：必须为 `0x8664`，同时 Python 指针宽度必须为 64 位。任何一项不符，都删除构建环境并让脚本按 `cpython-3.12.16-windows-x86_64-none` 重建，禁止继续打包。
 
 ### PyInstaller 成功但双击崩溃
 

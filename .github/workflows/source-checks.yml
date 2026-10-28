@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.12.16'
       # The public checkout has no cli/ and must never receive a private token.
       # The local release build still runs the default, full provenance gate.
       - run: python tools/check_release_contracts.py --public-only
