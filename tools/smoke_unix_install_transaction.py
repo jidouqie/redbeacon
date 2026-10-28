@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import shlex
+import signal
 import shutil
 import subprocess
 import sys
@@ -487,7 +488,10 @@ def _run_uninstaller(
     })
     command = ["/bin/sh", str(wrapper_dir / wrapper)]
     if observe_shells:
-        result, secondary_shells = _run_observed_entrypoint(command, env=env)
+        result, secondary_shells = _run_observed_entrypoint(
+            command, env=env, hold_helper_output=True,
+            expected_helper_channel=channel,
+        )
         if result.returncode != 0:
             raise subprocess.CalledProcessError(
                 result.returncode, command, output=result.stdout
@@ -834,8 +838,9 @@ def _sha256_file(path: Path) -> str:
 def _shell_descendants(root_pid: int) -> set[tuple[int, str]]:
     """Observe newly executed descendant shells, regardless of script filename.
 
-    Bash forks with unchanged argv for command substitutions; those are part
-    of the current entrypoint, not a separately executed installer stage.
+    Compare each shell with its immediate parent: Bash command substitutions
+    and pipelines normally inherit that parent argv. Snapshots cannot
+    distinguish a same-argv exec from a same-argv fork.
     This process-table sampler cannot certify arbitrarily short-lived execs.
     """
     result = subprocess.run(
@@ -871,51 +876,196 @@ def _shell_descendants(root_pid: int) -> set[tuple[int, str]]:
             if ppid in descendants and pid not in descendants:
                 descendants.add(pid)
                 changed = True
-    root_arguments = next((arguments for pid, _ppid, _command, arguments in rows if pid == root_pid), None)
+    arguments_by_pid = {pid: arguments for pid, _ppid, _command, arguments in rows}
     shell_names = {"bash", "sh", "dash", "zsh", "ksh", "csh", "tcsh", "fish", "pwsh", "powershell"}
     return {
         (pid, arguments)
-        for pid, _ppid, command, arguments in rows
+        for pid, ppid, command, arguments in rows
         if pid != root_pid
         and pid in descendants
         and Path(command).name.lower().lstrip("-") in shell_names
-        and arguments != root_arguments
+        and arguments != arguments_by_pid.get(ppid)
     }
 
 
+def _prefilled_stdout_pipe(maximum_bytes: int = 1024 * 1024) -> tuple[int, int, bytes]:
+    """Return a completely full pipe, with a bounded, exactly known prefix."""
+    read_fd, write_fd = os.pipe()
+    try:
+        os.set_blocking(write_fd, False)
+        filled = 0
+        block = bytes(4096)
+        while True:
+            if filled >= maximum_bytes:
+                raise RuntimeError("observer stdout pipe did not fill within its byte limit")
+            try:
+                filled += os.write(write_fd, block[:maximum_bytes - filled])
+            except BlockingIOError:
+                if len(block) == 1:
+                    break
+                # EAGAIN on an atomic 4 KiB write can leave space for a short
+                # helper marker. Fill that remaining space one byte at a time.
+                block = bytes(1)
+        os.set_blocking(write_fd, True)
+        return read_fd, write_fd, bytes(filled)
+    except BaseException:
+        os.close(read_fd)
+        os.close(write_fd)
+        raise
+
+
+def _is_expected_uninstall_helper_command(command: str, channel: str) -> bool:
+    if channel not in {"stable", "test"}:
+        return False
+    return re.fullmatch(
+        rf"/bin/bash /private/tmp/redbeacon-{channel}-uninstall\.[A-Za-z0-9_-]+/"
+        rf"uninstall-core\.sh {channel} smoke", command,
+    ) is not None
+
+
 def _run_observed_entrypoint(
-    command: list[str], *, env: dict[str, str]
+    command: list[str], *, env: dict[str, str],
+    hold_helper_output: bool = False,
+    expected_helper_channel: str | None = None,
+    helper_observation_timeout: float = 30.0,
+    completion_timeout: float = 120.0,
 ) -> tuple[subprocess.CompletedProcess, list[dict[str, object]]]:
-    """Run one public entrypoint and sample any secondary shell it starts."""
-    process = subprocess.Popen(
-        command,
-        env=env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    """Observe real shells; hold a silent uninstaller's helper at its first output.
+
+    The optional gate changes only the harness-owned stdout pipe. Entry point
+    and helper bytes, argv, environment and their execution remain unchanged.
+    No helper observation before the deadline is a failure, even if draining
+    subsequently lets a successful helper finish.
+    """
+    if helper_observation_timeout <= 0 or completion_timeout <= 0:
+        raise ValueError("observer timeouts must be positive")
+    if hold_helper_output and expected_helper_channel not in {"stable", "test"}:
+        raise ValueError("held output requires the exact uninstaller channel")
+    read_fd = write_fd = None
+    prefix = b""
+    if hold_helper_output:
+        read_fd, write_fd, prefix = _prefilled_stdout_pipe()
+    try:
+        process = subprocess.Popen(
+            command, env=env, text=True,
+            stdout=write_fd if hold_helper_output else subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            # A timeout may terminate only this harness-owned process tree.
+            start_new_session=hold_helper_output,
+        )
+    except BaseException:
+        if read_fd is not None:
+            os.close(read_fd)
+        raise
+    finally:
+        if write_fd is not None:
+            os.close(write_fd)
+
     observed: dict[int, str] = {}
     stop = threading.Event()
+    helper_seen = threading.Event()
     observation_errors: list[Exception] = []
+    output_chunks: list[bytes] = []
+    reader_errors: list[Exception] = []
+    reader = None
+    reader_started = False
 
     def watch() -> None:
         try:
             while not stop.is_set():
-                for pid, child_command in _shell_descendants(process.pid):
+                shells = _shell_descendants(process.pid)
+                for pid, child_command in shells:
                     observed[pid] = child_command
+                if any(_is_expected_uninstall_helper_command(argv, expected_helper_channel)
+                       for _pid, argv in shells):
+                    helper_seen.set()
                 stop.wait(0.01)
         except Exception as exc:
             observation_errors.append(exc)
 
-    watcher = threading.Thread(target=watch, daemon=True)
-    watcher.start()
+    def drain() -> None:
+        try:
+            with os.fdopen(read_fd, "rb", buffering=0) as stream:
+                while chunk := stream.read(65536):
+                    output_chunks.append(chunk)
+        except Exception as exc:
+            reader_errors.append(exc)
+
+    def terminate_owned_tree() -> None:
+        try:
+            if hold_helper_output:
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        except ProcessLookupError:
+            pass
+
+    watcher = None
+    watcher_started = False
     try:
-        output, _ = process.communicate()
+        watcher = threading.Thread(target=watch, daemon=True)
+        watcher.start()
+        watcher_started = True
+        if hold_helper_output:
+            deadline = time.monotonic() + helper_observation_timeout
+            while not helper_seen.is_set():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or observation_errors or process.poll() is not None:
+                    break
+                helper_seen.wait(min(0.01, remaining))
+            gate_observed = helper_seen.is_set()
+            # Drain on every outcome. A wrapper diagnostic can itself block
+            # before a helper exists; it must remain available in the failure.
+            reader = threading.Thread(target=drain, daemon=True)
+            reader.start()
+            reader_started = True
+            try:
+                process.wait(timeout=completion_timeout)
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError("observed entrypoint exceeded its completion timeout") from exc
+            reader.join(timeout=2)
+            if reader.is_alive():
+                raise RuntimeError("observed entrypoint retained an open stdout pipe")
+            if reader_errors:
+                raise RuntimeError("installer output capture failed") from reader_errors[0]
+            raw_output = b"".join(output_chunks)
+            if not raw_output.startswith(prefix):
+                raise RuntimeError("observer stdout prefix was not preserved exactly")
+            output = raw_output[len(prefix):].decode("utf-8")
+            if not gate_observed and not observation_errors:
+                raise RuntimeError(
+                    "uninstaller helper was not observed before output release\n" + output
+                )
+        else:
+            output, _ = process.communicate(timeout=completion_timeout)
     finally:
         stop.set()
-        watcher.join(timeout=2)
-    if watcher.is_alive():
-        raise RuntimeError("installer process observer did not stop")
+        cleanup_errors = []
+        try:
+            if process.poll() is None or (reader is not None and reader.is_alive()):
+                terminate_owned_tree()
+                process.wait(timeout=2)
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        try:
+            if reader_started:
+                reader.join(timeout=2)
+            elif read_fd is not None:
+                os.close(read_fd)
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        try:
+            if watcher_started:
+                # The ps call itself has a two-second timeout.
+                watcher.join(timeout=3)
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        if watcher is not None and watcher.is_alive():
+            cleanup_errors.append(RuntimeError("installer process observer did not stop"))
+        if reader is not None and reader.is_alive():
+            cleanup_errors.append(RuntimeError("installer output reader did not stop"))
+        if cleanup_errors:
+            raise RuntimeError("installer observer cleanup failed") from cleanup_errors[0]
     if observation_errors:
         raise RuntimeError("installer process observation failed") from observation_errors[0]
     completed = subprocess.CompletedProcess(command, process.returncode, output)
@@ -923,6 +1073,8 @@ def _run_observed_entrypoint(
         {"pid": pid, "command": observed[pid]}
         for pid in sorted(observed)
     ]
+
+
 
 
 def _observe_entrypoint(
@@ -979,6 +1131,9 @@ def _observe_entrypoint(
             f"{entrypoint_name} did not start exactly one verified helper Bash: "
             f"{result.secondary_shells}"
         )
+        assert _is_expected_uninstall_helper_command(
+            result.secondary_shells[0]["command"], channel
+        ), f"{entrypoint_name} observed a shell other than its fixed helper"
         execution_model = "public-entrypoint-with-internal-helper"
         internal_helper = {
             "path": f"install/{helper_name}",
